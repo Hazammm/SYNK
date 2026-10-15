@@ -1,26 +1,119 @@
-@import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+* {
+  box-sizing: border-box;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root,
+[data-theme="black"] {
+  color-scheme: dark;
+  --bg: #0B1220;
+  --surface: #0F1B33;
+  --structure: #1E3A5F;
+  --action: #2563EB;
+  --on-action: #FFFFFF;
+  --link: #60A5FA;
+  --text: #F8FAFC;
+  --muted: #94A3B8;
+  --done: #86EFAC;
+  --medium: #FCD34D;
+  --high: #FDA4AF;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-theme="white"] {
+  color-scheme: light;
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --structure: #DBEAFE;
+  --action: #2563EB;
+  --on-action: #FFFFFF;
+  --link: #1D4ED8;
+  --text: #0F172A;
+  --muted: #52647C;
+  --done: #166534;
+  --medium: #854D0E;
+  --high: #B91C1C;
+}
+
+[data-theme="forest"] {
+  color-scheme: dark;
+  --bg: #091B15;
+  --surface: #102B22;
+  --structure: #24503E;
+  --action: #36A875;
+  --on-action: #091B15;
+  --link: #75DBA6;
+  --text: #F0FDF4;
+  --muted: #A0BDAE;
+  --done: #86EFAC;
+  --medium: #FDE68A;
+  --high: #FDA4AF;
+}
+
+[data-theme="lavender"] {
+  color-scheme: light;
+  --bg: #F3F0FA;
+  --surface: #FCFAFF;
+  --structure: #E1D8F3;
+  --action: #8056C5;
+  --on-action: #FFFFFF;
+  --link: #7043B3;
+  --text: #292039;
+  --muted: #756781;
+  --done: #166534;
+  --medium: #854D0E;
+  --high: #B91C1C;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button,
+input,
+textarea,
+select {
+  color: inherit;
+  font: inherit;
+}
+
+kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--structure);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[contenteditable="true"]:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--structure);
+  color: var(--text);
 }
