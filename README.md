@@ -1,7 +1,5 @@
 <h1>SYNK</h1>
 
-## Getting Started
-
 First, run the development server:
 
 ```bash
