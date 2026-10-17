@@ -2820,3 +2820,8 @@
     transform: translateX(50%);
   }
 }
+.liveUser { margin-left: auto; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.signOut { padding: 7px 12px; border: 1px solid var(--structure); border-radius: 7px; background: var(--surface); cursor: pointer; white-space: nowrap; }
+.previewNotice { padding: 8px 18px; font-size: 12px; background: var(--structure); text-align: center; }
+.liveTheme { padding: 12px 16px; }
+.liveTheme .themeBar { position: static; transform: none; width: max-content; margin-left: auto; }

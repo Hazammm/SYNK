@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import {
   Bell, BookOpen, ChevronDown, Clock3, FileText, LayoutDashboard, MessageCircle,
   Search, Settings, KanbanSquare,
@@ -50,12 +51,22 @@ export function ThemeBar() {
   );
 }
 
-export default function SynkShell({ children }: { children: React.ReactNode }) {
+export default function SynkShell({ children, userName }: { children: React.ReactNode; userName: string }) {
   const pathname = usePathname();
   const [mobilePanel, setMobilePanel] = useState(false);
 
+  if (pathname === "/chat" || pathname.startsWith("/tickets/")) return <div className={styles.app}>
+    <header className={styles.topbar}>
+      <Link href="/chat" className={styles.brand} aria-label="Synk home"><span className={styles.brandMark}>s</span> synk</Link>
+      <nav className={styles.topTabs} aria-label="Workspace navigation"><Link href="/chat" className={`${styles.topTab} ${styles.topTabActive}`}>Chat</Link><Link href="/overview" className={styles.topTab}>Product preview</Link></nav>
+      <span className={styles.liveUser}>{userName}</span><button className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
+    </header>
+    <main>{children}</main><div className={styles.liveTheme}><ThemeBar /></div>
+  </div>;
+
   return (
     <div className={styles.app}>
+      <div className={styles.previewNotice}>Product preview with sample data. <Link href="/chat">Open live workspace chat →</Link></div>
       <header className={styles.topbar}>
         <Link href="/overview" className={styles.brand} aria-label="Synk home">
           <span className={styles.brandMark}>s</span> synk

@@ -1,3 +1,6 @@
+.error { color: var(--high); font-size: 12px; margin: 0; }
+.university + .university { margin-top: 8px; }
+
 .authPage {
   display: grid;
   min-height: 100vh;

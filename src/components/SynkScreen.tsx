@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { DndContext, type DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import {
   ArrowRight, Check, CheckCheck,
   ChevronDown, ChevronLeft, ChevronRight, Clock3, Code2, FileText, Filter, GripVertical, Heading1,
-  Link2, List, MessageCircle, MoreHorizontal, Paperclip, Plus, Send, Smile,
+  Link2, List, MessageCircle, MoreHorizontal, Plus, Send,
   Sparkles, Timer, X, Zap, Download,
 } from "lucide-react";
 import { activity, members, notifications, tickets, weekHours, type ThemeName, type Ticket, type TicketStatus } from "@/mocks/data";
@@ -14,7 +15,7 @@ import { Avatar, Badge, Button, Card, Input } from "./Primitives";
 import { applyTheme } from "@/lib/theme";
 import styles from "./Synk.module.css";
 
-type ScreenName = "overview" | "chat" | "alerts" | "board" | "backlog" | "reports" | "docs" | "time" | "settings";
+type ScreenName = "overview" | "alerts" | "board" | "backlog" | "reports" | "docs" | "time" | "settings";
 
 const statuses: TicketStatus[] = ["To do", "In progress", "In review", "Done"];
 const toneFor = (value: string): "neutral" | "done" | "medium" | "high" | "action" =>
@@ -59,29 +60,6 @@ function Overview() {
 }
 
 function KanbanMini() { return <span className={styles.kanbanMini}><i /><i /><i /></span>; }
-
-function Chat() {
-  const [reply, setReply] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
-  const input = useRef<HTMLInputElement>(null);
-  function sendMessage() {
-    if (!reply.trim()) return;
-    setMessages((current) => [...current, reply.trim()]);
-    setReply("");
-  }
-  return <div className={styles.chatPage}>
-    <div className={styles.chatHeader}><div className={styles.channelIcon}>#</div><div><h1>design</h1><p>Design ideas, feedback and updates</p></div><div className={styles.chatHeaderRight}><span className={styles.peopleStack}><Avatar initials="MC" small /><Avatar initials="AR" small /><Avatar initials="JL" small /></span><span className={styles.memberCount}>8 members</span><button className={styles.iconButton} type="button" aria-label="Channel menu"><MoreHorizontal size={18} /></button></div></div>
-    <div className={styles.chatBody}>
-      <div className={styles.dateDivider}><span>Monday, October 12</span></div>
-      <article className={styles.message}><Avatar initials="MC" /><div><div className={styles.messageMeta}><strong>Maya Chen</strong><span>9:32 AM</span></div><p>Hey team! I’ve pushed the latest login flow designs. Would love a quick review before we hand it off 👀</p><div className={styles.messageChips}><a href="/board" className={styles.inlineChip}><FileText size={13} /> Figma login screens</a><a href="/docs" className={styles.inlineChip}><FileText size={13} /> Design spec</a></div></div></article>
-      <article className={styles.message}><Avatar initials="AR" /><div><div className={styles.messageMeta}><strong>Alex Rivera</strong><span>9:41 AM</span></div><p>These look great! I noticed we still need to account for the error state on the email field. Created a ticket for that.</p><a href="/board" className={styles.embeddedTicket}><div><span className={styles.ticketId}>SYN-12</span><Badge tone="action">In progress</Badge></div><strong>Login UI</strong><small>High priority · Assigned to Maya Chen</small><ArrowRight size={15} /></a><div className={styles.replies}>2 replies <span>· Last reply 9:52 AM</span></div><div className={styles.inlineReplies}><Avatar initials="MC" small /><p><strong>Maya</strong> Good catch, I’ll add that state now.</p></div></div></article>
-      <article className={styles.message}><Avatar initials="JL" /><div><div className={styles.messageMeta}><strong>Jordan Lee</strong><span>10:04 AM</span></div><p>Perfect. Let’s aim to have this wrapped up for tomorrow’s review.</p></div></article>
-      {messages.map((message, index) => <article className={styles.message} key={`${index}-${message}`}><Avatar initials="AR" /><div><div className={styles.messageMeta}><strong>Alex Rivera</strong><span>Just now</span></div><p>{message}</p></div></article>)}
-      <div className={styles.typing}><span className={styles.typingDots}>•••</span> Maya is typing</div>
-    </div>
-    <div className={styles.composer}><div className={styles.composerTools}><button type="button" aria-label="Attach file"><Paperclip size={17} /> Attach</button><button type="button" aria-label="Add emoji"><Smile size={17} /></button></div><div className={styles.composerInput}><input ref={input} value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") sendMessage(); }} placeholder="Message #design..." /><span>/</span><button onClick={sendMessage} className={styles.sendButton} type="button" aria-label="Send message"><Send size={16} /></button></div><small>Press <kbd>Enter</kbd> to send · <kbd>/</kbd> for shortcuts</small></div>
-  </div>;
-}
 
 function Alerts() {
   const [filter, setFilter] = useState("All");
@@ -244,14 +222,13 @@ function Settings() {
     {section === "Appearance" && <Card><h2>Appearance</h2><p className={styles.subtle}>Choose how Synk looks on this device.</p><div className={styles.themeCards}>{(["black", "white", "forest", "lavender"] as ThemeName[]).map((theme) => <button type="button" data-swatch={theme} key={theme} className={styles.themeCard} onClick={() => applyTheme(theme)}><span className={styles.themePreview}><i /><i /><i /></span><strong>{theme[0].toUpperCase() + theme.slice(1)}</strong></button>)}</div></Card>}
     {section === "Notifications" && <Card><h2>Notifications</h2><p className={styles.subtle}>Choose what you’d like to hear about.</p>{["Mentions and replies", "Ticket assignments", "Due date reminders", "Document updates", "Weekly summary"].map((item) => <label className={styles.preferenceRow} key={item}><span><strong>{item}</strong><small>Get notified about {item.toLowerCase()}</small></span><input type="checkbox" defaultChecked /></label>)}</Card>}
     {section === "Members" && <Card><h2>Members</h2><p className={styles.subtle}>Invite your teammates to FYP Synk.</p><form className={styles.inviteForm} onSubmit={(event) => { event.preventDefault(); setSent(true); }}><Input type="email" placeholder="teammate@workspace.com" required /><select className={styles.select}><option>Member</option><option>Admin</option><option>Guest</option></select><Button variant="primary">Invite</Button></form>{sent && <p className={styles.successNote}>Invitation sent to your teammate.</p>}{members.map((member) => <div className={styles.memberRow} key={member.name}><Avatar initials={member.initials} small /><span><strong>{member.name}</strong><small>{member.role}</small></span><Badge>{member.role}</Badge></div>)}</Card>}
-    {section === "Account" && <Card><h2>Account</h2><p className={styles.subtle}>Manage your account preferences.</p><div className={styles.preferenceRow}><span><strong>Sign out</strong><small>You can sign back in at any time.</small></span><a href="/login" className={styles.logout}>Log out</a></div></Card>}
+    {section === "Account" && <Card><h2>Account</h2><p className={styles.subtle}>Manage your account preferences.</p><div className={styles.preferenceRow}><span><strong>Sign out</strong><small>You can sign back in at any time.</small></span><button onClick={() => void signOut({ callbackUrl: "/login" })} className={styles.logout}>Log out</button></div></Card>}
   </div></div></>;
 }
 
 export default function SynkScreen({ screen }: { screen: ScreenName }) {
   return <div className={styles.screen}>
     {screen === "overview" && <Overview />}
-    {screen === "chat" && <Chat />}
     {screen === "alerts" && <Alerts />}
     {screen === "board" && <Board />}
     {screen === "backlog" && <Backlog />}

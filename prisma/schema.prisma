@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceRole {
+  ADMIN
+  MEMBER
+}
+
+enum ProjectLevel {
+  READ
+  WRITE
+}
+
+model User {
+  id              String          @id @default(cuid())
+  name            String?
+  email           String?         @unique
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?
+  createdAt       DateTime        @default(now())
+  accounts        Account[]
+  sessions        Session[]
+  loginSessions   LoginSession[]
+  memberships     Membership[]
+  messages        Message[]
+  projectAccess   ProjectAccess[]
+  createdChannels Channel[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// JWT cookies remain NextAuth-managed. This record permits actual logout revocation.
+model LoginSession {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Workspace {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+  channels    Channel[]
+  projects    Project[]
+}
+
+model Membership {
+  workspaceId    String
+  userId         String
+  role           WorkspaceRole   @default(MEMBER)
+  createdAt      DateTime        @default(now())
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelMembers ChannelMember[]
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+}
+
+model Channel {
+  id          String          @id @default(cuid())
+  workspaceId String
+  createdById String
+  creator     User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  name        String
+  description String          @default("")
+  isPrivate   Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members     ChannelMember[]
+  messages    Message[]
+
+  @@unique([workspaceId, name])
+  @@unique([id, workspaceId])
+}
+
+model ChannelMember {
+  channelId   String
+  userId      String
+  workspaceId String
+  joinedAt    DateTime   @default(now())
+  channel     Channel    @relation(fields: [channelId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  membership  Membership @relation(fields: [workspaceId, userId], references: [workspaceId, userId], onDelete: Cascade)
+
+  @@id([channelId, userId])
+  @@index([workspaceId, userId])
+}
+
+model Message {
+  id              String    @id @default(cuid())
+  channelId       String
+  senderId        String
+  body            String    @db.Text
+  parentId        String?
+  clientMessageId String
+  createdAt       DateTime  @default(now())
+  channel         Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender          User      @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  parent          Message?  @relation("Thread", fields: [parentId, channelId], references: [id, channelId], onDelete: Cascade)
+  replies         Message[] @relation("Thread")
+
+  @@unique([id, channelId])
+  @@unique([senderId, channelId, clientMessageId])
+  @@index([channelId, parentId, createdAt, id])
+}
+
+// Minimal ticket read model for FR-C5. Board CRUD belongs to the issue-tracking sprint.
+model Project {
+  id          String          @id @default(cuid())
+  workspaceId String
+  name        String
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  access      ProjectAccess[]
+  tickets     Ticket[]
+
+  @@index([workspaceId])
+}
+
+model ProjectAccess {
+  projectId String
+  userId    String
+  level     ProjectLevel @default(READ)
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+}
+
+model Ticket {
+  id          String  @id @default(cuid())
+  projectId   String
+  key         String
+  title       String
+  description String  @default("") @db.Text
+  status      String  @default("To Do")
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+}
