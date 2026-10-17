@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requirePageUser } from "@/lib/session";
 
+// Session checks and redirects intentionally wait for the current request.
+export const instant = false;
+
 export default async function TicketReference({ params, searchParams }: {
   params: Promise<{ key: string }>;
   searchParams: Promise<{ workspaceId?: string }>;

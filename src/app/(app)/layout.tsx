@@ -2,6 +2,9 @@ import { Suspense, type ReactNode } from "react";
 import SynkShell from "@/components/SynkShell";
 import { requirePageUser } from "@/lib/session";
 
+// Session checks and redirects intentionally wait for the current request.
+export const instant = false;
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   return <Suspense fallback={<main style={{ padding: 32 }}>Loading your workspace…</main>}><AuthenticatedLayout>{children}</AuthenticatedLayout></Suspense>;
 }

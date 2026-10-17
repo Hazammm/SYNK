@@ -33,6 +33,8 @@ npm run dev
 
 Open http://localhost:3000, sign up, and create your first workspace. A `general` channel is created atomically with admin membership. Have a teammate sign up separately, then open **Workspace members → Add to workspace**, using their registered email. They can refresh and join public channels. The creator or a joined workspace admin can add existing workspace members to a private channel.
 
+The Compose database binds to IPv4, so use `127.0.0.1` in `DATABASE_URL`; on Windows, `localhost` may attempt IPv6 first and exceed Prisma transaction startup timeouts. This database address is separate from the browser origin, which remains `http://localhost:3000`.
+
 Use your own PostgreSQL `DATABASE_URL` if not using Compose. The Compose password is a local-development value only. `NEXTAUTH_URL` must match the browser's origin exactly, including its port. Do not alternate between `localhost` and `127.0.0.1`.
 
 ### Optional demo records
@@ -68,7 +70,7 @@ Integration tests need a **disposable, migrated PostgreSQL database**. They crea
 
 ```bash
 # macOS/Linux: set both variables to the disposable database
-export DATABASE_URL='postgresql://synk:password@localhost:5432/synk_test'
+export DATABASE_URL='postgresql://synk:password@127.0.0.1:5432/synk_test'
 export TEST_DATABASE_URL="$DATABASE_URL"
 npm run db:migrate
 npm run test:integration

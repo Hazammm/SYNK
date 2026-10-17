@@ -16,7 +16,8 @@ test("two real users: onboarding, live messages, threads, reload, privacy and lo
     await page.getByLabel("Workspace email").fill(email);
     await page.getByLabel("Password", { exact: true }).fill("QA-secret-very-long-123!");
     await page.getByRole("button", { name: "Create account", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible();
+    // The development server compiles registration, auth and chat on the first signup.
+    await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
   }
   try {
     await signup(admin, "QA Admin", `admin-${nonce}@example.test`);
@@ -79,6 +80,17 @@ test("two real users: onboarding, live messages, threads, reload, privacy and lo
     await expect(member).toHaveURL(/\/login/);
     expect((await memberContext.request.get("/api/workspaces")).status()).toBe(401);
     await member.goto("/chat"); await expect(member).toHaveURL(/\/login/);
+    await member.getByLabel("Workspace email").fill(memberEmail);
+    await member.getByLabel("Password", { exact: true }).fill("incorrect-password");
+    await member.getByRole("button", { name: "Log in", exact: true }).click();
+    await expect(member.getByRole("alert")).toContainText("Unable to sign in");
+    expect((await memberContext.request.get("/api/workspaces")).status()).toBe(401);
+    await member.getByLabel("Password", { exact: true }).fill("QA-secret-very-long-123!");
+    await member.getByRole("button", { name: "Log in", exact: true }).click();
+    await expect(member.getByRole("heading", { name: "Conversations" })).toBeVisible();
+    await expect(member.getByRole("log", { name: "Channel messages" }).getByText(message)).toBeVisible();
+    await member.getByRole("button", { name: "Sign out", exact: true }).click();
+    await expect(member).toHaveURL(/\/login/);
     expect(errors).toEqual([]);
   } finally { await adminContext.close(); await memberContext.close(); }
 });
