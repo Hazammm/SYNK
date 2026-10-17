@@ -25,6 +25,7 @@ jobs:
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ci-only-not-a-production-secret-123456789
       NEXT_TELEMETRY_DISABLED: '1'
+      E2E_SERVER_COMMAND: npm start
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
