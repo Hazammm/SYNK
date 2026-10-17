@@ -75,6 +75,8 @@ test("two real users: onboarding, live messages, threads, reload, privacy and lo
     expect(inputBox && themeBox && themeBox.y >= inputBox.y + inputBox.height).toBeTruthy();
     await member.screenshot({ path: "test-results/chat-mobile.png", fullPage: true });
     await admin.getByRole("button", { name: "general", exact: true }).click();
+    await expect(admin.getByRole("log", { name: "Channel messages" }).getByText(message)).toBeVisible();
+    await expect(admin.getByText("Live", { exact: true })).toBeVisible();
     await admin.screenshot({ path: "test-results/chat-desktop.png", fullPage: true });
     await member.getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(member).toHaveURL(/\/login/);
@@ -83,7 +85,7 @@ test("two real users: onboarding, live messages, threads, reload, privacy and lo
     await member.getByLabel("Workspace email").fill(memberEmail);
     await member.getByLabel("Password", { exact: true }).fill("incorrect-password");
     await member.getByRole("button", { name: "Log in", exact: true }).click();
-    await expect(member.getByRole("alert")).toContainText("Unable to sign in");
+    await expect(member.getByRole("alert").filter({ hasText: "Unable to sign in" })).toBeVisible();
     expect((await memberContext.request.get("/api/workspaces")).status()).toBe(401);
     await member.getByLabel("Password", { exact: true }).fill("QA-secret-very-long-123!");
     await member.getByRole("button", { name: "Log in", exact: true }).click();

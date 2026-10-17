@@ -7,11 +7,26 @@
 - `npm run test:e2e`: two independent browser sessions using the actual signup/login forms, workspace membership, joining, message delivery, threads, reload persistence, private-channel denial, cross-origin denial, mobile layout and sign-out.
 - `npm run lint`, `npm run typecheck`, `npm run build`: source and production build verification.
 
-The automated workflow in `.github/workflows/chat-ci.yml` runs these against PostgreSQL 16. Local integration/browser verification in this implementation environment uses the PostgreSQL engine provided by PGlite over its wire-protocol server, because Docker/native PostgreSQL are unavailable here. Production PostgreSQL CI, external OAuth callbacks, multi-node behavior and load testing must be verified in the deployment environment.
+The automated workflow in `.github/workflows/chat-ci.yml` runs these against PostgreSQL 16. The original patch verification used the PostgreSQL engine provided by PGlite over its wire-protocol server. The Windows clone verification below uses native PostgreSQL 16 through Docker Compose. Production PostgreSQL CI, external OAuth callbacks, multi-node behavior and load testing must be verified in the deployment environment.
 
-## Verification record (October 17, 2026)
+## Original patch verification record (October 17, 2026)
 
 The implementation was checked locally: 7 unit tests and 12 database/socket integration tests passed. The production build, TypeScript check and ESLint passed. The automated two-user Chromium browser workflow passed; the observed cross-user delivery check, including UI actions, took 408 ms in one local run (not a load-test guarantee). Desktop and 390 px mobile screenshots were visually inspected. The manual cases below are a handoff plan, not a claim that every case was manually executed. External OAuth and native PostgreSQL CI remain unverified here.
+
+## Windows clone verification (October 17, 2026)
+
+Fresh clone from `origin/main`, with the supplied patch applied using `git am --3way`. Node 24.14.0, npm 11.9.0, PostgreSQL 16.14 in the supplied Docker Compose service, and Playwright Chromium were used.
+
+- `npm ci`, Prisma generation, and migrations passed. Development uses `synk`; integration and browser fixtures use the separate disposable `synk_test` database.
+- ESLint, TypeScript, production build, 7 unit tests, and all 12 native PostgreSQL/socket integration tests passed.
+- The two-user Chromium workflow passed against `npm start`: registration, public-channel join, membership, live messages, threads, reload persistence, private-channel read/write denial, cross-origin denial, 390 px layout, logout, wrong-password rejection, and logging back in.
+- The initial database tests using `localhost` failed on concurrent transaction startup. Using `127.0.0.1`, matching Compose's IPv4 binding, resolved the failure without increasing Prisma transaction timeouts.
+- Development-server browser runs hit cold-route compilation timeouts. Production browser testing is now selectable with `E2E_SERVER_COMMAND` and is used by CI after the build. Full development-mode browser acceptance has not passed in this run.
+- The documented `npm run dev` server was started against the development database; `http://localhost:3000/login` returned HTTP 200.
+- Request-dependent routes explicitly opt out of Next.js instant-navigation validation; authentication and redirects remain request-time operations.
+- `npm audit` reports 8 high-severity findings in Prisma/ESLint tooling dependency chains (`deepmerge-ts` and `braces`, including their dependents). The suggested fixes require breaking toolchain changes; they were not force-applied.
+
+External OAuth callbacks, hosted CI, multi-instance operation, and production load testing remain unverified. The manual plan below is not a claim that every case was manually executed. Local secrets, screenshots, traces, dependencies, and build output are ignored and are not committed.
 
 ## Manual acceptance plan
 
