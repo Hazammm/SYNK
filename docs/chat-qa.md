@@ -28,6 +28,19 @@ Fresh clone from `origin/main`, with the supplied patch applied using `git am --
 
 External OAuth callbacks, hosted CI, multi-instance operation, and production load testing remain unverified. The manual plan below is not a claim that every case was manually executed. Local secrets, screenshots, traces, dependencies, and build output are ignored and are not committed.
 
+## Windows Docker Desktop & E2E verification record (November 4, 2026)
+
+Verified on Windows with Docker Desktop running `postgres:16-alpine` (Compose service):
+
+- Setup: Node 24.19.0, npm 11.17.0, Docker Compose PostgreSQL 16.
+- Database: Successfully provisioned `synk` and disposable `synk_test` with credentials `synk:synk_local_only` over IPv4 `127.0.0.1:5432`.
+- Migrations: `prisma migrate deploy` cleanly applied migrations to both development and test databases.
+- Test suites:
+  - `npm run lint` and `npm run typecheck` passed cleanly.
+  - `npm test` (unit tests): all 7 tests passed.
+  - `npm run test:integration`: all 12 PostgreSQL/Socket.IO integration tests passed.
+  - `npm run test:e2e`: Chromium multi-user workflow executed and passed completely; generated `chat-desktop.png` and `chat-mobile.png`.
+
 ## Manual acceptance plan
 
 Use the optional demo seed or create two separate accounts. Open two independent browser profiles (not two tabs sharing one cookie jar). Use a third account/workspace for negative tests.

@@ -70,7 +70,7 @@ Integration tests need a **disposable, migrated PostgreSQL database**. They crea
 
 ```bash
 # macOS/Linux: set both variables to the disposable database
-export DATABASE_URL='postgresql://synk:password@127.0.0.1:5432/synk_test'
+export DATABASE_URL='postgresql://synk:synk_local_only@127.0.0.1:5432/synk_test'
 export TEST_DATABASE_URL="$DATABASE_URL"
 npm run db:migrate
 npm run test:integration
