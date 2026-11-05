@@ -31,7 +31,7 @@ npm run db:migrate
 npm run dev
 ```
 
-Open http://localhost:3000, sign up, and create your first workspace. A `general` channel is created atomically with admin membership. Have a teammate sign up separately, then open **Workspace members → Add to workspace**, using their registered email. They can refresh and join public channels. The creator or a joined workspace admin can add existing workspace members to a private channel.
+Open <http://localhost:3000>, sign up, and create your first workspace. A `general` channel is created atomically with admin membership. Have a teammate sign up separately, then open **Workspace members → Add to workspace**, using their registered email. They can refresh and join public channels. The creator or a joined workspace admin can add existing workspace members to a private channel.
 
 The Compose database binds to IPv4, so use `127.0.0.1` in `DATABASE_URL`; on Windows, `localhost` may attempt IPv6 first and exceed Prisma transaction startup timeouts. This database address is separate from the browser origin, which remains `http://localhost:3000`.
 
@@ -56,6 +56,8 @@ Set both ID and secret for a provider in `.env`. Its button appears automaticall
 - Bitbucket: `http://localhost:3000/api/auth/callback/bitbucket`
 
 For Bitbucket, enable **account** and **email** on the OAuth consumer; a confirmed primary email is required. NextAuth v4 uses a custom Bitbucket OAuth provider here. Providers do not automatically link an existing credential account merely because the email matches. Real OAuth callbacks require your configured provider accounts and have not been exercised in this environment.
+
+- skipped for now.
 
 ## Verification
 
