@@ -25,3 +25,12 @@ export const historySchema = z.object({
   parentId: idSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });
+
+// Password reset schemas
+const passwordField = z.string().min(10, "Use at least 10 characters.").max(72)
+  .refine(value => new TextEncoder().encode(value).length <= 72, "Password must be at most 72 UTF-8 bytes.");
+export const forgotPasswordSchema = z.object({ email: emailSchema }).strict();
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Token is required.").max(200),
+  password: passwordField,
+}).strict();

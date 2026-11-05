@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { can, type Action } from "../src/lib/permissions";
-import { channelSchema, historySchema, messageSchema, registerSchema } from "../src/lib/validation";
+import { channelSchema, forgotPasswordSchema, historySchema, messageSchema, registerSchema, resetPasswordSchema } from "../src/lib/validation";
 import { assertSameOrigin, readJson } from "../src/lib/http";
 import { mergeMessages } from "../src/features/chat/client";
 import type { ChatMessage } from "../src/lib/chat-types";
@@ -53,4 +53,14 @@ test("client merges REST/socket retries and does not lose a newer thread count",
   assert.equal(merged.length, 2);
   assert.equal(merged[0].replyCount, 2);
   assert.deepEqual(merged.map(row => row.id), ["a", "b"]);
+});
+test("forgot password and reset password validation schemas", () => {
+  assert.equal(forgotPasswordSchema.safeParse({ email: "user@example.com" }).success, true);
+  assert.equal(forgotPasswordSchema.safeParse({ email: "invalid-email" }).success, false);
+  assert.equal(forgotPasswordSchema.safeParse({ email: "user@example.com", extra: 1 }).success, false);
+
+  assert.equal(resetPasswordSchema.safeParse({ token: "abc12345", password: "StrongPassword123!" }).success, true);
+  assert.equal(resetPasswordSchema.safeParse({ token: "", password: "StrongPassword123!" }).success, false);
+  assert.equal(resetPasswordSchema.safeParse({ token: "abc12345", password: "short" }).success, false);
+  assert.equal(resetPasswordSchema.safeParse({ token: "abc12345", password: "😀".repeat(20) }).success, false);
 });

@@ -32,6 +32,7 @@ model User {
   messages        Message[]
   projectAccess   ProjectAccess[]
   createdChannels Channel[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Account {
@@ -73,6 +74,19 @@ model LoginSession {
   id        String   @id @default(cuid())
   userId    String
   expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Single-use, time-limited password reset tokens. Stored as SHA-256 hashes.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
