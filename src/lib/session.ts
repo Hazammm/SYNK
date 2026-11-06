@@ -8,7 +8,9 @@ export async function requireUser() {
   // NextAuth performs cryptographic work; keep it out of Next.js partial prerendering.
   await connection();
   const session = await getServerSession(authOptions);
-  if (!session?.user.id) throw new AppError(401, "Please sign in to continue.");
+  if (!session?.user.id || !session.user.workspaceId || !session.user.role) {
+    throw new AppError(401, "Please sign in to continue.");
+  }
   return session.user;
 }
 

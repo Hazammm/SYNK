@@ -15,7 +15,9 @@ async function identity(request: IncomingMessage) {
   const token = await getToken({ req: req as Parameters<typeof getToken>[0]["req"], secret: process.env.NEXTAUTH_SECRET });
   if (!token?.sub || !token.sessionId || typeof token.exp !== "number" || token.exp * 1000 <= Date.now()) return null;
   const session = await db.loginSession.findUnique({ where: { id: token.sessionId } });
-  return session && session.userId === token.sub && session.expiresAt > new Date() ? { userId: session.userId, sessionId: session.id } : null;
+  if (!session || session.userId !== token.sub || session.expiresAt <= new Date()) return null;
+  const membership = await db.membership.findFirst({ where: { userId: session.userId }, select: { workspaceId: true } });
+  return membership ? { userId: session.userId, sessionId: session.id } : null;
 }
 
 export function attachRealtime(http: HttpServer) {
