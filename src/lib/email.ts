@@ -9,6 +9,8 @@
  *   credential); an error is logged instead so the operator notices.
  */
 
+const SEND_TIMEOUT_MS = 10_000;
+
 export interface ResetEmail {
   to: string;
   resetUrl: string;
@@ -21,6 +23,7 @@ export async function sendPasswordResetEmail({ to, resetUrl }: ResetEmail): Prom
   if (apiKey && from) {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from,
