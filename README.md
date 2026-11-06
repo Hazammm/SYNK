@@ -92,7 +92,7 @@ npm run build
 npm start
 ```
 
-Run the **custom Node server**, not `next start`. It hosts Next.js and Socket.IO in the same process and shares the authenticated permission layer. Use a persistent Node host with PostgreSQL and HTTPS, with the reverse proxy forwarding WebSocket upgrades. A serverless-only deployment cannot run this custom socket server.
+Run the **custom Node server**, not `next start`. It hosts Next.js and Socket.IO in the same process and shares the authenticated permission layer. Use a persistent Node host with PostgreSQL and HTTPS, with the reverse proxy forwarding WebSocket upgrades. Set `TRUSTED_PROXY_HOPS` to the number of proxies in front of Synk so rate limits apply per client; each proxy must append to `X-Forwarded-For`. A serverless-only deployment cannot run this custom socket server.
 
 This version supports one Node instance. Before scaling to multiple instances, add a Socket.IO adapter, shared rate limiting and cross-instance revocation. Message persistence is authoritative; if the process fails after a commit but before publication, reconnect/history recovers the message. Delivery is not an exactly-once transport guarantee.
 
