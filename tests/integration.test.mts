@@ -23,7 +23,7 @@ const { setRealtime } = await import("../src/lib/realtime");
 const { POST: forgotPasswordRoute } = await import("../src/app/api/auth/forgot-password/route");
 const { POST: resetPasswordRoute } = await import("../src/app/api/auth/reset-password/route");
 const { issuePasswordReset, RESEND_COOLDOWN_MS } = await import("../src/lib/password-reset");
-const { createPasswordLogin } = await import("../src/lib/auth");
+const { authOptions, createPasswordLogin } = await import("../src/lib/auth");
 const { compare, hash } = await import("bcryptjs");
 const { createHash } = await import("node:crypto");
 const http = createServer((_request, response) => response.end());
@@ -382,4 +382,15 @@ test("a password login is refused if the password changed during verification", 
 
   const loginId = await createPasswordLogin(user.id, user.passwordHash!);
   assert.equal((await db.loginSession.findUniqueOrThrow({ where: { id: loginId! } })).userId, user.id);
+});
+
+test("one client's failed logins can't lock an account for other clients", async () => {
+  const { email } = await resetUser("login-lockout");
+  const { authorize } = (authOptions.providers[0] as unknown as { options: { authorize: (input: object, request: object) => Promise<{ id: string } | null> } }).options;
+  const attempt = (password: string, ip: string) => authorize({ email, password }, { headers: { "x-synk-client-ip": ip } });
+
+  for (let count = 0; count < 10; count++) assert.equal(await attempt("WrongPassword123!", "198.51.100.1"), null);
+  await assert.rejects(attempt("OldPassword123!", "198.51.100.1"), /Too many requests/);
+
+  assert.ok((await attempt("OldPassword123!", "198.51.100.2"))?.id);
 });
