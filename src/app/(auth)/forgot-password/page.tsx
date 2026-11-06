@@ -21,7 +21,7 @@ export default function ForgotPasswordPage() {
     setError("");
 
     try {
-      const email = String(data.get("email")).trim().toLowerCase();
+      const email = String(data.get("email") ?? "");
       await request<{ message: string }>("/api/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ email }),

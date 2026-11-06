@@ -278,3 +278,50 @@ test("reset password updates hash, revokes sessions, and prevents replay", async
   const replayRes = await resetPasswordRoute(replayReq);
   assert.equal(replayRes.status, 400);
 });
+
+test("concurrent resets with the same link: exactly one succeeds", async () => {
+  const user = await db.user.create({
+    data: { name: "RaceUser", email: `pwd-race-${randomUUID()}@example.test`, passwordHash: await hash("OldPassword123!", 12) },
+  });
+  users.push(user.id);
+  const rawToken = `race-${randomUUID()}`;
+  await db.passwordResetToken.create({
+    data: { userId: user.id, tokenHash: createHash("sha256").update(rawToken).digest("hex"), expiresAt: new Date(Date.now() + 15 * 60_000) },
+  });
+
+  const attempt = (password: string) => resetPasswordRoute(new Request(`${url}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url },
+    body: JSON.stringify({ token: rawToken, password }),
+  }));
+  const statuses = (await Promise.all([attempt("FirstNewPassword123!"), attempt("SecondNewPassword123!")])).map(res => res.status).sort();
+  assert.deepEqual(statuses, [200, 400]);
+});
+
+test("forgot password never issues a token to an OAuth-only account", async () => {
+  const email = `oauth-only-${randomUUID()}@example.test`;
+  const user = await db.user.create({ data: { name: "OAuthUser", email } });
+  users.push(user.id);
+  const res = await forgotPasswordRoute(new Request(`${url}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url },
+    body: JSON.stringify({ email }),
+  }));
+  assert.equal(res.status, 200);
+  assert.equal(await db.passwordResetToken.count({ where: { userId: user.id } }), 0);
+});
+
+test("concurrent forgot-password requests leave exactly one valid link", async () => {
+  const email = `pwd-forgot-race-${randomUUID()}@example.test`;
+  const user = await db.user.create({ data: { name: "ForgotRace", email, passwordHash: await hash("OldPassword123!", 12) } });
+  users.push(user.id);
+  // Own client IP so earlier tests don't exhaust this test's per-IP rate limit.
+  const ask = () => forgotPasswordRoute(new Request(`${url}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url, "x-synk-client-ip": `race-${user.id}` },
+    body: JSON.stringify({ email }),
+  }));
+  const responses = await Promise.all([ask(), ask(), ask()]);
+  assert.deepEqual(responses.map(res => res.status), [200, 200, 200]);
+  assert.equal(await db.passwordResetToken.count({ where: { userId: user.id } }), 1);
+});

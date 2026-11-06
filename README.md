@@ -57,7 +57,7 @@ Set both ID and secret for a provider in `.env`. Its button appears automaticall
 
 For Bitbucket, enable **account** and **email** on the OAuth consumer; a confirmed primary email is required. NextAuth v4 uses a custom Bitbucket OAuth provider here. Providers do not automatically link an existing credential account merely because the email matches. Real OAuth callbacks require your configured provider accounts and have not been exercised in this environment.
 
-- skipped for now.
+OAuth setup is optional; email/password login works without it.
 
 ## Verification
 
@@ -96,4 +96,10 @@ Run the **custom Node server**, not `next start`. It hosts Next.js and Socket.IO
 
 This version supports one Node instance. Before scaling to multiple instances, add a Socket.IO adapter, shared rate limiting and cross-instance revocation. Message persistence is authoritative; if the process fails after a commit but before publication, reconnect/history recovers the message. Delivery is not an exactly-once transport guarantee.
 
-Secrets belong only in environment variables. NextAuth JWT cookies use secure flags when `NEXTAUTH_URL` is HTTPS. Login records provide a seven-day absolute session lifetime and revocation on sign-out. Remove expired `LoginSession` rows periodically as routine database maintenance. No invitation emails, email verification, password recovery or account deletion are implemented in this slice.
+Secrets belong only in environment variables. NextAuth JWT cookies use secure flags when `NEXTAUTH_URL` is HTTPS. Login records provide a seven-day absolute session lifetime and revocation on sign-out. Remove expired `LoginSession` rows periodically as routine database maintenance. No invitation emails, email verification or account deletion are implemented in this slice.
+
+### Password reset
+
+**Forgot password?** on the login page requests a single-use link that expires after 15 minutes. Only a SHA-256 hash of the token is stored. A successful reset changes the password, invalidates every reset link and signs the user out everywhere, including live chat sockets. The response is identical whether or not the email exists. Accounts that only use OAuth do not receive links.
+
+To send real emails, set `RESEND_API_KEY` and `EMAIL_FROM`. Without them, development prints the link to the server console, and production logs an error without the link.

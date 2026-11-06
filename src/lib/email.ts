@@ -1,10 +1,12 @@
 /**
  * Password-reset email dispatcher.
  *
- * In development (or when no SMTP / Resend credentials are configured),
- * the reset URL is printed to the server console so the developer can
- * click it immediately.  In production, swap the body of `send` for a
- * real transactional-email call (Resend, SendGrid, Nodemailer, etc.).
+ * - If RESEND_API_KEY and EMAIL_FROM are set, the email is sent through the
+ *   Resend HTTP API (no SDK dependency needed).
+ * - Otherwise, in development, the reset link is printed to the server
+ *   console so the developer can click it.
+ * - In production without a provider, the link is NEVER logged (it is a live
+ *   credential); an error is logged instead so the operator notices.
  */
 
 export interface ResetEmail {
@@ -13,20 +15,28 @@ export interface ResetEmail {
 }
 
 export async function sendPasswordResetEmail({ to, resetUrl }: ResetEmail): Promise<void> {
-  // In production, replace this with a real email dispatch.
-  // Example with Resend:
-  //   const resend = new Resend(process.env.RESEND_API_KEY);
-  //   await resend.emails.send({ from: "noreply@synk.app", to, subject: "Reset your Synk password", html: `...` });
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM;
 
-  console.log(
-    "\n" +
-    "┌──────────────────────────────────────────────────────┐\n" +
-    "│  🔐  PASSWORD RESET EMAIL (dev mode)                 │\n" +
-    "├──────────────────────────────────────────────────────┤\n" +
-    `│  To:   ${to.padEnd(44)} │\n` +
-    "│  Link: (see below)                                  │\n" +
-    "└──────────────────────────────────────────────────────┘\n" +
-    `  ${resetUrl}\n`,
-  );
+  if (apiKey && from) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from,
+        to,
+        subject: "Reset your Synk password",
+        text: `Someone asked to reset your Synk password.\n\nOpen this link within 15 minutes to choose a new one:\n${resetUrl}\n\nIf this wasn't you, ignore this email; your password will not change.`,
+      }),
+    });
+    if (!response.ok) throw new Error(`Email provider responded ${response.status}`);
+    return;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    console.error("[synk] Password reset requested but no email provider is configured (set RESEND_API_KEY and EMAIL_FROM).");
+    return;
+  }
+
+  console.log(`\n[synk] 🔐 Password reset link for ${to} (dev mode, not emailed):\n  ${resetUrl}\n`);
 }
-

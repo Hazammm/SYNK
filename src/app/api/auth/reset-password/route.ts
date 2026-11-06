@@ -1,12 +1,13 @@
 import { createHash } from "crypto";
 import { hash as bcryptHash } from "bcryptjs";
 import { db } from "@/lib/db";
-import { api } from "@/lib/errors";
-import { AppError } from "@/lib/errors";
+import { AppError, api } from "@/lib/errors";
 import { assertSameOrigin, readJson } from "@/lib/http";
 import { resetPasswordSchema } from "@/lib/validation";
 import { rateLimit } from "@/lib/rate-limit";
 import { realtime } from "@/lib/realtime";
+
+const INVALID_LINK = "This reset link is invalid or has expired. Please request a new one.";
 
 export async function POST(request: Request) {
   return api(async () => {
@@ -15,43 +16,32 @@ export async function POST(request: Request) {
     rateLimit(`reset:${clientIp}`, 10, 15 * 60_000);
 
     const { token, password } = resetPasswordSchema.parse(await readJson(request));
-
-    // Hash the submitted token with SHA-256 and look it up
     const tokenHash = createHash("sha256").update(token).digest("hex");
 
-    const resetRecord = await db.passwordResetToken.findUnique({
-      where: { tokenHash },
-      select: { id: true, userId: true, expiresAt: true },
-    });
-
-    if (!resetRecord || resetRecord.expiresAt < new Date()) {
-      throw new AppError(400, "This reset link is invalid or has expired. Please request a new one.");
-    }
+    // Cheap pre-check so an invalid link doesn't cost a bcrypt hash.
+    const resetRecord = await db.passwordResetToken.findUnique({ where: { tokenHash }, select: { userId: true, expiresAt: true } });
+    if (!resetRecord || resetRecord.expiresAt <= new Date()) throw new AppError(400, INVALID_LINK);
 
     const passwordHash = await bcryptHash(password, 12);
 
-    // Atomic transaction: update password, delete all reset tokens, revoke all sessions
-    await db.$transaction([
-      db.user.update({
-        where: { id: resetRecord.userId },
-        data: { passwordHash },
-      }),
-      db.passwordResetToken.deleteMany({
-        where: { userId: resetRecord.userId },
-      }),
-      db.loginSession.deleteMany({
-        where: { userId: resetRecord.userId },
-      }),
-    ]);
+    const revokedSessionIds = await db.$transaction(async tx => {
+      // Consume the token atomically: only one concurrent request can delete it.
+      const consumed = await tx.passwordResetToken.deleteMany({ where: { tokenHash, expiresAt: { gt: new Date() } } });
+      if (consumed.count !== 1) throw new AppError(400, INVALID_LINK);
 
-    // Disconnect all live socket connections for this user's sessions
+      await tx.user.update({ where: { id: resetRecord.userId }, data: { passwordHash } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: resetRecord.userId } });
+
+      // Revoke every existing login so a stolen session can't outlive the reset.
+      const sessions = await tx.loginSession.findMany({ where: { userId: resetRecord.userId }, select: { id: true } });
+      await tx.loginSession.deleteMany({ where: { userId: resetRecord.userId } });
+      return sessions.map(session => session.id);
+    });
+
+    // Drop live sockets now rather than waiting for their next permission re-check.
     const rt = realtime();
-    if (rt) {
-      // The session-based disconnect already handled by deleting LoginSession rows;
-      // on next socket heartbeat the sessions will be invalid and sockets will close.
-    }
+    for (const sessionId of revokedSessionIds) rt?.disconnectSession(sessionId);
 
     return { message: "Your password has been reset. Please sign in with your new password." };
   });
 }
-

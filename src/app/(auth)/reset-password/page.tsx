@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Eye, EyeOff, LockKeyhole, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button, Input } from "@/components/Primitives";
 import { ThemeBar } from "@/components/SynkShell";
@@ -12,7 +12,12 @@ import styles from "@/components/Auth.module.css";
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  // Read the token once, then strip it from the address bar so it doesn't
+  // linger in browser history on shared computers.
+  const [token] = useState(() => searchParams.get("token") ?? "");
+  useEffect(() => {
+    if (token) window.history.replaceState(null, "", "/reset-password");
+  }, [token]);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,6 +25,13 @@ function ResetPasswordForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  // Redirect to login a few seconds after success; cancelled if the user leaves first.
+  useEffect(() => {
+    if (!success) return;
+    const timer = setTimeout(() => router.replace("/login"), 3000);
+    return () => clearTimeout(timer);
+  }, [success, router]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,6 +53,11 @@ function ResetPasswordForm() {
       return;
     }
 
+    if (new TextEncoder().encode(password).length > 72) {
+      setError("Password must be at most 72 UTF-8 bytes.");
+      return;
+    }
+
     setBusy(true);
 
     try {
@@ -49,9 +66,6 @@ function ResetPasswordForm() {
         body: JSON.stringify({ token, password }),
       });
       setSuccess(true);
-      setTimeout(() => {
-        router.replace("/login");
-      }, 3000);
     } catch (err) {
       setError(messageOf(err));
     } finally {
