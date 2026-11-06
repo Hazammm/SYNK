@@ -42,6 +42,10 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+        env:
+          # Required by npm start; the browser tests never request a reset email.
+          RESEND_API_KEY: ci-only-not-a-real-key
+          EMAIL_FROM: Synk CI <ci@example.test>
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
