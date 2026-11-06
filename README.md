@@ -100,6 +100,6 @@ Secrets belong only in environment variables. NextAuth JWT cookies use secure fl
 
 ### Password reset
 
-**Forgot password?** on the login page requests a single-use link that expires after 15 minutes. Only a SHA-256 hash of the token is stored. A successful reset changes the password, invalidates every reset link and signs the user out everywhere, including live chat sockets. The response is identical whether or not the email exists. Accounts that only use OAuth do not receive links.
+**Forgot password?** on the login page requests a single-use link that expires after 15 minutes. Each account receives at most one email every 5 minutes, and earlier links keep working until they expire or a reset succeeds. Only a SHA-256 hash of the token is stored. A successful reset changes the password, invalidates every reset link and signs the user out everywhere, including live chat sockets. The response is identical whether or not the email exists, and the account is processed after the response is sent. Accounts that only use OAuth do not receive links.
 
-To send real emails, set `RESEND_API_KEY` and `EMAIL_FROM`. Without them, development prints the link to the server console, and production logs an error without the link.
+Production requires `RESEND_API_KEY` and `EMAIL_FROM`: `npm start` refuses to run without them. In development, leaving them unset prints the link to the server console.
