@@ -25,6 +25,11 @@ export async function POST(request: Request) {
     const passwordHash = await bcryptHash(password, 12);
 
     const revokedSessionIds = await db.$transaction(async tx => {
+      // Lock the user first, matching the forgot-password and login transactions:
+      // this avoids deadlocks, and a login can't commit between the password
+      // change and the session revocation below.
+      await tx.$executeRaw`SELECT 1 FROM "User" WHERE "id" = ${resetRecord.userId} FOR UPDATE`;
+
       // Consume the token atomically: only one concurrent request can delete it.
       const consumed = await tx.passwordResetToken.deleteMany({ where: { tokenHash, expiresAt: { gt: new Date() } } });
       if (consumed.count !== 1) throw new AppError(400, INVALID_LINK);
