@@ -8,7 +8,8 @@ Object.assign(process.env, { NODE_ENV: dev ? "development" : "production" });
 loadEnvConfig(process.cwd(), dev);
 
 async function main() {
-  for (const name of ["DATABASE_URL", "NEXTAUTH_SECRET", "NEXTAUTH_URL"]) {
+  // Without an email provider, password reset can't work in production.
+  for (const name of ["DATABASE_URL", "NEXTAUTH_SECRET", "NEXTAUTH_URL", ...(dev ? [] : ["RESEND_API_KEY", "EMAIL_FROM"])]) {
     if (!process.env[name]) throw new Error(`Set ${name} in .env before starting Synk.`);
   }
   if (process.env.NEXTAUTH_SECRET!.length < 32) throw new Error("NEXTAUTH_SECRET must contain at least 32 characters.");
