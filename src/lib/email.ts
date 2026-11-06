@@ -5,8 +5,8 @@
  *   Resend HTTP API (no SDK dependency needed).
  * - Otherwise, in development, the reset link is printed to the server
  *   console so the developer can click it.
- * - In production without a provider, the link is NEVER logged (it is a live
- *   credential); an error is logged instead so the operator notices.
+ * - In production without a provider, the send fails and the link is NEVER
+ *   logged (it is a live credential). server.ts refuses to start in this state.
  */
 
 const SEND_TIMEOUT_MS = 10_000;
@@ -37,8 +37,7 @@ export async function sendPasswordResetEmail({ to, resetUrl }: ResetEmail): Prom
   }
 
   if (process.env.NODE_ENV === "production") {
-    console.error("[synk] Password reset requested but no email provider is configured (set RESEND_API_KEY and EMAIL_FROM).");
-    return;
+    throw new Error("No email provider is configured (set RESEND_API_KEY and EMAIL_FROM).");
   }
 
   console.log(`\n[synk] 🔐 Password reset link for ${to} (dev mode, not emailed):\n  ${resetUrl}\n`);
