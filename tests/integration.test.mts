@@ -13,7 +13,8 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.NEXTAUTH_SECRET ??= "integration-only-not-a-production-secret-123456789";
 process.env.NEXTAUTH_URL = "http://localhost:3000";
 const { db } = await import("../src/lib/db");
-const { createWorkspace, listWorkspaces, addMember, removeMember } = await import("../src/features/workspaces/service");
+const { createWorkspace, listWorkspaces, removeMember } = await import("../src/features/workspaces/service");
+const { requireWorkspace } = await import("../src/lib/permissions");
 const { createChannel, listChannels, joinChannel, addChannelMember, listMessages, sendMessage } = await import("../src/features/chat/service");
 const { attachRealtime } = await import("../src/server/socket");
 const { setRealtime } = await import("../src/lib/realtime");
@@ -35,7 +36,7 @@ before(async () => {
   workspaceId = (await createWorkspace(admin, { name: "Integration workspace" })).id;
   otherWorkspaceId = (await createWorkspace(outsider, { name: "Other workspace" })).id;
   workspaces.push(workspaceId, otherWorkspaceId);
-  await addMember(admin, workspaceId, (await db.user.findUniqueOrThrow({ where: { id: member } })).email);
+  await db.membership.create({ data: { userId: member, workspaceId, role: "MEMBER" } });
   channelId = (await listChannels(admin, workspaceId))[0].id;
   await new Promise<void>(resolve => http.listen(0, "127.0.0.1", resolve));
   url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
@@ -72,7 +73,7 @@ test("workspace creation is atomic, and discovery excludes other tenants", async
   assert.equal(result[0].role, "ADMIN");
   await denied(listChannels(outsider, workspaceId));
   await denied(createChannel(outsider, workspaceId, { name: "forbidden" }));
-  await denied(addMember(member, workspaceId, "nobody@example.test"));
+  await denied(requireWorkspace(member, workspaceId, "workspace:manage"));
 });
 test("workspace membership alone never grants channel history or writes", async () => {
   await denied(listMessages(member, channelId, {}));

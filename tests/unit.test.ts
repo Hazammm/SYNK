@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { can, type Action } from "../src/lib/permissions";
-import { channelSchema, historySchema, messageSchema, registerSchema } from "../src/lib/validation";
+import { acceptInviteSchema, channelSchema, createWorkspaceSchema, historySchema, messageSchema, passwordSchema } from "../src/lib/validation";
 import { assertSameOrigin, readJson } from "../src/lib/http";
 import { mergeMessages } from "../src/features/chat/client";
 import type { ChatMessage } from "../src/lib/chat-types";
@@ -30,8 +30,22 @@ test("message validation rejects spoofed senders, empty text, oversized content 
     assert.equal(messageSchema.safeParse(input).success, false);
   }
 });
-test("password byte limit, bounded history and channel name validation", () => {
-  assert.equal(registerSchema.safeParse({ name: "Test", email: "test@example.com", password: "😀".repeat(20) }).success, false);
+test("invite-only account schemas normalize email and enforce password byte limits", () => {
+  assert.equal(passwordSchema.safeParse("short").success, false);
+  assert.equal(passwordSchema.safeParse("long-enough").success, true);
+  assert.equal(passwordSchema.safeParse("😀".repeat(20)).success, false);
+  const workspace = createWorkspaceSchema.parse({
+    adminName: " Admin ",
+    email: "ADMIN@EXAMPLE.COM",
+    password: "long-enough",
+    workspaceName: "Team",
+    inviteEmails: ["PERSON@EXAMPLE.COM"],
+  });
+  assert.equal(workspace.email, "admin@example.com");
+  assert.equal(workspace.projectName, "My first project");
+  assert.equal(acceptInviteSchema.safeParse({ name: "Member", password: "short" }).success, false);
+});
+test("bounded history and channel name validation", () => {
   assert.equal(historySchema.safeParse({ limit: 101 }).success, false);
   assert.equal(historySchema.safeParse({ limit: "-1" }).success, false);
   assert.equal(channelSchema.safeParse({ name: "../private" }).success, false);
