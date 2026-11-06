@@ -2571,9 +2571,15 @@
 
 .inviteForm {
   display: grid;
-  grid-template-columns: 1fr 120px auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 9px;
   margin-bottom: 17px;
+}
+
+.membersSettings {
+  display: grid;
+  gap: 14px;
 }
 
 .memberRow {
@@ -2599,8 +2605,84 @@
   font-size: 9px;
 }
 
+.memberAvatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--structure);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.memberDetails {
+  min-width: 0;
+}
+
+.memberDetails strong,
+.memberDetails small,
+.invitePendingRow strong,
+.invitePendingRow small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memberAction {
+  padding: 6px 9px;
+  font-size: 10px;
+}
+
+.invitePendingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  border-top: 1px solid var(--structure);
+}
+
+.invitePendingRow > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.invitePendingRow strong {
+  font-size: 11px;
+}
+
+.invitePendingRow small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.invitePendingRow > div {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.invitePendingRow button {
+  padding: 6px 9px;
+  font-size: 10px;
+}
+
 .successNote {
   color: var(--done);
+  font-size: 11px;
+}
+
+.memberNotice {
+  color: var(--medium);
+  font-size: 11px;
+}
+
+.memberError {
+  color: var(--high);
   font-size: 11px;
 }
 
@@ -2810,6 +2892,11 @@
   .formGrid,
   .inviteForm {
     grid-template-columns: 1fr;
+  }
+  .invitePendingRow {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 10px 0;
   }
   .themeCards {
     grid-template-columns: repeat(2, 1fr);

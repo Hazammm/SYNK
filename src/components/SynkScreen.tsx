@@ -11,6 +11,7 @@ import {
   Sparkles, Timer, X, Zap, Download,
 } from "lucide-react";
 import { activity, members, notifications, tickets, weekHours, type ThemeName, type Ticket, type TicketStatus } from "@/mocks/data";
+import WorkspaceMembers from "@/features/workspaces/WorkspaceMembers";
 import { Avatar, Badge, Button, Card, Input } from "./Primitives";
 import { applyTheme } from "@/lib/theme";
 import styles from "./Synk.module.css";
@@ -213,20 +214,45 @@ function Time() {
   </>;
 }
 
-function Settings() {
-  const [section, setSection] = useState("Profile");
-  const [sent, setSent] = useState(false);
+function Settings({
+  workspaceId,
+  role,
+  userId,
+  initialSection,
+  inviteDeliveryFailed,
+}: {
+  workspaceId: string;
+  role: "ADMIN" | "MEMBER";
+  userId: string;
+  initialSection?: string;
+  inviteDeliveryFailed: boolean;
+}) {
+  const [section, setSection] = useState(initialSection === "Members" ? "Members" : "Profile");
   const nav = ["Profile", "Appearance", "Notifications", "Members", "Account"];
   return <><PageHeader title="Settings" /><div className={styles.settingsLayout}><nav className={styles.settingsNav}>{nav.map((item) => <button type="button" onClick={() => setSection(item)} className={section === item ? styles.settingsActive : ""} key={item}>{item}</button>)}</nav><div className={styles.settingsBody}>
     {section === "Profile" && <Card><h2>Profile</h2><p className={styles.subtle}>Manage your personal information.</p><div className={styles.profileEdit}><Avatar initials="AR" /><button className={styles.textButton} type="button">Change photo</button></div><div className={styles.formGrid}><label className={styles.settingsField}>Full name<Input defaultValue="Alex Rivera" /></label><label className={styles.settingsField}>Workspace email<Input defaultValue="alex@workspace.com" type="email" /></label><label className={styles.settingsField}>Role<Input defaultValue="Frontend developer" /></label><label className={styles.settingsField}>Timezone<select className={styles.select}><option>Pacific Time (UTC−7)</option><option>Eastern Time (UTC−4)</option></select></label></div><Button variant="primary">Save changes</Button></Card>}
     {section === "Appearance" && <Card><h2>Appearance</h2><p className={styles.subtle}>Choose how Synk looks on this device.</p><div className={styles.themeCards}>{(["black", "white", "forest", "lavender"] as ThemeName[]).map((theme) => <button type="button" data-swatch={theme} key={theme} className={styles.themeCard} onClick={() => applyTheme(theme)}><span className={styles.themePreview}><i /><i /><i /></span><strong>{theme[0].toUpperCase() + theme.slice(1)}</strong></button>)}</div></Card>}
     {section === "Notifications" && <Card><h2>Notifications</h2><p className={styles.subtle}>Choose what you’d like to hear about.</p>{["Mentions and replies", "Ticket assignments", "Due date reminders", "Document updates", "Weekly summary"].map((item) => <label className={styles.preferenceRow} key={item}><span><strong>{item}</strong><small>Get notified about {item.toLowerCase()}</small></span><input type="checkbox" defaultChecked /></label>)}</Card>}
-    {section === "Members" && <Card><h2>Members</h2><p className={styles.subtle}>Invite your teammates to FYP Synk.</p><form className={styles.inviteForm} onSubmit={(event) => { event.preventDefault(); setSent(true); }}><Input type="email" placeholder="teammate@workspace.com" required /><select className={styles.select}><option>Member</option><option>Admin</option><option>Guest</option></select><Button variant="primary">Invite</Button></form>{sent && <p className={styles.successNote}>Invitation sent to your teammate.</p>}{members.map((member) => <div className={styles.memberRow} key={member.name}><Avatar initials={member.initials} small /><span><strong>{member.name}</strong><small>{member.role}</small></span><Badge>{member.role}</Badge></div>)}</Card>}
+    {section === "Members" && <div className={styles.membersSettings}><WorkspaceMembers workspaceId={workspaceId} role={role} userId={userId} inviteDeliveryFailed={inviteDeliveryFailed} /></div>}
     {section === "Account" && <Card><h2>Account</h2><p className={styles.subtle}>Manage your account preferences.</p><div className={styles.preferenceRow}><span><strong>Sign out</strong><small>You can sign back in at any time.</small></span><button onClick={() => void signOut({ callbackUrl: "/login" })} className={styles.logout}>Log out</button></div></Card>}
   </div></div></>;
 }
 
-export default function SynkScreen({ screen }: { screen: ScreenName }) {
+export default function SynkScreen({
+  screen,
+  workspaceId = "",
+  role = "MEMBER",
+  userId = "",
+  initialSettingsSection,
+  inviteDeliveryFailed = false,
+}: {
+  screen: ScreenName;
+  workspaceId?: string;
+  role?: "ADMIN" | "MEMBER";
+  userId?: string;
+  initialSettingsSection?: string;
+  inviteDeliveryFailed?: boolean;
+}) {
   return <div className={styles.screen}>
     {screen === "overview" && <Overview />}
     {screen === "alerts" && <Alerts />}
@@ -235,6 +261,6 @@ export default function SynkScreen({ screen }: { screen: ScreenName }) {
     {screen === "reports" && <Reports />}
     {screen === "docs" && <Docs />}
     {screen === "time" && <Time />}
-    {screen === "settings" && <Settings />}
+    {screen === "settings" && <Settings workspaceId={workspaceId} role={role} userId={userId} initialSection={initialSettingsSection} inviteDeliveryFailed={inviteDeliveryFailed} />}
   </div>;
 }

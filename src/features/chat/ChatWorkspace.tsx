@@ -38,7 +38,7 @@ export default function ChatWorkspace({ initialWorkspaces, initialWorkspaceId }:
     </div>
     {creating && <form onSubmit={create} className={styles.setup}>
       <h2>{workspaces.length ? "Create a workspace" : "Bring your team together"}</h2>
-      <p>Create a workspace to start chatting, or ask an admin to add your registered email and refresh this page.</p>
+      <p>Create a workspace to start chatting, or ask an admin to invite your email address.</p>
       <label>Workspace name<Input required maxLength={80} value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Synk FYP" /></label>
       <Button variant="primary" disabled={busy}>{busy ? "Creating…" : "Create workspace"}</Button>
       {error && <p role="alert" className={styles.error}>{error}</p>}
