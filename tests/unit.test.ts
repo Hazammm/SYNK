@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { can, type Action } from "../src/lib/permissions";
 import { channelSchema, forgotPasswordSchema, historySchema, messageSchema, registerSchema, resetPasswordSchema } from "../src/lib/validation";
 import { assertSameOrigin, readJson } from "../src/lib/http";
-import { resolveClientIp } from "../src/lib/client-ip";
+import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
 import { mergeMessages } from "../src/features/chat/client";
 import type { ChatMessage } from "../src/lib/chat-types";
 
@@ -67,11 +67,18 @@ test("forgot password and reset password validation schemas", () => {
 });
 
 test("client IP only trusts X-Forwarded-For entries added by known proxies", () => {
-  assert.equal(resolveClientIp("10.0.0.1", "6.6.6.6", 0), "10.0.0.1");
-  assert.equal(resolveClientIp("10.0.0.1", "203.0.113.9", 1), "203.0.113.9");
-  assert.equal(resolveClientIp("10.0.0.1", "6.6.6.6, 203.0.113.9", 1), "203.0.113.9");
-  assert.equal(resolveClientIp("10.0.0.2", "6.6.6.6, 203.0.113.9, 10.0.0.1", 2), "203.0.113.9");
-  assert.equal(resolveClientIp("10.0.0.1", "203.0.113.9", 2), "10.0.0.1");
-  assert.equal(resolveClientIp("10.0.0.1", undefined, 1), "10.0.0.1");
-  assert.equal(resolveClientIp(undefined, undefined, 0), "unknown");
+  const proxies = parseTrustedProxies("10.0.0.1, 10.0.0.2");
+  // Direct connections can't forge their address, with or without a proxy list.
+  assert.equal(resolveClientIp("6.6.6.6", "1.2.3.4", proxies), "6.6.6.6");
+  assert.equal(resolveClientIp("10.0.0.1", "1.2.3.4", new Set()), "10.0.0.1");
+  // Behind trusted proxies, the rightmost unknown address is the client.
+  assert.equal(resolveClientIp("10.0.0.1", "203.0.113.9", proxies), "203.0.113.9");
+  assert.equal(resolveClientIp("10.0.0.1", "6.6.6.6, 203.0.113.9", proxies), "203.0.113.9");
+  assert.equal(resolveClientIp("10.0.0.2", "6.6.6.6, 203.0.113.9, 10.0.0.1", proxies), "203.0.113.9");
+  // IPv4-mapped socket addresses still match, and missing headers fall back.
+  assert.equal(resolveClientIp("::ffff:10.0.0.1", "203.0.113.9", proxies), "203.0.113.9");
+  assert.equal(resolveClientIp("::ffff:6.6.6.6", undefined, proxies), "6.6.6.6");
+  assert.equal(resolveClientIp("10.0.0.1", undefined, proxies), "10.0.0.1");
+  assert.equal(resolveClientIp("10.0.0.1", "10.0.0.2", proxies), "10.0.0.1");
+  assert.equal(resolveClientIp(undefined, undefined, proxies), "unknown");
 });
