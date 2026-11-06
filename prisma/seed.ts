@@ -4,11 +4,11 @@ loadEnvConfig(process.cwd(), true);
 
 async function seed() {
   const { db } = await import("../src/lib/db");
-  const { registerSchema } = await import("../src/lib/validation");
-  const { createWorkspace, addMember } = await import("../src/features/workspaces/service");
+  const { passwordSchema } = await import("../src/lib/validation");
+  const { createWorkspace } = await import("../src/features/workspaces/service");
   const { listChannels, joinChannel, sendMessage } = await import("../src/features/chat/service");
   const password = process.env.SEED_DEMO_PASSWORD;
-  registerSchema.parse({ name: "Demo", email: "admin@synk.test", password });
+  passwordSchema.parse(password);
   if (process.env.NODE_ENV === "production") throw new Error("Demo seeding is disabled in production.");
   try {
     const passwordHash = await hash(password!, 12);
@@ -19,7 +19,11 @@ async function seed() {
     const [admin, member, outsider] = users;
     let workspace = await db.workspace.findFirst({ where: { name: "Synk Demo", memberships: { some: { userId: admin.id, role: "ADMIN" } } } });
     workspace ??= await createWorkspace(admin.id, { name: "Synk Demo" });
-    await addMember(admin.id, workspace.id, member.email);
+    await db.membership.upsert({
+      where: { workspaceId_userId: { workspaceId: workspace.id, userId: member.id } },
+      create: { workspaceId: workspace.id, userId: member.id, role: "MEMBER" },
+      update: {},
+    });
     const channel = (await listChannels(admin.id, workspace.id)).find(channel => channel.name === "general")!;
     await joinChannel(member.id, channel.id);
     let project = await db.project.findFirst({ where: { workspaceId: workspace.id, name: "FYP" } });

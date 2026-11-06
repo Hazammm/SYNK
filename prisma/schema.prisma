@@ -17,6 +17,13 @@ enum ProjectLevel {
   WRITE
 }
 
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 model User {
   id              String          @id @default(cuid())
   name            String?
@@ -32,6 +39,8 @@ model User {
   messages        Message[]
   projectAccess   ProjectAccess[]
   createdChannels Channel[]
+  createdWorkspaces Workspace[]   @relation("WorkspaceCreator")
+  sentInvites     Invite[]        @relation("InviteSender")
 }
 
 model Account {
@@ -82,13 +91,17 @@ model LoginSession {
 model Workspace {
   id          String       @id @default(cuid())
   name        String
+  createdById String
   createdAt   DateTime     @default(now())
+  createdBy   User         @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: Restrict)
   memberships Membership[]
   channels    Channel[]
   projects    Project[]
+  invites     Invite[]
 }
 
 model Membership {
+  id             String          @unique @default(cuid())
   workspaceId    String
   userId         String
   role           WorkspaceRole   @default(MEMBER)
@@ -99,6 +112,25 @@ model Membership {
 
   @@id([workspaceId, userId])
   @@index([userId])
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model Invite {
+  id          String       @id @default(cuid())
+  workspaceId String
+  email       String
+  role        WorkspaceRole @default(MEMBER)
+  tokenHash   String       @unique
+  status      InviteStatus @default(PENDING)
+  expiresAt   DateTime
+  invitedById String
+  createdAt   DateTime     @default(now())
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User         @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([email])
+  @@index([workspaceId])
 }
 
 model Channel {
@@ -153,6 +185,7 @@ model Project {
   id          String          @id @default(cuid())
   workspaceId String
   name        String
+  createdAt   DateTime        @default(now())
   workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   access      ProjectAccess[]
   tickets     Ticket[]
