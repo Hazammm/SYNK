@@ -26,9 +26,6 @@ jobs:
       NEXTAUTH_SECRET: ci-only-not-a-production-secret-123456789
       NEXT_TELEMETRY_DISABLED: '1'
       E2E_SERVER_COMMAND: npm start
-      # Required by npm start; the browser tests never request a reset email.
-      RESEND_API_KEY: ci-only-not-a-real-key
-      EMAIL_FROM: Synk CI <ci@example.test>
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,6 +42,10 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+        env:
+          # Required by npm start; the browser tests never request a reset email.
+          RESEND_API_KEY: ci-only-not-a-real-key
+          EMAIL_FROM: Synk CI <ci@example.test>
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
