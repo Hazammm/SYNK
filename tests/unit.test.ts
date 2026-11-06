@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { can, type Action } from "../src/lib/permissions";
 import { channelSchema, forgotPasswordSchema, historySchema, messageSchema, registerSchema, resetPasswordSchema } from "../src/lib/validation";
 import { assertSameOrigin, readJson } from "../src/lib/http";
+import { resolveClientIp } from "../src/lib/client-ip";
 import { mergeMessages } from "../src/features/chat/client";
 import type { ChatMessage } from "../src/lib/chat-types";
 
@@ -63,4 +64,14 @@ test("forgot password and reset password validation schemas", () => {
   assert.equal(resetPasswordSchema.safeParse({ token: "", password: "StrongPassword123!" }).success, false);
   assert.equal(resetPasswordSchema.safeParse({ token: "abc12345", password: "short" }).success, false);
   assert.equal(resetPasswordSchema.safeParse({ token: "abc12345", password: "😀".repeat(20) }).success, false);
+});
+
+test("client IP only trusts X-Forwarded-For entries added by known proxies", () => {
+  assert.equal(resolveClientIp("10.0.0.1", "6.6.6.6", 0), "10.0.0.1");
+  assert.equal(resolveClientIp("10.0.0.1", "203.0.113.9", 1), "203.0.113.9");
+  assert.equal(resolveClientIp("10.0.0.1", "6.6.6.6, 203.0.113.9", 1), "203.0.113.9");
+  assert.equal(resolveClientIp("10.0.0.2", "6.6.6.6, 203.0.113.9, 10.0.0.1", 2), "203.0.113.9");
+  assert.equal(resolveClientIp("10.0.0.1", "203.0.113.9", 2), "10.0.0.1");
+  assert.equal(resolveClientIp("10.0.0.1", undefined, 1), "10.0.0.1");
+  assert.equal(resolveClientIp(undefined, undefined, 0), "unknown");
 });
