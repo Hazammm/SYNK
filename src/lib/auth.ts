@@ -11,6 +11,17 @@ import { rateLimit } from "./rate-limit";
 import { realtime } from "./realtime";
 
 const maxAge = 7 * 24 * 60 * 60;
+const LOGIN_WINDOW_MS = 5 * 60_000;
+
+/**
+ * Limits password guesses per client, so one client can't lock an account for
+ * everyone else. The much higher per-account limit slows guessing spread across
+ * many addresses, and is checked second so blocked clients don't count towards it.
+ */
+export function limitLogin(email: string, clientIp: string) {
+  rateLimit(`login:${clientIp}:${email}`, 10, LOGIN_WINDOW_MS);
+  rateLimit(`login:${email}`, 100, LOGIN_WINDOW_MS);
+}
 
 /**
  * Creates the login record for a verified password, unless that password was
@@ -30,10 +41,10 @@ export async function createPasswordLogin(userId: string, verifiedHash: string) 
 const providers: NextAuthOptions["providers"] = [Credentials({
   name: "Email and password",
   credentials: { email: { type: "email" }, password: { type: "password" } },
-  async authorize(input) {
+  async authorize(input, request) {
     const parsed = credentialsSchema.safeParse(input);
     if (!parsed.success) return null;
-    rateLimit(`login:${parsed.data.email}`, 10, 5 * 60_000);
+    limitLogin(parsed.data.email, request?.headers?.["x-synk-client-ip"] ?? "unknown");
     const user = await db.user.findUnique({ where: { email: parsed.data.email } });
     // Use the same bcrypt cost for unknown accounts to avoid an easy timing oracle.
     const fallback = "$2b$12$C6UzMDM.H6dfI/f/IKcEe.5MR.PmTuYkSY7jLRPx3QIkggY7UjN0i";
