@@ -41,6 +41,7 @@ export default function AuthPage({ inviteToken, authError }: { inviteToken: stri
       <form onSubmit={submit} className={styles.form}>
         <label className={styles.field}><span>Email</span><div className={styles.inputWrap}><Mail size={17} /><Input name="email" type="email" autoComplete="email" placeholder="you@company.com" required maxLength={254} /></div></label>
         <label className={styles.field}><span>Password</span><div className={styles.inputWrap}><LockKeyhole size={17} /><Input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" required maxLength={72} value={password} onChange={event => setPassword(event.target.value)} /><button className={styles.eye} onClick={() => setShowPassword(!showPassword)} type="button" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+        <div className={styles.formOptions}><span /><Link href="/forgot-password">Forgot password?</Link></div>
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <Button variant="primary" type="submit" disabled={busy} className={styles.submit}>{busy ? "Please wait…" : "Sign in"}</Button>
       </form>

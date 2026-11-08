@@ -1,7 +1,7 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 
-const authPages = new Set(["/login", "/create-workspace"]);
+const authPages = new Set(["/login", "/create-workspace", "/forgot-password", "/reset-password"]);
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

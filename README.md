@@ -52,6 +52,8 @@ Accounts: `admin@synk.test`, `member@synk.test`, `outsider@synk.test`. The first
 
 Set `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM` in `.env` to enable email delivery. Workspace creation without invitations does not require Mailtrap configuration. Invitation tokens are stored only as SHA-256 hashes and expire after seven days.
 
+OAuth setup is optional; email/password login works without it.
+
 ## Verification
 
 ```bash
@@ -73,7 +75,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-PowerShell environment variables use `$env:DATABASE_URL = '...'` and `$env:TEST_DATABASE_URL = $env:DATABASE_URL`. Browser tests start the development server automatically unless an existing local server is available. For production browser checks, run `npm run build` first and set `E2E_SERVER_COMMAND="npm start"` (PowerShell: `$env:E2E_SERVER_COMMAND = "npm start"`) before `npm run test:e2e`; CI uses this mode. Keep `DATABASE_URL` pointed at the disposable test database for the server as well as the tests. They create accounts/workspaces in that database. See [the QA plan](docs/chat-qa.md) for test cases and [implementation notes](docs/chat-implementation.md) for scope and API contracts.
+PowerShell environment variables use `$env:DATABASE_URL = '...'` and `$env:TEST_DATABASE_URL = $env:DATABASE_URL`. Browser tests start the development server automatically unless an existing local server is available. For production browser checks, run `npm run build` first and set `E2E_SERVER_COMMAND="npm start"` (PowerShell: `$env:E2E_SERVER_COMMAND = "npm start"`) before `npm run test:e2e`; CI uses this mode. `npm start` also requires `RESEND_API_KEY` and `EMAIL_FROM`, and placeholder values are fine here because the browser tests never request a reset email. Keep `DATABASE_URL` pointed at the disposable test database for the server as well as the tests. They create accounts/workspaces in that database. See [the QA plan](docs/chat-qa.md) for test cases and [implementation notes](docs/chat-implementation.md) for scope and API contracts.
 
 ## Production runtime
 
@@ -85,8 +87,14 @@ npm run build
 npm start
 ```
 
-Run the **custom Node server**, not `next start`. It hosts Next.js and Socket.IO in the same process and shares the authenticated permission layer. Use a persistent Node host with PostgreSQL and HTTPS, with the reverse proxy forwarding WebSocket upgrades. A serverless-only deployment cannot run this custom socket server.
+Run the **custom Node server**, not `next start`. It hosts Next.js and Socket.IO in the same process and shares the authenticated permission layer. Use a persistent Node host with PostgreSQL and HTTPS, with the reverse proxy forwarding WebSocket upgrades. Set `TRUSTED_PROXY_IPS` to the exact addresses of your proxies so rate limits apply per client; each proxy must append to `X-Forwarded-For`, which is ignored on connections from any other address. A serverless-only deployment cannot run this custom socket server.
 
 This version supports one Node instance. Before scaling to multiple instances, add a Socket.IO adapter, shared rate limiting and cross-instance revocation. Message persistence is authoritative; if the process fails after a commit but before publication, reconnect/history recovers the message. Delivery is not an exactly-once transport guarantee.
 
-Secrets belong only in environment variables. NextAuth JWT cookies use secure flags when `NEXTAUTH_URL` is HTTPS. Login records provide a seven-day absolute session lifetime and revocation on sign-out. Remove expired `LoginSession` rows periodically as routine database maintenance. Password reset and account deletion are not implemented.
+Secrets belong only in environment variables. NextAuth JWT cookies use secure flags when `NEXTAUTH_URL` is HTTPS. Login records provide a seven-day absolute session lifetime and revocation on sign-out. Remove expired `LoginSession` rows periodically as routine database maintenance. Account deletion is not implemented.
+
+### Password reset
+
+**Forgot password?** on the login page requests a single-use link that expires after 15 minutes. Each account receives at most one email every 5 minutes, and earlier links keep working until they expire or a reset succeeds. Only a SHA-256 hash of the token is stored. A successful reset changes the password, invalidates every reset link and signs the user out everywhere, including live chat sockets. The response is identical whether or not the email exists, and the account is processed after the response is sent. Accounts that only use OAuth do not receive links.
+
+Production requires `RESEND_API_KEY` and `EMAIL_FROM`: `npm start` refuses to run without them. In development, leaving them unset prints the link to the server console.

@@ -25,22 +25,23 @@ enum InviteStatus {
 }
 
 model User {
-  id              String          @id @default(cuid())
-  name            String?
-  email           String?         @unique
-  emailVerified   DateTime?
-  image           String?
-  passwordHash    String?
-  createdAt       DateTime        @default(now())
-  accounts        Account[]
-  sessions        Session[]
-  loginSessions   LoginSession[]
-  memberships     Membership[]
-  messages        Message[]
-  projectAccess   ProjectAccess[]
-  createdChannels Channel[]
-  createdWorkspaces Workspace[]   @relation("WorkspaceCreator")
-  sentInvites     Invite[]        @relation("InviteSender")
+  id                  String               @id @default(cuid())
+  name                String?
+  email               String?              @unique
+  emailVerified       DateTime?
+  image               String?
+  passwordHash        String?
+  createdAt           DateTime             @default(now())
+  accounts            Account[]
+  sessions            Session[]
+  loginSessions       LoginSession[]
+  memberships         Membership[]
+  messages            Message[]
+  projectAccess       ProjectAccess[]
+  createdChannels     Channel[]
+  createdWorkspaces   Workspace[]          @relation("WorkspaceCreator")
+  sentInvites         Invite[]             @relation("InviteSender")
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Account {
@@ -88,6 +89,19 @@ model LoginSession {
   @@index([expiresAt])
 }
 
+// Single-use, time-limited password reset tokens. Stored as SHA-256 hashes.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 model Workspace {
   id          String       @id @default(cuid())
   name        String
@@ -111,23 +125,23 @@ model Membership {
   channelMembers ChannelMember[]
 
   @@id([workspaceId, userId])
-  @@index([userId])
   @@unique([userId, workspaceId])
+  @@index([userId])
   @@index([workspaceId])
 }
 
 model Invite {
-  id          String       @id @default(cuid())
+  id          String        @id @default(cuid())
   workspaceId String
   email       String
   role        WorkspaceRole @default(MEMBER)
-  tokenHash   String       @unique
-  status      InviteStatus @default(PENDING)
+  tokenHash   String        @unique
+  status      InviteStatus  @default(PENDING)
   expiresAt   DateTime
   invitedById String
-  createdAt   DateTime     @default(now())
-  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  invitedBy   User         @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now())
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User          @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Restrict)
 
   @@index([email])
   @@index([workspaceId])

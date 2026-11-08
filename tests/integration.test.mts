@@ -12,12 +12,21 @@ if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a 
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.NEXTAUTH_SECRET ??= "integration-only-not-a-production-secret-123456789";
 process.env.NEXTAUTH_URL = "http://localhost:3000";
+// Never send real email from tests, even when a provider is configured locally.
+delete process.env.RESEND_API_KEY;
+delete process.env.EMAIL_FROM;
 const { db } = await import("../src/lib/db");
 const { createWorkspace, listWorkspaces, removeMember } = await import("../src/features/workspaces/service");
 const { requireWorkspace } = await import("../src/lib/permissions");
 const { createChannel, listChannels, joinChannel, addChannelMember, listMessages, sendMessage } = await import("../src/features/chat/service");
 const { attachRealtime } = await import("../src/server/socket");
 const { setRealtime } = await import("../src/lib/realtime");
+const { POST: forgotPasswordRoute } = await import("../src/app/api/auth/forgot-password/route");
+const { POST: resetPasswordRoute } = await import("../src/app/api/auth/reset-password/route");
+const { issuePasswordReset, RESEND_COOLDOWN_MS } = await import("../src/lib/password-reset");
+const { authOptions, createPasswordLogin } = await import("../src/lib/auth");
+const { compare, hash } = await import("bcryptjs");
+const { createHash } = await import("node:crypto");
 const http = createServer((_request, response) => response.end());
 let realtime: ReturnType<typeof attachRealtime>;
 let url: string;
@@ -179,4 +188,213 @@ test("reconnect sees persisted missed messages and workspace removal cascades ac
   assert.equal(await db.channelMember.count({ where: { userId: member, workspaceId } }), 0);
   await denied(listMessages(member, channelId, {}));
   await denied(sendMessage(member, channelId, input("removed")));
+});
+
+test("forgot password generates token hash and defends against user enumeration", async () => {
+  const testEmail = `pwd-test-${randomUUID()}@example.test`;
+  const user = await db.user.create({
+    data: { name: "PwdUser", email: testEmail, passwordHash: await hash("OldPassword123!", 12) },
+  });
+  users.push(user.id);
+
+  // 1. Request reset for existing user
+  const req1 = new Request(`${url}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url },
+    body: JSON.stringify({ email: testEmail }),
+  });
+  const res1 = await forgotPasswordRoute(req1);
+  assert.equal(res1.status, 200);
+  const data1 = await res1.json() as { message: string };
+  assert.ok(data1.message.includes("reset link"));
+
+  // The token is issued after the response, so timing can't reveal the account.
+  let tokens = await db.passwordResetToken.findMany({ where: { userId: user.id } });
+  for (let attempt = 0; attempt < 100 && tokens.length === 0; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    tokens = await db.passwordResetToken.findMany({ where: { userId: user.id } });
+  }
+  assert.equal(tokens.length, 1);
+  assert.ok(tokens[0].expiresAt.getTime() > Date.now());
+
+  // 2. Request reset for non-existent user (anti-enumeration)
+  const req2 = new Request(`${url}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url },
+    body: JSON.stringify({ email: `nonexistent-${randomUUID()}@example.test` }),
+  });
+  const res2 = await forgotPasswordRoute(req2);
+  assert.equal(res2.status, 200);
+  const data2 = await res2.json() as { message: string };
+  assert.equal(data1.message, data2.message); // exact same generic message
+});
+
+test("reset password updates hash, revokes sessions, and prevents replay", async () => {
+  const testEmail = `pwd-reset-${randomUUID()}@example.test`;
+  const initialHash = await hash("OldPassword123!", 12);
+  const user = await db.user.create({
+    data: { name: "ResetUser", email: testEmail, passwordHash: initialHash },
+  });
+  users.push(user.id);
+
+  // Create an active login session that must be revoked after reset
+  const activeSession = await db.loginSession.create({
+    data: { userId: user.id, expiresAt: new Date(Date.now() + 3600_000) },
+  });
+
+  // Issue a reset token
+  const rawToken = "super-secret-token-hex-1234567890";
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  await db.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 15 * 60_000),
+    },
+  });
+
+  // 1. Invalid token should fail with 400
+  const invalidReq = new Request(`${url}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url },
+    body: JSON.stringify({ token: "invalid-token", password: "BrandNewPassword123!" }),
+  });
+  const invalidRes = await resetPasswordRoute(invalidReq);
+  assert.equal(invalidRes.status, 400);
+
+  // 2. Valid reset should succeed
+  const validReq = new Request(`${url}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url },
+    body: JSON.stringify({ token: rawToken, password: "BrandNewPassword123!" }),
+  });
+  const validRes = await resetPasswordRoute(validReq);
+  assert.equal(validRes.status, 200);
+
+  // 3. Verify user's passwordHash has updated
+  const updatedUser = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+  assert.notEqual(updatedUser.passwordHash, initialHash);
+  assert.equal(await compare("BrandNewPassword123!", updatedUser.passwordHash!), true);
+
+  // 4. Verify previous sessions are revoked
+  const remainingSessions = await db.loginSession.count({ where: { id: activeSession.id } });
+  assert.equal(remainingSessions, 0);
+
+  // 5. Verify token was consumed and cannot be reused
+  const replayReq = new Request(`${url}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url },
+    body: JSON.stringify({ token: rawToken, password: "AnotherNewPassword123!" }),
+  });
+  const replayRes = await resetPasswordRoute(replayReq);
+  assert.equal(replayRes.status, 400);
+});
+
+test("concurrent resets with the same link: exactly one succeeds", async () => {
+  const user = await db.user.create({
+    data: { name: "RaceUser", email: `pwd-race-${randomUUID()}@example.test`, passwordHash: await hash("OldPassword123!", 12) },
+  });
+  users.push(user.id);
+  const rawToken = `race-${randomUUID()}`;
+  await db.passwordResetToken.create({
+    data: { userId: user.id, tokenHash: createHash("sha256").update(rawToken).digest("hex"), expiresAt: new Date(Date.now() + 15 * 60_000) },
+  });
+
+  const attempt = (password: string) => resetPasswordRoute(new Request(`${url}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url },
+    body: JSON.stringify({ token: rawToken, password }),
+  }));
+  const statuses = (await Promise.all([attempt("FirstNewPassword123!"), attempt("SecondNewPassword123!")])).map(res => res.status).sort();
+  assert.deepEqual(statuses, [200, 400]);
+});
+
+test("forgot password never issues a token to an OAuth-only account", async () => {
+  const email = `oauth-only-${randomUUID()}@example.test`;
+  const user = await db.user.create({ data: { name: "OAuthUser", email } });
+  users.push(user.id);
+  await issuePasswordReset(email);
+  assert.equal(await db.passwordResetToken.count({ where: { userId: user.id } }), 0);
+});
+
+const resetUser = async (label: string) => {
+  const email = `${label}-${randomUUID()}@example.test`;
+  const user = await db.user.create({ data: { name: label, email, passwordHash: await hash("OldPassword123!", 12) } });
+  users.push(user.id);
+  const workspace = await db.workspace.create({ data: { name: `${label}-ws`, createdById: user.id } });
+  workspaces.push(workspace.id);
+  await db.membership.create({ data: { workspaceId: workspace.id, userId: user.id, role: "ADMIN" } });
+  return { email, user };
+};
+const ageTokens = (userId: string) => db.passwordResetToken.updateMany({ where: { userId }, data: { createdAt: new Date(Date.now() - RESEND_COOLDOWN_MS - 1000) } });
+
+test("concurrent forgot-password requests issue exactly one link", async () => {
+  const { email, user } = await resetUser("pwd-forgot-race");
+  await Promise.all([issuePasswordReset(email), issuePasswordReset(email), issuePasswordReset(email)]);
+  assert.equal(await db.passwordResetToken.count({ where: { userId: user.id } }), 1);
+});
+
+test("forgot password requests during the cooldown are ignored and keep the link", async () => {
+  const { email, user } = await resetUser("pwd-forgot-cooldown");
+  await issuePasswordReset(email);
+  const [first] = await db.passwordResetToken.findMany({ where: { userId: user.id } });
+  await issuePasswordReset(email);
+  const tokens = await db.passwordResetToken.findMany({ where: { userId: user.id } });
+  assert.deepEqual(tokens.map(token => token.id), [first.id]);
+});
+
+test("a new request after the cooldown keeps the earlier link and purges expired ones", async () => {
+  const { email, user } = await resetUser("pwd-forgot-multiple");
+  await issuePasswordReset(email);
+  await ageTokens(user.id);
+  await db.passwordResetToken.create({ data: { userId: user.id, tokenHash: randomUUID(), createdAt: new Date(0), expiresAt: new Date(Date.now() - 1000) } });
+  await issuePasswordReset(email);
+  const tokens = await db.passwordResetToken.findMany({ where: { userId: user.id } });
+  assert.equal(tokens.length, 2);
+  assert.ok(tokens.every(token => token.expiresAt.getTime() > Date.now()));
+});
+
+test("a failed email send removes only the new link, so the user can retry", async () => {
+  const { email, user } = await resetUser("pwd-forgot-send-failure");
+  await issuePasswordReset(email);
+  await ageTokens(user.id);
+  const [earlier] = await db.passwordResetToken.findMany({ where: { userId: user.id } });
+
+  const realFetch = globalThis.fetch;
+  process.env.RESEND_API_KEY = "test-key";
+  process.env.EMAIL_FROM = "Synk <test@example.test>";
+  globalThis.fetch = async () => new Response(null, { status: 500 });
+  try {
+    await assert.rejects(issuePasswordReset(email), /Email provider responded 500/);
+  } finally {
+    globalThis.fetch = realFetch;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.EMAIL_FROM;
+  }
+  const tokens = await db.passwordResetToken.findMany({ where: { userId: user.id } });
+  assert.deepEqual(tokens.map(token => token.id), [earlier.id]);
+
+  await issuePasswordReset(email);
+  assert.equal(await db.passwordResetToken.count({ where: { userId: user.id } }), 2);
+});
+
+test("a password login is refused if the password changed during verification", async () => {
+  const { user } = await resetUser("pwd-login-race");
+  const stale = await createPasswordLogin(user.id, "$2b$12$a-hash-that-was-replaced");
+  assert.equal(stale, null);
+  assert.equal(await db.loginSession.count({ where: { userId: user.id } }), 0);
+
+  const loginId = await createPasswordLogin(user.id, user.passwordHash!);
+  assert.equal((await db.loginSession.findUniqueOrThrow({ where: { id: loginId! } })).userId, user.id);
+});
+
+test("one client's failed logins can't lock an account for other clients", async () => {
+  const { email } = await resetUser("login-lockout");
+  const { authorize } = (authOptions.providers[0] as unknown as { options: { authorize: (input: object, request: object) => Promise<{ id: string } | null> } }).options;
+  const attempt = (password: string, ip: string) => authorize({ email, password }, { headers: { "x-synk-client-ip": ip } });
+
+  for (let count = 0; count < 10; count++) assert.equal(await attempt("WrongPassword123!", "198.51.100.1"), null);
+  await assert.rejects(attempt("OldPassword123!", "198.51.100.1"), /Too many requests/);
+
+  assert.ok((await attempt("OldPassword123!", "198.51.100.2"))?.id);
 });
