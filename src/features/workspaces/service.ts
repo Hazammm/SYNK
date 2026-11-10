@@ -3,6 +3,7 @@ import { requireWorkspace } from "../../lib/permissions";
 import { emailSchema, workspaceSchema } from "../../lib/validation";
 import { AppError } from "../../lib/errors";
 import { realtime } from "../../lib/realtime";
+import { revokeProjectAccess } from "../projects/service";
 
 export async function listWorkspaces(userId: string) {
   const memberships = await db.membership.findMany({ where: { userId }, include: { workspace: true }, orderBy: { createdAt: "asc" } });
@@ -41,6 +42,9 @@ export async function removeMember(actorId: string, workspaceId: string, userId:
     const target = await tx.membership.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
     if (target?.role === "ADMIN") throw new AppError(400, "Admin removal is not supported here.");
     await tx.membership.deleteMany({ where: { workspaceId, userId, role: "MEMBER" } });
+    // Leaving the workspace also ends project access and ticket assignments inside it.
+    const projects = await tx.project.findMany({ where: { workspaceId }, select: { id: true } });
+    await revokeProjectAccess(tx, userId, projects.map(project => project.id));
   });
   realtime()?.revokeUser(userId);
   return { removed: true };
