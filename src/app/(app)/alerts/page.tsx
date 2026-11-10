@@ -1,5 +1,5 @@
-import SynkScreen from "@/components/SynkScreen";
+import AlertsList from "@/features/notifications/AlertsList";
 
 export default function AlertsPage() {
-  return <SynkScreen screen="alerts" />;
+  return <AlertsList />;
 }

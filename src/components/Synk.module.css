@@ -2825,3 +2825,4 @@
 .previewNotice { padding: 8px 18px; font-size: 12px; background: var(--structure); text-align: center; }
 .liveTheme { padding: 12px 16px; }
 .liveTheme .themeBar { position: static; transform: none; width: max-content; margin-left: auto; }
+.tabCount { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 100px; background: var(--action); color: var(--on-action); font-size: 10px; font-weight: 700; }

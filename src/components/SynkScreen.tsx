@@ -3,19 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { DndContext, type DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import {
   ArrowRight, Check, CheckCheck,
-  ChevronDown, ChevronLeft, ChevronRight, Clock3, Code2, FileText, Filter, GripVertical, Heading1,
-  Link2, List, MessageCircle, MoreHorizontal, Plus, Send,
-  Sparkles, Timer, X, Zap, Download,
+  ChevronDown, ChevronLeft, ChevronRight, Clock3, Code2, FileText, Heading1,
+  Link2, List, MoreHorizontal, Plus, Send,
+  Sparkles, Timer, Zap, Download,
 } from "lucide-react";
-import { activity, members, notifications, tickets, weekHours, type ThemeName, type Ticket, type TicketStatus } from "@/mocks/data";
+import { activity, members, tickets, weekHours, type ThemeName, type TicketStatus } from "@/mocks/data";
 import { Avatar, Badge, Button, Card, Input } from "./Primitives";
 import { applyTheme } from "@/lib/theme";
 import styles from "./Synk.module.css";
 
-type ScreenName = "overview" | "alerts" | "board" | "backlog" | "reports" | "docs" | "time" | "settings";
+// Sample-data preview screens. Board, sprints and alerts are live features under src/features.
+type ScreenName = "overview" | "reports" | "docs" | "time" | "settings";
 
 const statuses: TicketStatus[] = ["To do", "In progress", "In review", "Done"];
 const toneFor = (value: string): "neutral" | "done" | "medium" | "high" | "action" =>
@@ -60,107 +60,6 @@ function Overview() {
 }
 
 function KanbanMini() { return <span className={styles.kanbanMini}><i /><i /><i /></span>; }
-
-function Alerts() {
-  const [filter, setFilter] = useState("All");
-  const [read, setRead] = useState<number[]>([]);
-  const filters = ["All", "Mentions", "Tickets", "Docs"];
-  const shown = notifications.filter((item) => filter === "All" || item.kind === filter.slice(0, -1) || (filter === "Mentions" && item.kind === "Mention"));
-  return <>
-    <PageHeader title="Alerts"><Button onClick={() => setRead(notifications.map((item) => item.id))}><CheckCheck size={16} /> Mark all as read</Button></PageHeader>
-    <Card><div className={styles.filterRow}>{filters.map((item) => <button key={item} className={`${styles.filterChip} ${filter === item ? styles.filterActive : ""}`} onClick={() => setFilter(item)} type="button">{item}{item === "All" && <span>4</span>}</button>)}</div>
-      <div className={styles.alertList}>{shown.map((item) => <article className={`${styles.alertItem} ${item.unread && !read.includes(item.id) ? styles.alertUnread : ""}`} key={item.id}><span className={`${styles.alertIcon} ${item.kind === "Mention" ? styles.mentionIcon : item.kind === "Ticket" ? styles.ticketIcon : styles.docIcon}`}>{item.kind === "Mention" ? <MessageCircle size={17} /> : item.kind === "Ticket" ? <CheckCheck size={17} /> : <FileText size={17} />}</span><div><strong>{item.title}</strong><p>{item.detail}</p><small>{item.time}</small></div>{item.unread && !read.includes(item.id) && <span className={styles.unreadDot} aria-label="Unread" />}</article>)}</div></Card>
-    <Card className={styles.preferences}><div><h2>Notification preferences</h2><p className={styles.subtle}>Choose what you’d like to hear about</p></div>{["Mentions and replies", "Ticket updates", "Document activity", "Weekly project summary"].map((item, index) => <label className={styles.preferenceRow} key={item}><span><strong>{item}</strong><small>{["When someone mentions you or replies", "Changes to tickets assigned to you", "Comments and edits on linked docs", "A summary sent every Monday"][index]}</small></span><input type="checkbox" defaultChecked={index < 3} /></label>)}</Card>
-  </>;
-}
-
-function DraggableTicket({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: ticket.id, data: { status: ticket.status } });
-  return <article ref={setNodeRef} style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined} className={`${styles.boardTicket} ${isDragging ? styles.dragging : ""}`}>
-    <div className={styles.boardTicketTop}><button className={styles.dragHandle} type="button" aria-label={`Drag ${ticket.id}`} {...listeners} {...attributes} aria-describedby="ticket-drag-instructions"><GripVertical size={14} /></button><span className={styles.ticketId}>{ticket.id}</span><button className={styles.cardMore} type="button" aria-label={`Open ${ticket.id}`} onClick={onClick}><MoreHorizontal size={16} /></button></div>
-    <button className={styles.boardTicketTitle} type="button" onClick={onClick}>{ticket.title}</button>
-    <div className={styles.boardTicketMeta}><Badge tone={toneFor(ticket.priority)}>{ticket.priority}</Badge><span><CheckCheck size={13} /> {ticket.completedSubtasks}/{ticket.subtasks}</span><Avatar initials={ticket.assignee.initials} small /></div>
-  </article>;
-}
-
-function BoardColumn({ status, items, onSelect }: { status: TicketStatus; items: Ticket[]; onSelect: (ticket: Ticket) => void }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
-  return <div ref={setNodeRef} className={`${styles.boardColumn} ${isOver ? styles.columnOver : ""}`}><div className={styles.columnTitle}><span className={`${styles.statusDot} ${styles[`dot${status.replace(" ", "")}`]}`} /><strong>{status}</strong><span>{items.length}</span><button type="button" aria-label={`Add to ${status}`}><Plus size={15} /></button></div><div className={styles.columnCards}>{items.map((ticket) => <DraggableTicket key={ticket.id} ticket={ticket} onClick={() => onSelect(ticket)} />)}</div></div>;
-}
-
-function TicketDrawer({ ticket, onClose, onComplete }: { ticket: Ticket; onClose: () => void; onComplete: () => void }) {
-  const [checked, setChecked] = useState([true, true, ...Array(Math.max(0, ticket.subtasks - 2)).fill(false)]);
-  const [running, setRunning] = useState(false);
-  return <div className={styles.drawerBackdrop} onClick={onClose}><aside className={styles.ticketDrawer} onClick={(event) => event.stopPropagation()}><div className={styles.drawerTop}><span className={styles.ticketId}>{ticket.id}</span><button className={styles.iconButton} onClick={onClose} type="button" aria-label="Close ticket"><X size={18} /></button></div><input className={styles.drawerTitle} defaultValue={ticket.title} aria-label="Ticket title" /><div className={styles.drawerBadges}><Badge tone={toneFor(ticket.status)}>{ticket.status} <ChevronDown size={12} /></Badge><Badge tone={toneFor(ticket.priority)}>{ticket.priority} priority <ChevronDown size={12} /></Badge></div><p className={styles.drawerDescription}>{ticket.description}</p><div className={styles.drawerSection}><h3>Assignee</h3><div className={styles.drawerAssignee}><Avatar initials={ticket.assignee.initials} small /> {ticket.assignee.name}<ChevronDown size={14} /></div></div><div className={styles.drawerSection}><div className={styles.sectionTop}><h3>Subtasks</h3><span>{checked.filter(Boolean).length}/{checked.length}</span></div>{["Create login form", "Add validation states", "Connect university SSO", "Test responsive layout"].slice(0, ticket.subtasks).map((label, index) => <label className={styles.subtask} key={label}><input type="checkbox" checked={Boolean(checked[index])} onChange={() => setChecked((current) => current.map((value, i) => i === index ? !value : value))} /><span>{label}</span></label>)}</div><a href="/chat" className={styles.linkedChat}><MessageCircle size={16} /><span><strong>#design</strong><small>3 messages linked</small></span><ArrowRight size={14} /></a><Button variant={running ? "primary" : "secondary"} onClick={() => setRunning(!running)}><Timer size={16} /> {running ? "Timer running · Stop" : "Start timer"}</Button><div className={styles.drawerComments}><h3>Comments</h3><div className={styles.comment}><Avatar initials="MC" small /><p><strong>Maya Chen</strong><span>Added the updated form states.</span></p></div><div className={styles.commentBox}><input placeholder="Write a comment..." /><button type="button" aria-label="Send comment"><Send size={15} /></button></div></div><Button variant="quiet" className={styles.closeTicket} onClick={onComplete}><Check size={16} /> Close</Button></aside></div>;
-}
-
-function Board() {
-  const [items, setItems] = useState(tickets);
-  const [selected, setSelected] = useState<Ticket | null>(null);
-  const [priority, setPriority] = useState("All priorities");
-  const [assignee, setAssignee] = useState("All assignees");
-  function dragEnd(event: DragEndEvent) {
-    const status = event.over?.id;
-    if (!statuses.includes(status as TicketStatus)) return;
-    setItems((current) => current.map((ticket) => ticket.id === event.active.id ? { ...ticket, status: status as TicketStatus } : ticket));
-  }
-  function addTicket() {
-    setItems((current) => {
-      const nextId = Math.max(...current.map((ticket) => Number(ticket.id.split("-")[1]))) + 1;
-      return [...current, { ...tickets[0], id: `SYN-${nextId}`, title: "Untitled ticket", status: "To do", priority: "Medium", subtasks: 0, completedSubtasks: 0, points: 1 }];
-    });
-  }
-  function completeTicket() {
-    if (selected) setItems((current) => current.map((ticket) => ticket.id === selected.id ? { ...ticket, status: "Done" } : ticket));
-    setSelected(null);
-  }
-  return <>
-    <PageHeader title="Sprint 3" eyebrow="BOARD · OCT 6 – OCT 20"><div className={styles.selectWrap}><Filter size={14} /><select aria-label="Filter by assignee" value={assignee} onChange={(event) => setAssignee(event.target.value)}><option>All assignees</option>{members.map((member) => <option key={member.name}>{member.name}</option>)}</select></div><select className={styles.select} aria-label="Filter by priority" value={priority} onChange={(event) => setPriority(event.target.value)}><option>All priorities</option><option>High</option><option>Medium</option><option>Low</option></select><Button variant="primary" onClick={addTicket}><Plus size={16} /> Ticket</Button></PageHeader>
-    <div className={styles.boardSubnav}><a className={styles.subnavActive} href="/board">Board</a><a href="/board/backlog">Backlog</a><a href="/board/reports">Reports</a><span className={styles.boardCounts}>40 tickets · 28 completed</span></div>
-    <DndContext onDragEnd={dragEnd}><span id="ticket-drag-instructions" className={styles.srOnly}>Drag a ticket by its handle and drop it in another column to update its status.</span><div className={styles.board}>{statuses.map((status) => <BoardColumn key={status} status={status} items={items.filter((ticket) => ticket.status === status && (priority === "All priorities" || ticket.priority === priority) && (assignee === "All assignees" || ticket.assignee.name === assignee))} onSelect={setSelected} />)}</div></DndContext>
-    {selected && <TicketDrawer key={selected.id} ticket={selected} onClose={() => setSelected(null)} onComplete={completeTicket} />}
-  </>;
-}
-
-function Backlog() {
-  const [groups, setGroups] = useState<Record<string, string[]>>({
-    "Sprint 3 · Active": tickets.slice(0, 3).map((ticket) => ticket.id),
-    "Sprint 4 · Planned": tickets.slice(3, 5).map((ticket) => ticket.id),
-    "Backlog · Unscheduled": tickets.slice(5).map((ticket) => ticket.id),
-  });
-  const [collapsed, setCollapsed] = useState<string[]>([]);
-  function dragEnd(event: DragEndEvent) {
-    const destination = event.over?.id;
-    if (typeof destination !== "string" || !(destination in groups)) return;
-    const source = Object.keys(groups).find((group) => groups[group].includes(String(event.active.id)));
-    if (!source || source === destination) return;
-    setGroups((current) => ({ ...current, [source]: current[source].filter((id) => id !== event.active.id), [destination]: [...current[destination], String(event.active.id)] }));
-  }
-  return <>
-    <PageHeader title="Backlog"><Button><CheckCheck size={16} /> Complete sprint</Button><Button variant="primary"><Zap size={16} /> Start sprint</Button></PageHeader>
-    <div className={styles.boardSubnav}><a href="/board">Board</a><a className={styles.subnavActive} href="/board/backlog">Backlog</a><a href="/board/reports">Reports</a><span className={styles.boardCounts}>7 tickets</span></div>
-    <DndContext onDragEnd={dragEnd}><span id="ticket-drag-instructions" className={styles.srOnly}>Drag a ticket by its handle and drop it into another sprint group.</span><div className={styles.backlogGroups}>{Object.entries(groups).map(([name, ids]) => <BacklogGroup key={name} name={name} ids={ids} collapsed={collapsed.includes(name)} onToggle={() => setCollapsed((current) => current.includes(name) ? current.filter((value) => value !== name) : [...current, name])} />)}</div></DndContext>
-  </>;
-}
-
-function BacklogGroup({ name, ids, collapsed, onToggle }: { name: string; ids: string[]; collapsed: boolean; onToggle: () => void }) {
-  const { setNodeRef, isOver } = useDroppable({ id: name });
-  return <section ref={setNodeRef} className={`${styles.backlogGroup} ${isOver ? styles.columnOver : ""}`}>
-    <div className={styles.groupHeading}>
-      <button type="button" className={styles.groupToggle} onClick={onToggle} aria-expanded={!collapsed}><ChevronDown size={16} className={collapsed ? styles.rotated : ""} /><strong>{name}</strong><span>{ids.length}</span></button>
-      <button type="button" className={styles.iconButton} aria-label="Group options"><MoreHorizontal size={17} /></button>
-    </div>
-    {!collapsed && <div className={styles.backlogRows}>{ids.map((id) => {
-      const ticket = tickets.find((item) => item.id === id);
-      return ticket ? <BacklogRow key={id} ticket={ticket} /> : null;
-    })}<button className={styles.addRow} type="button"><Plus size={15} /> Add ticket</button></div>}
-  </section>;
-}
-
-function BacklogRow({ ticket }: { ticket: Ticket }) {
-  const { setNodeRef, listeners, attributes, transform } = useDraggable({ id: ticket.id });
-  return <div ref={setNodeRef} style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined} className={styles.backlogRow}><button type="button" className={styles.dragHandle} aria-label={`Drag ${ticket.id}`} {...listeners} {...attributes} aria-describedby="ticket-drag-instructions"><GripVertical size={14} /></button><input type="checkbox" aria-label={`Select ${ticket.id}`} /><span className={styles.ticketId}>{ticket.id}</span><strong>{ticket.title}</strong><Badge tone={toneFor(ticket.status)}>{ticket.status}</Badge><Badge tone={toneFor(ticket.priority)}>{ticket.priority}</Badge><span className={styles.points}>{ticket.points} pts</span><Avatar initials={ticket.assignee.initials} small /></div>;
-}
 
 function Reports() {
   return <>
@@ -229,9 +128,6 @@ function Settings() {
 export default function SynkScreen({ screen }: { screen: ScreenName }) {
   return <div className={styles.screen}>
     {screen === "overview" && <Overview />}
-    {screen === "alerts" && <Alerts />}
-    {screen === "board" && <Board />}
-    {screen === "backlog" && <Backlog />}
     {screen === "reports" && <Reports />}
     {screen === "docs" && <Docs />}
     {screen === "time" && <Time />}

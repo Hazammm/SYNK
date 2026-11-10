@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import {
   Bell, BookOpen, ChevronDown, Clock3, FileText, LayoutDashboard, MessageCircle,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { ThemeName } from "@/mocks/data";
 import { applyTheme, useTheme } from "@/lib/theme";
+import { NOTIFICATIONS_CHANGED } from "@/lib/events";
 import { Avatar } from "./Primitives";
 import styles from "./Synk.module.css";
 
@@ -18,6 +19,12 @@ const themes: { id: ThemeName; label: string }[] = [
   { id: "white", label: "White" },
   { id: "forest", label: "Forest" },
   { id: "lavender", label: "Lavender" },
+];
+
+const liveTabs = [
+  { label: "Chat", href: "/chat" },
+  { label: "Board", href: "/board" },
+  { label: "Alerts", href: "/alerts" },
 ];
 
 const tabs = [
@@ -54,11 +61,29 @@ export function ThemeBar() {
 export default function SynkShell({ children, userName }: { children: React.ReactNode; userName: string }) {
   const pathname = usePathname();
   const [mobilePanel, setMobilePanel] = useState(false);
+  const [unread, setUnread] = useState(0);
+  // Refresh the alert badge on each navigation and whenever alerts are marked as read.
+  useEffect(() => {
+    const load = () => { fetch("/api/notifications?summary=1", { cache: "no-store" }).then(response => response.ok ? response.json() : null).then(body => { if (body) setUnread(body.unread); }).catch(() => {}); };
+    load();
+    window.addEventListener(NOTIFICATIONS_CHANGED, load);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED, load);
+  }, [pathname]);
 
-  if (pathname === "/chat" || pathname.startsWith("/tickets/")) return <div className={styles.app}>
+  // Live screens run on real data; everything else is still a sample-data preview.
+  const live = liveTabs.some(tab => tab.href === pathname) || pathname === "/board/backlog" || pathname.startsWith("/tickets/");
+  if (live) return <div className={styles.app}>
     <header className={styles.topbar}>
       <Link href="/chat" className={styles.brand} aria-label="Synk home"><span className={styles.brandMark}>s</span> synk</Link>
-      <nav className={styles.topTabs} aria-label="Workspace navigation"><Link href="/chat" className={`${styles.topTab} ${styles.topTabActive}`}>Chat</Link><Link href="/overview" className={styles.topTab}>Product preview</Link></nav>
+      <nav className={styles.topTabs} aria-label="Workspace navigation">
+        {liveTabs.map(tab => {
+          const active = pathname === tab.href || (tab.href === "/board" && pathname.startsWith("/board"));
+          return <Link key={tab.href} href={tab.href} aria-current={active ? "page" : undefined} className={`${styles.topTab} ${active ? styles.topTabActive : ""}`}>
+            {tab.label}{tab.href === "/alerts" && unread > 0 && <span className={styles.tabCount}>{unread > 99 ? "99+" : unread}<span className={styles.srOnly}> unread</span></span>}
+          </Link>;
+        })}
+        <Link href="/overview" className={styles.topTab}>Product preview</Link>
+      </nav>
       <span className={styles.liveUser}>{userName}</span><button className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
     </header>
     <main>{children}</main><div className={styles.liveTheme}><ThemeBar /></div>
@@ -91,8 +116,8 @@ export default function SynkShell({ children, userName }: { children: React.Reac
           <input aria-label="Search Synk" placeholder="Search anything..." />
           <kbd>⌘ K</kbd>
         </label>
-        <Link href="/alerts" className={styles.alertButton} aria-label="Alerts, 2 unread">
-          <Bell size={18} /><span className={styles.alertCount}>2</span>
+        <Link href="/alerts" className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
+          <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
         </Link>
         <Link className={styles.profileLink} href="/settings" aria-label="Open settings">
           <Avatar initials="AR" />
