@@ -1,7 +1,8 @@
 import type { Priority } from "@/lib/ticket-types";
 
-export type Selection = { workspaceId?: string; projectId?: string; boardId?: string; ticket?: string };
-export type TrackerView = "board" | "sprints";
+export type Selection = { workspaceId?: string; projectId?: string; boardId?: string; ticket?: string; sprintId?: string };
+export type TrackerView = "board" | "sprints" | "reports";
+const VIEW_PATHS: Record<TrackerView, string> = { board: "/board", sprints: "/board/backlog", reports: "/board/reports" };
 
 export const initials = (name: string | null) => (name?.trim() || "Member").split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 export const PRIORITIES: { value: Priority; label: string; tone: "high" | "medium" | "done" }[] = [
@@ -16,7 +17,7 @@ export const localToday = () => new Date().toLocaleDateString("en-CA"); // en-CA
 
 export function trackerHref(view: TrackerView, selection: Selection) {
   const query = new URLSearchParams(Object.entries(selection).filter((entry): entry is [string, string] => Boolean(entry[1])));
-  return `${view === "board" ? "/board" : "/board/backlog"}${query.size ? `?${query}` : ""}`;
+  return `${VIEW_PATHS[view]}${query.size ? `?${query}` : ""}`;
 }
 
 // Keeps the address bar shareable without triggering a navigation.

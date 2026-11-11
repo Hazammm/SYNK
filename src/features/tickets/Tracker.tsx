@@ -9,9 +9,11 @@ import type { AccessEntry, ProjectDetail, ProjectLevel, ProjectSummary } from "@
 import { messageOf, request } from "@/lib/client-http";
 import BoardView from "./BoardView";
 import SprintsView from "./SprintsView";
+import ReportsView from "../reports/ReportsView";
 import { initials, syncUrl, trackerHref, type Selection, type TrackerView } from "./ui";
 import styles from "./Tracker.module.css";
 
+const VIEW_TITLES: Record<TrackerView, string> = { board: "Board", sprints: "Sprints", reports: "Sprint reports" };
 type Props = { view: TrackerView; userId: string; initialWorkspaces: WorkspaceSummary[]; initial: Selection };
 
 export default function Tracker({ view, userId, initialWorkspaces, initial }: Props) {
@@ -19,7 +21,7 @@ export default function Tracker({ view, userId, initialWorkspaces, initial }: Pr
   const workspace = initialWorkspaces.find(item => item.id === workspaceId);
   return <div className={styles.tracker}>
     <div className={styles.bar}>
-      <div><span className={styles.eyebrow}>ISSUE TRACKING</span><h1>{view === "board" ? "Board" : "Sprints"}</h1></div>
+      <div><span className={styles.eyebrow}>ISSUE TRACKING</span><h1>{VIEW_TITLES[view]}</h1></div>
       <label className={styles.picker}>Workspace<select value={workspaceId} onChange={event => setWorkspaceId(event.target.value)} disabled={!initialWorkspaces.length}>
         {!initialWorkspaces.length && <option value="">No workspaces yet</option>}
         {initialWorkspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -57,6 +59,7 @@ function Projects({ workspace, view, userId, initial }: { workspace: WorkspaceSu
       <nav aria-label="Issue tracking views">
         <Link href={trackerHref("board", { workspaceId: workspace.id, projectId })} aria-current={view === "board" ? "page" : undefined}>Board</Link>
         <Link href={trackerHref("sprints", { workspaceId: workspace.id, projectId })} aria-current={view === "sprints" ? "page" : undefined}>Sprints</Link>
+        <Link href={trackerHref("reports", { workspaceId: workspace.id, projectId })} aria-current={view === "reports" ? "page" : undefined}>Reports</Link>
       </nav>
       <label className={styles.picker}>Project<select value={projectId} onChange={event => { setProjectId(event.target.value); setPanel(null); }} disabled={!projects?.length}>
         {!projects?.length && <option value="">{projects ? "No projects yet" : "Loading…"}</option>}
@@ -94,6 +97,7 @@ function ProjectArea({ project, view, userId, initial }: { project: ProjectSumma
   const reload = () => setRevision(value => value + 1);
   if (error) return <p role="alert" className={styles.error}>{error} <button type="button" onClick={reload}>Retry</button></p>;
   if (!detail) return <p role="status" className={styles.loading}>Loading {project.name}…</p>;
+  if (view === "reports") return <ReportsView project={detail} initialSprintId={initial.sprintId} />;
   return view === "board"
     ? <BoardView project={detail} userId={userId} initial={initial} onProjectChange={reload} />
     : <SprintsView project={detail} userId={userId} initial={initial} onProjectChange={reload} />;

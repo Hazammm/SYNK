@@ -71,7 +71,7 @@ export default function SynkShell({ children, userName }: { children: React.Reac
   }, [pathname]);
 
   // Live screens run on real data; everything else is still a sample-data preview.
-  const live = liveTabs.some(tab => tab.href === pathname) || pathname === "/board/backlog" || pathname.startsWith("/tickets/");
+  const live = liveTabs.some(tab => tab.href === pathname) || pathname.startsWith("/board/") || pathname.startsWith("/tickets/");
   if (live) return <div className={styles.app}>
     <header className={styles.topbar}>
       <Link href="/chat" className={styles.brand} aria-label="Synk home"><span className={styles.brandMark}>s</span> synk</Link>
