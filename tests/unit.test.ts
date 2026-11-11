@@ -5,6 +5,7 @@ import { can, type Action } from "../src/lib/permissions";
 import { channelSchema, forgotPasswordSchema, historySchema, messageSchema, registerSchema, resetPasswordSchema } from "../src/lib/validation";
 import { assertSameOrigin, readJson } from "../src/lib/http";
 import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
+import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -139,4 +140,20 @@ test("tracker links keep only the selected values", () => {
   assert.equal(trackerHref("sprints", { workspaceId: "w1", projectId: undefined, ticket: "" }), "/board/backlog?workspaceId=w1");
   assert.equal(trackerHref("board", { workspaceId: "w1", projectId: "p1", boardId: "b1", ticket: "t1" }), "/board?workspaceId=w1&projectId=p1&boardId=b1&ticket=t1");
   assert.equal(initials("Hazam Liaqat Khan"), "HL"); assert.equal(initials("  asra "), "A"); assert.equal(initials(null), "M");
+});
+
+test("sprint days are inclusive, cross month ends and reject backwards ranges", () => {
+  assert.deepEqual(sprintDays("2026-10-30", "2026-11-02"), ["2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]);
+  assert.deepEqual(sprintDays("2026-11-05", "2026-11-05"), ["2026-11-05"]);
+  assert.deepEqual(sprintDays("2026-11-05", "2026-11-04"), []);
+  assert.deepEqual(sprintDays("nonsense", "2026-11-04"), []);
+  assert.equal(sprintDays("2026-01-01", "2027-01-01").length, 92); // capped
+});
+test("burndown counts finished work per day and stops at today", () => {
+  const points = burndown({ startDate: "2026-11-02", endDate: "2026-11-06", total: 4, today: "2026-11-04", completedDays: ["2026-11-01", "2026-11-03", "2026-11-03"] });
+  assert.deepEqual(points.map(point => point.remaining), [3, 1, 1, null, null]); // early work counts from day one
+  assert.deepEqual(points.map(point => point.ideal), [4, 3, 2, 1, 0]);
+  assert.deepEqual(burndown({ startDate: "2026-11-02", endDate: "2026-11-02", total: 2, today: "2026-11-02", completedDays: [] }), [{ date: "2026-11-02", ideal: 2, remaining: 2 }]);
+  assert.equal(burndown({ startDate: "2026-11-02", endDate: "2026-11-03", total: 0, today: "2026-11-09", completedDays: [] }).every(point => point.remaining === 0 && point.ideal === 0), true);
+  assert.equal(percent(1, 3), 33); assert.equal(percent(0, 0), 0);
 });
