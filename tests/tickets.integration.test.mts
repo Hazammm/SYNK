@@ -9,7 +9,7 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 const { db } = await import("../src/lib/db");
 const { createWorkspace, addMember, removeMember } = await import("../src/features/workspaces/service");
 const { createProject, getProject, listProjects, listProjectAccess, setProjectAccess } = await import("../src/features/projects/service");
-const { addComment, createBoard, createSprint, createTicket, findTicketByKey, getTicket, listTickets, updateBoard, updateSprint, updateTicket } = await import("../src/features/tickets/service");
+const { addComment, createBoard, createSprint, createTicket, deleteTicket, findTicketByKey, getTicket, listTickets, updateBoard, updateSprint, updateTicket } = await import("../src/features/tickets/service");
 const { listNotifications, markNotificationsRead } = await import("../src/features/notifications/service");
 
 // admin: workspace admin with WRITE. writer: member with WRITE. reader: member with READ.
@@ -219,6 +219,24 @@ test("access removal hides notifications and unassigns tickets", async () => {
   await rejects(createTicket(temp, ticket("Denied")), 403);
   assert.equal(await db.projectAccess.count({ where: { userId: temp } }), 0);
   assert.equal((await getProject(admin, projectId)).members.some(member => member.id === temp), false);
+});
+
+test("tickets: deleting needs edit access, removes comments and alerts, and never reuses the key", async () => {
+  const doomed = await createTicket(admin, ticket("Delete me", { assigneeId: writer }));
+  await addComment(admin, doomed.id, { body: "Soon gone" });
+  assert.equal((await listNotifications(writer)).notifications.filter(item => item.ticket.id === doomed.id).length, 2);
+
+  await rejects(deleteTicket(reader, doomed.id), 403);
+  await rejects(deleteTicket(bystander, doomed.id), 404);
+  await rejects(deleteTicket(outsider, doomed.id), 404);
+  assert.deepEqual(await deleteTicket(writer, doomed.id), { id: doomed.id, key: doomed.key });
+
+  await rejects(getTicket(admin, doomed.id), 404);
+  await rejects(deleteTicket(admin, doomed.id), 404);
+  assert.equal(await db.comment.count({ where: { ticketId: doomed.id } }), 0);
+  assert.equal((await listNotifications(writer)).notifications.some(item => item.ticket.id === doomed.id), false);
+  const next = await createTicket(admin, ticket("After the delete"));
+  assert.notEqual(next.key, doomed.key);
 });
 
 test("boards: columns can be renamed, reordered, added and removed only when empty", async () => {
