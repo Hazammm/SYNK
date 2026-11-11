@@ -1,25 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  ArrowRight, Check, CheckCheck,
-  ChevronDown, ChevronLeft, ChevronRight, Clock3, Code2, FileText, Heading1,
-  Link2, List, MoreHorizontal, Plus, Send,
-  Sparkles, Timer, Zap, Download,
+  ArrowRight, Check, ChevronLeft, ChevronRight, Code2, FileText, Heading1,
+  Link2, List, MoreHorizontal, Plus, Send, Sparkles, Timer, Download,
 } from "lucide-react";
-import { activity, members, tickets, weekHours, type ThemeName, type TicketStatus } from "@/mocks/data";
+import { members, tickets, weekHours, type ThemeName } from "@/mocks/data";
 import { Avatar, Badge, Button, Card, Input } from "./Primitives";
 import { applyTheme } from "@/lib/theme";
 import styles from "./Synk.module.css";
 
-// Sample-data preview screens. Board, sprints and alerts are live features under src/features.
-type ScreenName = "overview" | "reports" | "docs" | "time" | "settings";
-
-const statuses: TicketStatus[] = ["To do", "In progress", "In review", "Done"];
-const toneFor = (value: string): "neutral" | "done" | "medium" | "high" | "action" =>
-  value === "Done" || value === "Low" ? "done" : value === "High" ? "high" : value === "Medium" ? "medium" : value === "In progress" ? "action" : "neutral";
+// Sample-data preview screens. Overview, board, sprints, reports and alerts are live features under src/features.
+type ScreenName = "docs" | "time" | "settings";
 
 function PageHeader({ title, eyebrow, children }: { title: string; eyebrow?: string; children?: React.ReactNode }) {
   return <div className={styles.pageHeader}><div>{eyebrow && <div className={styles.eyebrow}>{eyebrow}</div>}<h1>{title}</h1></div><div className={styles.headerActions}>{children}</div></div>;
@@ -35,40 +28,6 @@ function downloadCsv(filename: string, rows: string[][]) {
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function Overview() {
-  const router = useRouter();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const toggleTicket = (id: string) => setSelected((current) => {
-    const next = new Set(current);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    return next;
-  });
-  return <>
-    <PageHeader title="FYP Synk" eyebrow="MONDAY, OCTOBER 12, 2025"><span className={styles.sprintPill}><span /> Sprint 3 · 8 days left</span><Button onClick={() => router.push("/docs")}><FileText size={16} /> New doc</Button><Button variant="primary" onClick={() => router.push("/board")}><Plus size={16} /> Ticket</Button></PageHeader>
-    <div className={styles.stats}>
-      {[["Open tickets", "12", "3 due this week"], ["Done", "28", "+6 this sprint"], ["Hours this week", "25.3", "of 40h target"], ["Days left", "8", "Sprint ends Oct 20"]].map(([label, value, foot], index) => <Card className={styles.statCard} key={label}><span className={styles.statIcon}>{[<KanbanMini key="a" />, <CheckCheck key="b" />, <Clock3 key="c" />, <Zap key="d" />][index]}</span><span className={styles.statLabel}>{label}</span><strong>{value}</strong><small>{foot}</small></Card>)}
-    </div>
-    <Card className={styles.sprintCard}><div className={styles.sectionTop}><div><span className={styles.eyebrow}>SPRINT 3</span><h2>Sprint progress</h2></div><span className={styles.progressCaption}>28 of 40 tickets completed <strong>70%</strong></span></div><div className={styles.progress}><span style={{ width: "70%" }} /></div><div className={styles.sprintMeta}><span>Oct 6 – Oct 20</span><span>12 tickets remaining</span></div></Card>
-    <div className={styles.twoColumns}>
-      <Card><div className={styles.sectionTop}><div><h2>My tickets</h2><p className={styles.subtle}>Your assigned work this sprint</p></div><button className={styles.textButton} type="button">View all <ArrowRight size={14} /></button></div><div className={styles.ticketList}>{tickets.slice(0, 4).map((ticket) => <div className={styles.myTicket} key={ticket.id}><button className={`${styles.taskCheck} ${selected.has(ticket.id) ? styles.taskChecked : ""}`} onClick={() => toggleTicket(ticket.id)} type="button" aria-label={`Mark ${ticket.id} complete`}>{selected.has(ticket.id) && <Check size={13} />}</button><div className={styles.myTicketBody}><div><span className={styles.ticketId}>{ticket.id}</span><Badge tone={toneFor(ticket.priority)}>{ticket.priority}</Badge></div><strong>{ticket.title}</strong><small>{ticket.completedSubtasks}/{ticket.subtasks} subtasks · {ticket.status}</small></div><Avatar initials={ticket.assignee.initials} small /></div>)}</div></Card>
-      <Card><div className={styles.sectionTop}><div><h2>Recent activity</h2><p className={styles.subtle}>What’s happening in your project</p></div><button className={styles.iconButton} aria-label="Activity options" type="button"><MoreHorizontal size={18} /></button></div><div className={styles.activityList}>{activity.map((item) => <div className={styles.activityItem} key={item.target}><Avatar initials={item.initials} small /><div><p><strong>{item.name}</strong> {item.action} <a href="/board">{item.target}</a></p><small>{item.time}</small></div></div>)}</div></Card>
-    </div>
-  </>;
-}
-
-function KanbanMini() { return <span className={styles.kanbanMini}><i /><i /><i /></span>; }
-
-function Reports() {
-  return <>
-    <PageHeader title="Sprint reports"><div className={styles.selectWrap}><select aria-label="Choose sprint"><option>Sprint 3 · Oct 6–20</option><option>Sprint 2 · Sep 22–Oct 5</option></select><ChevronDown size={14} /></div><Button onClick={() => downloadCsv("synk-sprint-3.csv", [["Status", "Tickets"], ...statuses.map((status, index) => [status, String([6, 4, 2, 28][index])])])}><Download size={16} /> Export CSV</Button></PageHeader>
-    <div className={styles.stats}>{[["Committed", "40", "tickets"], ["Completed", "28", "70% complete"], ["Added mid-sprint", "4", "tickets"], ["Velocity", "32", "story points"]].map(([label, value, foot]) => <Card className={styles.statCard} key={label}><span className={styles.statLabel}>{label}</span><strong>{value}</strong><small>{foot}</small></Card>)}</div>
-    <div className={styles.reportGrid}><Card><div className={styles.sectionTop}><div><h2>Burndown</h2><p className={styles.subtle}>Remaining work over the sprint</p></div><div className={styles.chartLegend}><span><i /> Ideal</span><span><i /> Remaining</span></div></div><svg className={styles.chart} viewBox="0 0 560 210" role="img" aria-label="Burndown chart"><path className={styles.chartGrid} d="M40 20H550M40 65H550M40 110H550M40 155H550M40 200H550" /><path className={styles.idealLine} d="M40 28L550 190" /><path className={styles.remainingLine} d="M40 28L110 42L180 52L250 82L320 102L390 118L460 156L550 176" /><text x="40" y="207">Oct 6</text><text x="260" y="207">Oct 13</text><text x="510" y="207">Oct 20</text></svg></Card>
-      <Card><div className={styles.sectionTop}><div><h2>Velocity</h2><p className={styles.subtle}>Story points completed</p></div></div><svg className={styles.chart} viewBox="0 0 380 210" role="img" aria-label="Velocity bar chart"><path className={styles.chartGrid} d="M30 40H370M30 90H370M30 140H370M30 190H370" /><rect className={styles.bar} x="65" y="78" width="45" height="112" rx="5" /><rect className={styles.bar} x="145" y="53" width="45" height="137" rx="5" /><rect className={styles.barActive} x="225" y="65" width="45" height="125" rx="5" /><rect className={styles.barFaint} x="305" y="38" width="45" height="152" rx="5" /><text x="65" y="207">Sprint 1</text><text x="145" y="207">Sprint 2</text><text x="225" y="207">Sprint 3</text><text x="305" y="207">Sprint 4</text></svg></Card>
-      <Card><div className={styles.sectionTop}><div><h2>Tickets by status</h2><p className={styles.subtle}>Sprint 3 distribution</p></div></div><div className={styles.stackedBar}><span /><span /><span /><span /></div><div className={styles.statusLegend}>{statuses.map((status, index) => <span key={status}><i className={styles[`legend${index}`]} />{status}<strong>{[6, 4, 2, 28][index]}</strong></span>)}</div></Card></div>
-  </>;
 }
 
 function Docs() {
@@ -127,8 +86,6 @@ function Settings() {
 
 export default function SynkScreen({ screen }: { screen: ScreenName }) {
   return <div className={styles.screen}>
-    {screen === "overview" && <Overview />}
-    {screen === "reports" && <Reports />}
     {screen === "docs" && <Docs />}
     {screen === "time" && <Time />}
     {screen === "settings" && <Settings />}

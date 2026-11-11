@@ -20,14 +20,6 @@ export interface Ticket {
   description: string;
 }
 
-export interface Activity {
-  name: string;
-  initials: string;
-  action: string;
-  target: string;
-  time: string;
-}
-
 export const members: TeamMember[] = [
   { name: "Maya Chen", initials: "MC", role: "Designer" },
   { name: "Alex Rivera", initials: "AR", role: "Developer" },
@@ -113,13 +105,6 @@ export const tickets: Ticket[] = [
     points: 3,
     description: "Summarize interview findings and share key product opportunities.",
   },
-];
-
-export const activity: Activity[] = [
-  { name: "Maya Chen", initials: "MC", action: "moved", target: "SYN-12 Login UI to In progress", time: "12 min ago" },
-  { name: "Alex Rivera", initials: "AR", action: "commented on", target: "SYN-18 Update onboarding flow", time: "38 min ago" },
-  { name: "Jordan Lee", initials: "JL", action: "created", target: "Sprint 3 planning doc", time: "2 hours ago" },
-  { name: "Sam Patel", initials: "SP", action: "completed", target: "SYN-04 Set up project repo", time: "Yesterday" },
 ];
 
 export const weekHours = [
