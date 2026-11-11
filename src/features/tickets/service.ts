@@ -147,7 +147,8 @@ export async function updateSprint(userId: string, sprintId: string, input: unkn
       data.state = "COMPLETED";
       data.completedAt = new Date();
       // Unfinished work returns to the backlog; finished tickets stay as the sprint's record.
-      await tx.ticket.updateMany({ where: { sprintId, column: { isDone: false } }, data: { sprintId: null } });
+      const { count } = await tx.ticket.updateMany({ where: { sprintId, column: { isDone: false } }, data: { sprintId: null } });
+      data.carriedOver = count; // kept for the sprint report, which can no longer see those tickets
     }
     return serializeSprint(await tx.sprint.update({ where: { id: sprintId }, data }));
   });
