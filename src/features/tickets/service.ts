@@ -234,6 +234,17 @@ export async function updateTicket(userId: string, ticketId: string, input: unkn
   });
 }
 
+// Comments and notifications go with the ticket. Its key is never reused, because numbering only moves forward.
+export async function deleteTicket(userId: string, ticketId: string): Promise<{ id: string; key: string }> {
+  return db.$transaction(async tx => {
+    const { ticket } = await requireTicket(userId, ticketId, "ticket:delete", tx);
+    // deleteMany reports a count instead of throwing, so losing a race with another delete is a clean 404.
+    const { count } = await tx.ticket.deleteMany({ where: { id: ticketId } });
+    if (!count) throw new AppError(404, "Ticket not found.");
+    return { id: ticket.id, key: ticket.key };
+  });
+}
+
 // ── Comments ─────────────────────────────────────────────────────────────────
 
 export async function addComment(userId: string, ticketId: string, input: unknown): Promise<TicketComment> {
