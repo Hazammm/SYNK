@@ -6,6 +6,7 @@ import { channelSchema, forgotPasswordSchema, historySchema, messageSchema, regi
 import { assertSameOrigin, readJson } from "../src/lib/http";
 import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
 import { burndown, percent, sprintDays } from "../src/features/reports/calc";
+import { toCsv } from "../src/lib/csv";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -156,4 +157,10 @@ test("burndown counts finished work per day and stops at today", () => {
   assert.deepEqual(burndown({ startDate: "2026-11-02", endDate: "2026-11-02", total: 2, today: "2026-11-02", completedDays: [] }), [{ date: "2026-11-02", ideal: 2, remaining: 2 }]);
   assert.equal(burndown({ startDate: "2026-11-02", endDate: "2026-11-03", total: 0, today: "2026-11-09", completedDays: [] }).every(point => point.remaining === 0 && point.ideal === 0), true);
   assert.equal(percent(1, 3), 33); assert.equal(percent(0, 0), 0);
+});
+
+test("CSV export quotes every cell and defuses spreadsheet formulas", () => {
+  assert.equal(toCsv([["Key", "Title"], ["SYN-1", 'Say "hi", then leave']]), '"Key","Title"\r\n"SYN-1","Say ""hi"", then leave"');
+  assert.equal(toCsv([["=HYPERLINK(1)", "+1", "-2", "@x", 5, -3, null]]), `"'=HYPERLINK(1)","'+1","'-2","'@x","5","-3",""`);
+  assert.equal(toCsv([["line\nbreak"]]), '"line\nbreak"');
 });
