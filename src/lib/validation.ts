@@ -107,3 +107,4 @@ export const commentSchema = z.object({
   mentionIds: z.array(idSchema).max(20).default([]),
 }).strict();
 export const notificationReadSchema = z.object({ ids: z.array(idSchema).min(1).max(100).optional() }).strict();
+export const reportQuerySchema = z.object({ sprintId: idSchema.optional() }).strict();
