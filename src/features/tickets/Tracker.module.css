@@ -214,3 +214,11 @@
 .meter span { display: block; height: 100%; border-radius: inherit; background: var(--link); }
 .meter span[data-done="true"] { background: var(--done); }
 @media (max-width: 900px) { .reportGrid { grid-template-columns: minmax(0, 1fr); } }
+.flushRows { margin: 10px -16px -8px; }
+.flushRows li:first-child { border-top: 0; }
+a.rowTitle { text-decoration: none; }
+.due { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.due[data-overdue="true"] { color: var(--high); font-weight: 650; }
+.breakdown a { color: var(--text); font-weight: 600; }
+.breakdown a:hover { color: var(--link); }
+.breakdown li > small { grid-column: 1 / -1; }

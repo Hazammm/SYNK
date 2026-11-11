@@ -22,6 +22,7 @@ const themes: { id: ThemeName; label: string }[] = [
 ];
 
 const liveTabs = [
+  { label: "Overview", href: "/overview" },
   { label: "Chat", href: "/chat" },
   { label: "Board", href: "/board" },
   { label: "Alerts", href: "/alerts" },
@@ -82,7 +83,7 @@ export default function SynkShell({ children, userName }: { children: React.Reac
             {tab.label}{tab.href === "/alerts" && unread > 0 && <span className={styles.tabCount}>{unread > 99 ? "99+" : unread}<span className={styles.srOnly}> unread</span></span>}
           </Link>;
         })}
-        <Link href="/overview" className={styles.topTab}>Product preview</Link>
+        <Link href="/docs" className={styles.topTab}>Product preview</Link>
       </nav>
       <span className={styles.liveUser}>{userName}</span><button className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
     </header>
