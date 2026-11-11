@@ -239,6 +239,37 @@ test("tickets: deleting needs edit access, removes comments and alerts, and neve
   assert.notEqual(next.key, doomed.key);
 });
 
+test("tickets: completion time is set in done columns and cleared when work is reopened", async () => {
+  const [todo, , review, done] = columns;
+  const started = await createTicket(admin, ticket("Track completion"));
+  assert.equal(started.completedAt, null);
+  assert.equal((await updateTicket(admin, started.id, { columnId: review.id })).completedAt, null);
+
+  const finished = await updateTicket(admin, started.id, { columnId: done.id });
+  assert.ok(finished.completedAt);
+  // Editing other fields or reordering inside Done keeps the original time.
+  assert.equal((await updateTicket(admin, started.id, { title: "Tracked", position: 0 })).completedAt, finished.completedAt);
+  assert.equal((await updateTicket(admin, started.id, { columnId: todo.id })).completedAt, null);
+
+  assert.ok((await createTicket(admin, ticket("Born done", { columnId: done.id }))).completedAt);
+});
+
+test("boards: marking a column as done completes its tickets, and unmarking reopens them", async () => {
+  const board = await createBoard(admin, projectId, { name: "Done flags", columns: [{ name: "Open" }, { name: "Shipped" }] });
+  const [open, shipped] = board.columns;
+  const item = await createTicket(admin, { boardId: board.id, title: "Flag me", columnId: shipped.id });
+  assert.equal(item.completedAt, null);
+  const flag = (isDone: boolean) => updateBoard(admin, board.id, { columns: [{ id: open.id, name: "Open" }, { id: shipped.id, name: "Shipped", isDone }] });
+
+  await flag(true);
+  const completedAt = (await getTicket(admin, item.id)).completedAt;
+  assert.ok(completedAt);
+  await updateBoard(admin, board.id, { name: "Done flags renamed" }); // unrelated edits leave the time alone
+  assert.equal((await getTicket(admin, item.id)).completedAt, completedAt);
+  await flag(false);
+  assert.equal((await getTicket(admin, item.id)).completedAt, null);
+});
+
 test("boards: columns can be renamed, reordered, added and removed only when empty", async () => {
   const board = await createBoard(writer, projectId, { name: "Configurable", columns: [{ name: "Backlog" }, { name: "Doing" }, { name: "Shipped", isDone: true }] });
   const [backlog, doing, shipped] = board.columns;
