@@ -18,7 +18,7 @@ export function serializeBoard(board: BoardRecord): BoardSummary {
   return { id: board.id, name: board.name, columns: board.columns.map(({ id, name, position, isDone }) => ({ id, name, position, isDone })) };
 }
 export function serializeSprint(sprint: Prisma.SprintGetPayload<object>): SprintSummary {
-  return { id: sprint.id, name: sprint.name, goal: sprint.goal, startDate: isoDate(sprint.startDate), endDate: isoDate(sprint.endDate), state: sprint.state, completedAt: sprint.completedAt?.toISOString() ?? null };
+  return { id: sprint.id, name: sprint.name, goal: sprint.goal, startDate: isoDate(sprint.startDate), endDate: isoDate(sprint.endDate), state: sprint.state, completedAt: sprint.completedAt?.toISOString() ?? null, carriedOver: sprint.carriedOver };
 }
 
 export function createBoardRecord(database: Database, projectId: string, name: string, columns = DEFAULT_COLUMNS) {

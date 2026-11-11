@@ -27,7 +27,7 @@ function serializeTicket(row: SummaryRecord): TicketSummary {
   return {
     id: row.id, key: row.key, projectId: row.projectId, boardId: row.boardId, columnId: row.columnId, sprintId: row.sprintId,
     title: row.title, priority: row.priority, position: row.position, dueDate: row.dueDate ? isoDate(row.dueDate) : null,
-    assignee: row.assignee, commentCount: row._count.comments,
+    completedAt: row.completedAt?.toISOString() ?? null, assignee: row.assignee, commentCount: row._count.comments,
   };
 }
 const serializeComment = (row: CommentRecord): TicketComment => ({ id: row.id, body: row.body, createdAt: row.createdAt.toISOString(), author: row.author });
@@ -102,7 +102,13 @@ export async function updateBoard(userId: string, boardId: string, input: unknow
         await tx.boardColumn.delete({ where: { id: column.id } });
       }
       for (const [position, { id, ...column }] of data.columns.entries()) {
-        if (id) await tx.boardColumn.update({ where: { id }, data: { ...column, position } });
+        if (id) {
+          await tx.boardColumn.update({ where: { id }, data: { ...column, position } });
+          // Changing what counts as done changes which of the column's tickets are completed.
+          if (board.columns.find(existing => existing.id === id)!.isDone !== column.isDone) {
+            await tx.ticket.updateMany({ where: { columnId: id, ...(column.isDone && { completedAt: null }) }, data: { completedAt: column.isDone ? new Date() : null } });
+          }
+        }
         else await tx.boardColumn.create({ data: { ...column, position, boardId } });
       }
     }
@@ -182,6 +188,7 @@ export async function createTicket(userId: string, input: unknown): Promise<Tick
       data: {
         ...data, projectId: project.id, boardId, columnId: column.id, reporterId: userId,
         key: `${project.key}-${nextTicketNumber - 1}`, position: (last._max.position ?? -1) + 1,
+        completedAt: column.isDone ? new Date() : null,
       },
       include: detailInclude,
     });
@@ -216,7 +223,10 @@ export async function updateTicket(userId: string, ticketId: string, input: unkn
     if (columnId !== undefined || position !== undefined) {
       await lockBoard(tx, ticket.boardId);
       const target = columnId ?? ticket.columnId;
-      if (!(await tx.boardColumn.findFirst({ where: { id: target, boardId: ticket.boardId } }))) throw new AppError(400, "That status column does not belong to this board.");
+      const column = await tx.boardColumn.findFirst({ where: { id: target, boardId: ticket.boardId } });
+      if (!column) throw new AppError(400, "That status column does not belong to this board.");
+      // Entering a done column stamps the completion time; leaving clears it. Moving between done columns keeps it.
+      if (target !== ticket.columnId) data.completedAt = column.isDone ? ticket.completedAt ?? new Date() : null;
       // Re-read the column inside the lock, insert the ticket at the requested index and renumber.
       const others = await tx.ticket.findMany({ where: { columnId: target, id: { not: ticketId } }, orderBy: ticketOrder, select: { id: true, position: true } });
       const index = Math.min(position ?? others.length, others.length);
