@@ -20,23 +20,6 @@ export interface Ticket {
   description: string;
 }
 
-export interface Activity {
-  name: string;
-  initials: string;
-  action: string;
-  target: string;
-  time: string;
-}
-
-export interface Notification {
-  id: number;
-  kind: "Mention" | "Ticket" | "Doc";
-  title: string;
-  detail: string;
-  time: string;
-  unread: boolean;
-}
-
 export const members: TeamMember[] = [
   { name: "Maya Chen", initials: "MC", role: "Designer" },
   { name: "Alex Rivera", initials: "AR", role: "Developer" },
@@ -122,20 +105,6 @@ export const tickets: Ticket[] = [
     points: 3,
     description: "Summarize interview findings and share key product opportunities.",
   },
-];
-
-export const activity: Activity[] = [
-  { name: "Maya Chen", initials: "MC", action: "moved", target: "SYN-12 Login UI to In progress", time: "12 min ago" },
-  { name: "Alex Rivera", initials: "AR", action: "commented on", target: "SYN-18 Update onboarding flow", time: "38 min ago" },
-  { name: "Jordan Lee", initials: "JL", action: "created", target: "Sprint 3 planning doc", time: "2 hours ago" },
-  { name: "Sam Patel", initials: "SP", action: "completed", target: "SYN-04 Set up project repo", time: "Yesterday" },
-];
-
-export const notifications: Notification[] = [
-  { id: 1, kind: "Mention", title: "Maya Chen mentioned you", detail: "“Alex, could you review the new login states?” in #design", time: "8 min ago", unread: true },
-  { id: 2, kind: "Ticket", title: "SYN-12 was assigned to you", detail: "Login UI · Sprint 3", time: "42 min ago", unread: true },
-  { id: 3, kind: "Doc", title: "Sprint 3 planning was updated", detail: "Jordan Lee edited the project brief", time: "2 hours ago", unread: false },
-  { id: 4, kind: "Ticket", title: "SYN-09 is ready for review", detail: "Dashboard wireframes · In review", time: "Yesterday", unread: false },
 ];
 
 export const weekHours = [

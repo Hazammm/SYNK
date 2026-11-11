@@ -40,7 +40,9 @@ jobs:
       - run: npm test
       - run: npm run test:integration
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      # The runner image already has Chromium's system libraries; --with-deps only adds extra fonts through apt.
+      # If the Ubuntu mirrors are unreachable, give up after four minutes and install just the browser.
+      - run: timeout 240 npx playwright install --with-deps chromium || npx playwright install chromium
       - run: npm run test:e2e
         env:
           # Required by npm start; the browser tests never request a reset email.

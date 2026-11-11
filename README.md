@@ -1,6 +1,6 @@
 # SYNK
 
-AI-powered team workspace. This branch implements the PRD's **critical-path chat module** and the authentication, membership and database foundation it requires.
+AI-powered team workspace. It implements the PRD's **critical-path chat module**, **issue tracking with sprint reports**, and the authentication, membership and database foundation they require.
 
 ## What is functional
 
@@ -11,9 +11,14 @@ AI-powered team workspace. This branch implements the PRD's **critical-path chat
 - REST history with cursor pagination and Socket.IO live delivery. Reconnect reloads the newest page; older history remains available through pagination.
 - Shared access checks. Workspace membership is required, and channel membership is separately required for reading, writing and subscribing. Admins do not bypass channel membership.
 - Retry-safe message creation using a client UUID, plus UI deduplication of REST and socket responses.
-- Ticket-key links such as `SYN-101` open a real, permission-checked read-only ticket page. The demo seed provides a ticket; issue-tracking CRUD remains future work.
+- Ticket-key links such as `SYN-101` in chat open the ticket on its board, if the reader has access to its project.
+- Projects with read or edit access per person, boards with configurable columns, and tickets with drag and drop, filters, comments, @mentions and deletion.
+- Sprints with progress, and a Reports view with a burndown, velocity, breakdowns and CSV export.
+- An overview of your open tickets and active sprints, and in-app alerts for assignments, comments and mentions.
 
-The original overview, board, docs, alerts, time and settings screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The LangGraph AI agent is a later milestone.
+See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated.
+
+The docs, time and settings screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The LangGraph AI agent is a later milestone.
 
 ## Local setup
 
@@ -45,7 +50,7 @@ Set `SEED_DEMO_PASSWORD` in `.env` (at least 10 characters and at most 72 UTF-8 
 npm run db:seed
 ```
 
-Accounts: `admin@synk.test`, `member@synk.test`, `outsider@synk.test`. The first two share a workspace and project; the third belongs to a different workspace. `SYN-101` is a real seeded ticket. Seeding is opt-in, idempotent, does not overwrite existing passwords and refuses production mode.
+Accounts: `admin@synk.test`, `member@synk.test`, `outsider@synk.test`. The first two share a workspace and project; the third belongs to a different workspace. `SYN-101` is a real seeded ticket, and a running `Sprint 4` with finished and open tickets gives the reports and overview something to show. Seeding is opt-in, idempotent, does not overwrite existing passwords and refuses production mode.
 
 ### OAuth
 

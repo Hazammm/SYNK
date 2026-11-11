@@ -1,11 +1,13 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { notFound, redirect } from "next/navigation";
+import { findTicketByKey } from "@/features/tickets/service";
+import { trackerHref } from "@/features/tickets/ui";
 import { requirePageUser } from "@/lib/session";
 
 // Session checks and redirects intentionally wait for the current request.
 export const instant = false;
 
+// Chat links such as /tickets/SYN-12?workspaceId=… land here. The ticket opens on its
+// board; a key the reader cannot access is indistinguishable from one that does not exist.
 export default async function TicketReference({ params, searchParams }: {
   params: Promise<{ key: string }>;
   searchParams: Promise<{ workspaceId?: string }>;
@@ -13,12 +15,7 @@ export default async function TicketReference({ params, searchParams }: {
   const user = await requirePageUser();
   const { key } = await params;
   const { workspaceId } = await searchParams;
-  if (!workspaceId) notFound();
-  const tickets = await db.ticket.findMany({ where: {
-    key, project: { workspaceId, access: { some: { userId: user.id } }, workspace: { memberships: { some: { userId: user.id } } } },
-  }, select: { id: true, key: true, title: true, description: true, status: true, project: { select: { name: true } } } });
-  if (!tickets.length) notFound();
-  return <section style={{ padding: 32 }}><Link href={`/chat?workspaceId=${encodeURIComponent(workspaceId)}`}>← Back to chat</Link>
-    {tickets.map(ticket => <article key={ticket.id}><p>{ticket.project.name} · {ticket.key} · {ticket.status}</p><h1>{ticket.title}</h1><p style={{ whiteSpace: "pre-wrap" }}>{ticket.description}</p></article>)}
-  </section>;
+  const ticket = workspaceId ? await findTicketByKey(user.id, workspaceId, key) : null;
+  if (!ticket) notFound();
+  redirect(trackerHref("board", { workspaceId, projectId: ticket.projectId, boardId: ticket.boardId, ticket: ticket.id }));
 }
