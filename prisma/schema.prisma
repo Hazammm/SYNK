@@ -252,6 +252,8 @@ model Sprint {
   endDate     DateTime    @db.Date
   state       SprintState @default(PLANNED)
   completedAt DateTime?
+  // Unfinished tickets returned to the backlog when the sprint was completed.
+  carriedOver Int?
   createdAt   DateTime    @default(now())
   project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tickets     Ticket[]
@@ -277,6 +279,8 @@ model Ticket {
   reporterId    String?
   dueDate       DateTime?      @db.Date
   position      Int            @default(0)
+  // Set while the ticket sits in a done column; sprint reports chart it.
+  completedAt   DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
