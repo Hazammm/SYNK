@@ -30,7 +30,8 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await admin.getByRole("button", { name: "Continue", exact: true }).click();
     await admin.getByLabel("Workspace name").fill(workspaceName);
     await admin.getByRole("button", { name: "Continue", exact: true }).click();
-    await admin.getByRole("button", { name: "Create workspace", exact: true }).click();
+    await admin.getByLabel("Teammate email").fill("invalid-email");
+    await admin.getByRole("button", { name: "Skip for now", exact: true }).click();
     await expect(admin).toHaveURL(/\/overview/);
     await admin.goto("/chat");
     await expect(admin.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
@@ -86,7 +87,7 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await member.getByRole("button", { name: "Join channel", exact: true }).click();
     await expect(member.getByText("Live", { exact: true })).toBeVisible();
     await expect(admin.getByText("Live", { exact: true })).toBeVisible();
-    const message = `Live delivery ${nonce} — check SYN-101`;
+    const message = `Live delivery ${nonce} — check the update`;
     const start = Date.now();
     await admin.getByLabel("Message", { exact: true }).fill(message);
     await admin.getByRole("button", { name: "Send message", exact: true }).click();

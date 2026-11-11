@@ -21,6 +21,16 @@ export const createWorkspaceSchema = z.object({
     ctx.addIssue({ code: "custom", path: ["inviteEmails"], message: "Use a different email address for each teammate." });
   }
 });
+
+/**
+ * Schema for workspace creation when the user authenticated via Google.
+ * No password — the account is Google-only.
+ */
+export const createWorkspaceGoogleSchema = z.object({
+  workspaceName: z.string().trim().min(1).max(80),
+  projectName: z.string().trim().min(1).max(80).default("My first project"),
+  inviteEmails: inviteEmailListSchema.default([]),
+}).strict();
 export const inviteEmailsSchema = z.object({
   emails: inviteEmailListSchema.refine(emails => emails.length > 0, "Add at least one teammate email."),
 }).strict();

@@ -22,7 +22,7 @@ export default function JoinInviteForm({ token, email }: { token: string; email:
     setBusy(true);
     setError("");
     try {
-      await request(`/api/invites/${encodeURIComponent(token)}/accept`, {
+      const res = await request<{ workspace: { id: string }; welcomeEmailFailed: boolean }>(`/api/invites/${encodeURIComponent(token)}/accept`, {
         method: "POST",
         body: JSON.stringify({ name, password }),
       });
@@ -32,7 +32,9 @@ export default function JoinInviteForm({ token, email }: { token: string; email:
         router.refresh();
         return;
       }
-      router.replace("/overview");
+      router.replace(res.welcomeEmailFailed
+        ? `/w/${res.workspace.id}/settings?welcomeEmail=failed`
+        : `/w/${res.workspace.id}/overview`);
       router.refresh();
     } catch (cause) {
       setError(messageOf(cause));

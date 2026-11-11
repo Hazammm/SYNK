@@ -14,6 +14,9 @@ export async function createWorkspace(userId: string, input: unknown) {
   return db.$transaction(async tx => {
     const workspace = await tx.workspace.create({ data: { ...data, createdById: userId } });
     await tx.membership.create({ data: { workspaceId: workspace.id, userId, role: "ADMIN" } });
+    await tx.user.update({ where: { id: userId }, data: { lastActiveWorkspaceId: workspace.id } });
+    const project = await tx.project.create({ data: { workspaceId: workspace.id, name: "General" } });
+    await tx.projectAccess.create({ data: { projectId: project.id, userId, level: "WRITE" } });
     const channel = await tx.channel.create({ data: { workspaceId: workspace.id, createdById: userId, name: "general", description: "Updates and conversations for everyone." } });
     await tx.channelMember.create({ data: { workspaceId: workspace.id, channelId: channel.id, userId } });
     return { ...workspace, role: "ADMIN" as const };

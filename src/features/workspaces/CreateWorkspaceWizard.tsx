@@ -23,12 +23,19 @@ function passwordStrength(password: string) {
   ].filter(Boolean).length;
 }
 
-export default function CreateWorkspaceWizard() {
+interface Props {
+  /** Set when the user came from Google OAuth and has a pending cookie. */
+  googleMode?: boolean;
+  googleName?: string;
+  googleEmail?: string;
+}
+
+export default function CreateWorkspaceWizard({ googleMode, googleName = "", googleEmail = "" }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [step, setStep] = useState(0);
-  const [adminName, setAdminName] = useState("");
-  const [email, setEmail] = useState("");
+  const [adminName, setAdminName] = useState(googleName);
+  const [email, setEmail] = useState(googleEmail);
   const [password, setPassword] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [projectName, setProjectName] = useState("My first project");
@@ -72,25 +79,51 @@ export default function CreateWorkspaceWizard() {
     setBusy(true);
     setError("");
     try {
-      const body = {
-        adminName,
-        email,
-        password,
-        workspaceName,
-        projectName,
-        inviteEmails: skipInvites ? [] : inviteEmails,
-      };
+      // Google mode: no password — the server reads the Google profile from the httpOnly cookie.
+      const body = googleMode
+        ? { workspaceName, projectName, inviteEmails: skipInvites ? [] : inviteEmails }
+        : { adminName, email, password, workspaceName, projectName, inviteEmails: skipInvites ? [] : inviteEmails };
+
       const result = await request<{
-        emailDelivery: { failedEmails: string[] };
+        workspace: { id: string; name: string };
+        emailDelivery?: { failedEmails?: string[] };
+        welcomeEmailFailed?: boolean;
       }>("/api/workspaces", { method: "POST", body: JSON.stringify(body) });
+      const failedInviteEmails = result.emailDelivery?.failedEmails ?? [];
+      const welcomeEmailFailed = result.welcomeEmailFailed ?? false;
+
+      if (googleMode) {
+        // The workspace and Account row are created; now sign the user in via Google
+        // so the JWT is established.  callbackUrl sends them straight to the new workspace.
+        const failures = new URLSearchParams();
+        if (failedInviteEmails.length) {
+          failures.set("section", "Members");
+          failures.set("inviteDelivery", "failed");
+        }
+        if (welcomeEmailFailed) failures.set("welcomeEmail", "failed");
+        const query = failures.toString();
+        const destination = query
+          ? `/w/${result.workspace.id}/settings?${query}`
+          : `/w/${result.workspace.id}/overview`;
+        await signIn("google", { callbackUrl: destination, redirect: true });
+        return;
+      }
+
       const login = await signIn("credentials", { email, password, redirect: false });
       if (!login?.ok || login.error) {
         routerToLogin();
         return;
       }
-      const destination = result.emailDelivery.failedEmails.length
-        ? "/settings?section=Members&inviteDelivery=failed"
-        : "/overview";
+      const failures = new URLSearchParams();
+      if (failedInviteEmails.length) {
+        failures.set("section", "Members");
+        failures.set("inviteDelivery", "failed");
+      }
+      if (welcomeEmailFailed) failures.set("welcomeEmail", "failed");
+      const query = failures.toString();
+      const destination = query
+        ? `/w/${result.workspace.id}/settings?${query}`
+        : `/w/${result.workspace.id}/overview`;
       router.replace(destination);
       router.refresh();
     } catch (cause) {
@@ -112,7 +145,7 @@ export default function CreateWorkspaceWizard() {
     <section className={`${styles.authCard} ${styles.wizardCard}`}>
       <div className={styles.logo}>s</div>
       <h1>Create your workspace</h1>
-      <p className={styles.tagline}>Set up your team’s home on Synk.</p>
+      <p className={styles.tagline}>Set up your team&apos;s home on Synk.</p>
       <ol className={styles.wizardSteps} aria-label="Workspace setup progress">
         {steps.map((label, index) => <li className={index === step ? styles.stepActive : index < step ? styles.stepComplete : ""} key={label}>
           <span>{index + 1}</span><small>{label}</small>
@@ -125,11 +158,23 @@ export default function CreateWorkspaceWizard() {
       }}>
         {step === 0 && <div className={styles.wizardFields}>
           <label className={styles.field}><span>Full name</span><div className={styles.inputWrap}><UserRound size={17} /><Input autoComplete="name" placeholder="Your name" required maxLength={80} value={adminName} onChange={event => setAdminName(event.target.value)} /></div></label>
-          <label className={styles.field}><span>Work email</span><div className={styles.inputWrap}><Mail size={17} /><Input type="email" autoComplete="email" placeholder="you@company.com" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /></div></label>
-          <label className={styles.field}><span>Password</span><div className={styles.inputWrap}><Input type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="At least 8 characters" required minLength={8} maxLength={72} value={password} onChange={event => setPassword(event.target.value)} /><button className={styles.eye} onClick={() => setShowPassword(value => !value)} type="button" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
-          <div className={styles.strength} aria-label={`Password strength: ${strength} of 4`}>
-            <span>Password strength</span><div className={styles.meter}>{[0, 1, 2, 3].map(index => <i className={index < strength ? styles.filled : ""} key={index} />)}</div>
-          </div>
+          {googleMode
+            ? <label className={styles.field}>
+                <span>Email</span>
+                <div className={`${styles.inputWrap} ${styles.inputReadOnly}`}>
+                  <Mail size={17} />
+                  <Input type="email" autoComplete="off" value={googleEmail} readOnly tabIndex={-1} />
+                </div>
+                <span className={styles.fieldHint}>Signed in with Google — email cannot be changed.</span>
+              </label>
+            : <label className={styles.field}><span>Work email</span><div className={styles.inputWrap}><Mail size={17} /><Input type="email" autoComplete="email" placeholder="you@company.com" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /></div></label>
+          }
+          {!googleMode && <>
+            <label className={styles.field}><span>Password</span><div className={styles.inputWrap}><Input type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="At least 8 characters" required minLength={8} maxLength={72} value={password} onChange={event => setPassword(event.target.value)} /><button className={styles.eye} onClick={() => setShowPassword(value => !value)} type="button" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+            <div className={styles.strength} aria-label={`Password strength: ${strength} of 4`}>
+              <span>Password strength</span><div className={styles.meter}>{[0, 1, 2, 3].map(index => <i className={index < strength ? styles.filled : ""} key={index} />)}</div>
+            </div>
+          </>}
         </div>}
         {step === 1 && <div className={styles.wizardFields}>
           <label className={styles.field}><span>Workspace name</span><div className={styles.inputWrap}><Building2 size={17} /><Input placeholder="Your team name" required maxLength={80} value={workspaceName} onChange={event => setWorkspaceName(event.target.value)} /></div></label>

@@ -1,5 +1,12 @@
-import SynkScreen from "@/components/SynkScreen";
+import { redirect } from "next/navigation";
+import { requirePageUser } from "@/lib/session";
+import { resolveActiveWorkspace } from "@/lib/workspace-context";
 
-export default function TimePage() {
-  return <SynkScreen screen="time" />;
+export const instant = false;
+
+export default async function TimePage() {
+  const user = await requirePageUser();
+  const targetId = await resolveActiveWorkspace(user.id);
+  if (!targetId) redirect("/create-workspace");
+  redirect(`/w/${targetId}/time`);
 }

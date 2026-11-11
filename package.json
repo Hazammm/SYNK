@@ -11,7 +11,6 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:dev": "prisma migrate dev",
-    "db:seed": "node --import tsx prisma/seed.ts",
     "test": "node --import tsx --test tests/unit.test.ts",
     "test:integration": "node --import tsx --test tests/integration.test.mts",
     "test:e2e": "playwright test"

@@ -3,7 +3,7 @@ import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { createInviteToken, hashInviteToken } from "@/lib/invite-token";
-import { assertMailerConfigured, sendWorkspaceInvite } from "@/lib/mailer";
+import { assertMailerConfigured, sendWelcomeEmail, sendWorkspaceInvite } from "@/lib/mailer";
 import { inviteEmailsSchema, inviteTokenSchema, acceptInviteSchema } from "@/lib/validation";
 import { requireWorkspace } from "@/lib/permissions";
 import { rateLimit } from "@/lib/rate-limit";
@@ -172,31 +172,51 @@ export async function acceptInvite(inputToken: unknown, input: unknown) {
   const tokenHash = hashInviteToken(token);
   await expireInvite(tokenHash);
   const passwordHash = await hash(password, 12);
-  try {
-    return await db.$transaction(async tx => {
-      const invitation = await claimPendingInvite(tx, tokenHash);
-      if (await tx.user.findFirst({
-        where: { email: { equals: invitation.email, mode: "insensitive" } },
-        select: { id: true },
-      })) {
-        throw new AppError(409, "This email already has an account. Sign in to join.");
+  const created = await (async () => {
+    try {
+      return await db.$transaction(async tx => {
+        const invitation = await claimPendingInvite(tx, tokenHash);
+        if (await tx.user.findFirst({
+          where: { email: { equals: invitation.email, mode: "insensitive" } },
+          select: { id: true },
+        })) {
+          throw new AppError(409, "This email already has an account. Sign in to join.");
+        }
+        const user = await tx.user.create({
+          data: { name, email: invitation.email, passwordHash },
+          select: { id: true, name: true, email: true },
+        });
+        await tx.membership.create({
+          data: { userId: user.id, workspaceId: invitation.workspaceId, role: "MEMBER" },
+        });
+        await grantProjectReadAccess(tx, invitation.workspaceId, user.id);
+        await tx.user.update({
+          where: { id: user.id },
+          data: { lastActiveWorkspaceId: invitation.workspaceId },
+        });
+        return { user, workspace: invitation.workspace };
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new AppError(409, "This invitation could not be accepted. Sign in to join.");
       }
-      const user = await tx.user.create({
-        data: { name, email: invitation.email, passwordHash },
-        select: { id: true, name: true, email: true },
-      });
-      await tx.membership.create({
-        data: { userId: user.id, workspaceId: invitation.workspaceId, role: "MEMBER" },
-      });
-      await grantProjectReadAccess(tx, invitation.workspaceId, user.id);
-      return { user, workspace: invitation.workspace };
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      throw new AppError(409, "This invitation could not be accepted. Sign in to join.");
+      throw error;
     }
-    throw error;
+  })();
+
+  let welcomeEmailFailed = false;
+  try {
+    if (!created.user.email) throw new Error("New user has no email address.");
+    await sendWelcomeEmail({
+      email: created.user.email,
+      name: created.user.name ?? name,
+      workspaceId: created.workspace.id,
+      workspaceName: created.workspace.name,
+    });
+  } catch {
+    welcomeEmailFailed = true;
   }
+  return { ...created, welcomeEmailFailed };
 }
 
 export async function acceptInviteForExistingUser(inputToken: unknown, userId: string) {
@@ -218,6 +238,10 @@ export async function acceptInviteForExistingUser(inputToken: unknown, userId: s
       update: {},
     });
     await grantProjectReadAccess(tx, invitation.workspaceId, userId);
+    await tx.user.update({
+      where: { id: userId },
+      data: { lastActiveWorkspaceId: invitation.workspaceId },
+    });
     return { user, workspace: invitation.workspace };
   });
 }

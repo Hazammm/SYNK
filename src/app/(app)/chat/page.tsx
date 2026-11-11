@@ -1,11 +1,15 @@
-import ChatWorkspace from "@/features/chat/ChatWorkspace";
-import { listWorkspaces } from "@/features/workspaces/service";
+import { redirect } from "next/navigation";
 import { requirePageUser } from "@/lib/session";
+import { resolveActiveWorkspace } from "@/lib/workspace-context";
 
-// Session checks and redirects intentionally wait for the current request.
 export const instant = false;
 
 export default async function ChatPage({ searchParams }: { searchParams: Promise<{ workspaceId?: string }> }) {
   const user = await requirePageUser();
-  return <ChatWorkspace initialWorkspaces={await listWorkspaces(user.id)} initialWorkspaceId={(await searchParams).workspaceId} />;
+  const search = await searchParams;
+  const targetId = await resolveActiveWorkspace(user.id, search.workspaceId);
+  if (!targetId) {
+    redirect("/create-workspace");
+  }
+  redirect(`/w/${targetId}/chat`);
 }

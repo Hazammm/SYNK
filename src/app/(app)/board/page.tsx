@@ -1,5 +1,12 @@
-import SynkScreen from "@/components/SynkScreen";
+import { redirect } from "next/navigation";
+import { requirePageUser } from "@/lib/session";
+import { resolveActiveWorkspace } from "@/lib/workspace-context";
 
-export default function BoardPage() {
-  return <SynkScreen screen="board" />;
+export const instant = false;
+
+export default async function BoardPage() {
+  const user = await requirePageUser();
+  const targetId = await resolveActiveWorkspace(user.id);
+  if (!targetId) redirect("/create-workspace");
+  redirect(`/w/${targetId}/board`);
 }

@@ -64,7 +64,7 @@ Use the optional demo seed or create two separate accounts. Open two independent
 | MSG-05 | Create more than 30 messages; load older pages. | Chronological ordering, no gaps/duplicates, and bounded pages. |
 | TH-01 | Reply to a message and open its thread in the other browser. | Reply count updates live; thread replies persist and do not appear as root messages. |
 | TH-02 | Send a reply referencing a root from another channel or a reply as its parent. | Rejected without writing. |
-| REF-01 | In seeded general, click SYN-101. Repeat from an account without that project grant. | Authorized user sees the real ticket. Inaccessible/unknown tickets show the same unavailable page. |
+| REF-01 | In a workspace with an existing ticket, open its key from chat. Repeat from an account without that project grant. | Authorized user sees the real ticket. Inaccessible/unknown tickets show the same unavailable page. |
 | SEC-01 | Request another workspace's channels/history using guessed IDs. | HTTP 403; no data is returned. |
 | SEC-02 | Connect a socket with no cookie, a forged cookie, an expired cookie or a different Origin. | Connection denied. A client-supplied identity has no effect. |
 | SEC-03 | Remove a Member via the admin removal API while they are connected. | Channel grants cascade away; history/writes are denied and live content stops. |
@@ -73,7 +73,7 @@ Use the optional demo seed or create two separate accounts. Open two independent
 | UI-01 | Switch channels/workspaces with delayed network requests in flight. | Old responses/events do not populate the new view. Drafts and threads belong to the selected channel. |
 | UI-02 | Use Enter, Shift+Enter and an IME composer; test at 390 px width. | Enter sends, Shift+Enter creates a newline, IME composition is not interrupted, and the layout fits. |
 | UI-03 | Simulate a send failure, then retry the unchanged draft. | Draft is preserved and the same UUID is reused; persisted duplicates are prevented. |
-| UI-04 | Open the existing board/docs/time/overview pages. | They are clearly labeled as sample-data product previews. |
+| UI-04 | Open the board, docs, time and overview pages in an empty workspace. | Empty states appear instead of sample records. |
 
 ## API request examples
 
@@ -82,7 +82,7 @@ Use the authenticated browser session's cookies. Supply the configured applicati
 ```json
 POST /api/channels/<channelId>/messages
 {
-  "body": "Please check SYN-101",
+  "body": "Please check this update",
   "parentId": null,
   "clientMessageId": "64b38fe7-3435-42dc-8ced-e68abf5383a7"
 }

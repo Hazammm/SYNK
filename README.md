@@ -12,9 +12,9 @@ AI-powered team workspace. This branch implements the PRD's **critical-path chat
 - REST history with cursor pagination and Socket.IO live delivery. Reconnect reloads the newest page; older history remains available through pagination.
 - Shared access checks. Workspace membership is required, and channel membership is separately required for reading, writing and subscribing. Admins do not bypass channel membership.
 - Retry-safe message creation using a client UUID, plus UI deduplication of REST and socket responses.
-- Ticket-key links such as `SYN-101` open a real, permission-checked read-only ticket page. The demo seed provides a ticket; issue-tracking CRUD remains future work.
+- Ticket-key links open real, permission-checked read-only ticket pages; issue-tracking CRUD remains future work.
 
-The original overview, board, docs, alerts, time and settings screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The LangGraph AI agent is a later milestone.
+Overview, board, backlog, reports, docs, alerts and time tracking currently show empty states; they are not implemented backend modules. Settings and workspace member management use live account and database data. The LangGraph AI agent is a later milestone.
 
 ## Local setup
 
@@ -38,21 +38,22 @@ The Compose database binds to IPv4, so use `127.0.0.1` in `DATABASE_URL`; on Win
 
 Use your own PostgreSQL `DATABASE_URL` if not using Compose. The Compose password is a local-development value only. `NEXTAUTH_URL` must match the browser's origin exactly, including its port. Do not alternate between `localhost` and `127.0.0.1`.
 
-### Optional demo records
+### Mailtrap email
 
-Set `SEED_DEMO_PASSWORD` in `.env` (at least 10 characters and at most 72 UTF-8 bytes), then:
+Set `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM` in `.env` for workspace invitations, password resets, and welcome emails. In development, password-reset links are printed to the server console when Mailtrap is not configured; account creation still succeeds if a welcome email cannot be delivered. A Mailtrap Email Testing inbox captures messages for inspection but does not deliver them to the recipient's real mailbox. Invitation tokens are stored only as SHA-256 hashes and expire after seven days.
 
-```bash
-npm run db:seed
-```
+### Google sign-in (optional)
 
-Accounts: `admin@synk.test`, `member@synk.test`, `outsider@synk.test`. The first two share a workspace and project; the third belongs to a different workspace. `SYN-101` is a real seeded ticket. Seeding is opt-in, idempotent, does not overwrite existing passwords and refuses production mode.
+Google sign-in is enabled when both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set in `.env`. To configure local development:
 
-### Mailtrap invitations
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create or select a project and configure the OAuth consent screen. Add your Google account as a test user if the app is in testing mode.
+2. Create an OAuth client ID with application type **Web application**.
+3. Add `http://localhost:3000` as an authorized JavaScript origin and `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI.
+4. Put the client ID and secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, then restart the dev server.
 
-Set `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM` in `.env` to enable email delivery. Workspace creation without invitations does not require Mailtrap configuration. Invitation tokens are stored only as SHA-256 hashes and expire after seven days.
+The Google button appears on `/login` after both values are configured. New Google users can create a workspace or accept an invitation sent to their verified Google email. Existing accounts with the same verified email can sign in with Google. For production, add the production origin and callback URL to the OAuth client and configure the same environment variables on the server. Keep the client secret private and never commit `.env`.
 
-OAuth setup is optional; email/password login works without it.
+Email/password login works without Google credentials.
 
 ## Verification
 
@@ -75,7 +76,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-PowerShell environment variables use `$env:DATABASE_URL = '...'` and `$env:TEST_DATABASE_URL = $env:DATABASE_URL`. Browser tests start the development server automatically unless an existing local server is available. For production browser checks, run `npm run build` first and set `E2E_SERVER_COMMAND="npm start"` (PowerShell: `$env:E2E_SERVER_COMMAND = "npm start"`) before `npm run test:e2e`; CI uses this mode. `npm start` also requires `RESEND_API_KEY` and `EMAIL_FROM`, and placeholder values are fine here because the browser tests never request a reset email. Keep `DATABASE_URL` pointed at the disposable test database for the server as well as the tests. They create accounts/workspaces in that database. See [the QA plan](docs/chat-qa.md) for test cases and [implementation notes](docs/chat-implementation.md) for scope and API contracts.
+PowerShell environment variables use `$env:DATABASE_URL = '...'` and `$env:TEST_DATABASE_URL = $env:DATABASE_URL`. Browser tests start the development server automatically unless an existing local server is available. For production browser checks, run `npm run build` first and set `E2E_SERVER_COMMAND="npm start"` (PowerShell: `$env:E2E_SERVER_COMMAND = "npm start"`) before `npm run test:e2e`; CI uses this mode. `npm start` also requires the Mailtrap environment variables; placeholder values are fine here because the browser tests do not require successful email delivery. Keep `DATABASE_URL` pointed at the disposable test database for the server as well as the tests. They create accounts/workspaces in that database. See [the QA plan](docs/chat-qa.md) for test cases and [implementation notes](docs/chat-implementation.md) for scope and API contracts.
 
 ## Production runtime
 
@@ -97,4 +98,4 @@ Secrets belong only in environment variables. NextAuth JWT cookies use secure fl
 
 **Forgot password?** on the login page requests a single-use link that expires after 15 minutes. Each account receives at most one email every 5 minutes, and earlier links keep working until they expire or a reset succeeds. Only a SHA-256 hash of the token is stored. A successful reset changes the password, invalidates every reset link and signs the user out everywhere, including live chat sockets. The response is identical whether or not the email exists, and the account is processed after the response is sent. Accounts that only use OAuth do not receive links.
 
-Production requires `RESEND_API_KEY` and `EMAIL_FROM`: `npm start` refuses to run without them. In development, leaving them unset prints the link to the server console.
+Production requires `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM`: `npm start` refuses to run without them. In development, leaving Mailtrap unset prints password-reset links to the server console; welcome-email failures are reported after signup without rolling back the new account.

@@ -17,7 +17,7 @@ export async function requireUser() {
 export async function requirePageUser() {
   try { return await requireUser(); }
   catch (error) {
-    if (error instanceof AppError && error.status === 401) redirect("/login");
+    if (error instanceof AppError && error.status === 401) redirect("/login?error=unauthorized");
     throw error;
   }
 }

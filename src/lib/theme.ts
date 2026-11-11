@@ -1,7 +1,8 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { ThemeName } from "@/mocks/data";
+
+export type ThemeName = "black" | "white" | "forest" | "lavender";
 
 const themes: ThemeName[] = ["black", "white", "forest", "lavender"];
 const eventName = "synk-theme-change";

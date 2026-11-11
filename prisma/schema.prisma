@@ -25,23 +25,25 @@ enum InviteStatus {
 }
 
 model User {
-  id                  String               @id @default(cuid())
-  name                String?
-  email               String?              @unique
-  emailVerified       DateTime?
-  image               String?
-  passwordHash        String?
-  createdAt           DateTime             @default(now())
-  accounts            Account[]
-  sessions            Session[]
-  loginSessions       LoginSession[]
-  memberships         Membership[]
-  messages            Message[]
-  projectAccess       ProjectAccess[]
-  createdChannels     Channel[]
-  createdWorkspaces   Workspace[]          @relation("WorkspaceCreator")
-  sentInvites         Invite[]             @relation("InviteSender")
-  passwordResetTokens PasswordResetToken[]
+  id                    String               @id @default(cuid())
+  name                  String?
+  email                 String?              @unique
+  emailVerified         DateTime?
+  image                 String?
+  passwordHash          String?
+  lastActiveWorkspaceId String?
+  createdAt             DateTime             @default(now())
+  accounts              Account[]
+  sessions              Session[]
+  loginSessions         LoginSession[]
+  memberships           Membership[]
+  messages              Message[]
+  projectAccess         ProjectAccess[]
+  createdChannels       Channel[]
+  createdWorkspaces     Workspace[]          @relation("WorkspaceCreator")
+  sentInvites           Invite[]             @relation("InviteSender")
+  passwordResetTokens   PasswordResetToken[]
+  lastActiveWorkspace   Workspace?           @relation("UserLastActiveWorkspace", fields: [lastActiveWorkspaceId], references: [id], onDelete: SetNull)
 }
 
 model Account {
@@ -112,6 +114,7 @@ model Workspace {
   channels    Channel[]
   projects    Project[]
   invites     Invite[]
+  activeUsers User[]       @relation("UserLastActiveWorkspace")
 }
 
 model Membership {

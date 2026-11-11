@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -18,8 +19,8 @@ export function ExistingInviteJoin({ token }: { token: string }) {
     setBusy(true);
     setError("");
     try {
-      await request(`/api/invites/${encodeURIComponent(token)}/accept-existing`, { method: "POST", body: "{}" });
-      router.replace("/overview");
+      const res = await request<{ workspace: { id: string } }>(`/api/invites/${encodeURIComponent(token)}/accept-existing`, { method: "POST", body: "{}" });
+      router.replace(`/w/${res.workspace.id}/overview`);
       router.refresh();
     } catch (cause) {
       setError(messageOf(cause));

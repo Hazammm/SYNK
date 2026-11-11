@@ -16,13 +16,29 @@ async function identity(request: IncomingMessage) {
   if (!token?.sub || !token.sessionId || typeof token.exp !== "number" || token.exp * 1000 <= Date.now()) return null;
   const session = await db.loginSession.findUnique({ where: { id: token.sessionId } });
   if (!session || session.userId !== token.sub || session.expiresAt <= new Date()) return null;
-  const membership = await db.membership.findFirst({ where: { userId: session.userId }, select: { workspaceId: true } });
-  return membership ? { userId: session.userId, sessionId: session.id } : null;
+  const user = await db.user.findUnique({
+    where: { id: session.userId },
+    select: { lastActiveWorkspaceId: true },
+  });
+  let membership = user?.lastActiveWorkspaceId
+    ? await db.membership.findUnique({
+        where: { workspaceId_userId: { workspaceId: user.lastActiveWorkspaceId, userId: session.userId } },
+        select: { workspaceId: true },
+      })
+    : null;
+  if (!membership) {
+    membership = await db.membership.findFirst({
+      where: { userId: session.userId },
+      orderBy: { createdAt: "asc" },
+      select: { workspaceId: true },
+    });
+  }
+  return membership ? { userId: session.userId, sessionId: session.id, workspaceId: membership.workspaceId } : null;
 }
 
 export function attachRealtime(http: HttpServer) {
   const origin = new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000").origin;
-  const io = new Server<ClientEvents, ServerEvents, never, { userId: string; sessionId: string }>(http, {
+  const io = new Server<ClientEvents, ServerEvents, never, { userId: string; sessionId: string; workspaceId: string }>(http, {
     cors: { origin, credentials: true }, maxHttpBufferSize: 20_000,
     allowRequest: (request, callback) => {
       // Browsers omit Origin on same-origin polling GETs. Fetch Metadata plus the
@@ -42,7 +58,15 @@ export function attachRealtime(http: HttpServer) {
       next();
     } catch { next(new Error("Unable to authenticate connection.")); }
   });
-  io.on("connection", socket => {
+  io.on("connection", async socket => {
+    if (socket.data.workspaceId) {
+      const member = await db.membership.findUnique({
+        where: { workspaceId_userId: { workspaceId: socket.data.workspaceId, userId: socket.data.userId } },
+      });
+      if (member) {
+        await socket.join(`workspace:${socket.data.workspaceId}`);
+      }
+    }
     socket.on("channel:join", async (input, ack) => {
       if (typeof ack !== "function") return;
       try {

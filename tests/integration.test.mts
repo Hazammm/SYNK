@@ -12,9 +12,12 @@ if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a 
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.NEXTAUTH_SECRET ??= "integration-only-not-a-production-secret-123456789";
 process.env.NEXTAUTH_URL = "http://localhost:3000";
-// Never send real email from tests, even when a provider is configured locally.
-delete process.env.RESEND_API_KEY;
-delete process.env.EMAIL_FROM;
+// Never send real email from tests, even when Mailtrap is configured locally.
+delete process.env.MAILTRAP_HOST;
+delete process.env.MAILTRAP_PORT;
+delete process.env.MAILTRAP_USER;
+delete process.env.MAILTRAP_PASS;
+delete process.env.MAIL_FROM;
 const { db } = await import("../src/lib/db");
 const { createWorkspace, listWorkspaces, removeMember } = await import("../src/features/workspaces/service");
 const { requireWorkspace } = await import("../src/lib/permissions");
@@ -360,16 +363,13 @@ test("a failed email send removes only the new link, so the user can retry", asy
   await ageTokens(user.id);
   const [earlier] = await db.passwordResetToken.findMany({ where: { userId: user.id } });
 
-  const realFetch = globalThis.fetch;
-  process.env.RESEND_API_KEY = "test-key";
-  process.env.EMAIL_FROM = "Synk <test@example.test>";
-  globalThis.fetch = async () => new Response(null, { status: 500 });
+  const previousNodeEnv = process.env.NODE_ENV;
+  Object.assign(process.env, { NODE_ENV: "production" });
   try {
-    await assert.rejects(issuePasswordReset(email), /Email provider responded 500/);
+    await assert.rejects(issuePasswordReset(email), /Mailtrap environment variables/);
   } finally {
-    globalThis.fetch = realFetch;
-    delete process.env.RESEND_API_KEY;
-    delete process.env.EMAIL_FROM;
+    if (previousNodeEnv === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+    else Object.assign(process.env, { NODE_ENV: previousNodeEnv });
   }
   const tokens = await db.passwordResetToken.findMany({ where: { userId: user.id } });
   assert.deepEqual(tokens.map(token => token.id), [earlier.id]);
