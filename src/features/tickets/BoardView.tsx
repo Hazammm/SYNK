@@ -166,7 +166,8 @@ function Board({ project, board, userId, canWrite, initialTicket, toolbar }: { p
       <DragOverlay>{dragging && <TicketCard ticket={dragging} overdue={false} overlay />}</DragOverlay>
     </DndContext>
     {drawer && <TicketDrawer key={"ticketId" in drawer ? drawer.ticketId : `new:${drawer.columnId}`} target={drawer} project={project} board={board} userId={userId} canWrite={canWrite}
-      onClose={() => openTicket(null)} onSaved={upsert} onCreated={ticket => { upsert(ticket); openTicket(null); }} />}
+      onClose={() => openTicket(null)} onSaved={upsert} onCreated={ticket => { upsert(ticket); openTicket(null); }}
+      onDeleted={ticketId => { setTickets(current => current?.filter(item => item.id !== ticketId) ?? null); openTicket(null); }} />}
   </>;
 }
 

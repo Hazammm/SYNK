@@ -6,6 +6,8 @@
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .muted { margin: 0; color: var(--muted); font-size: 12px; }
 .pushRight { margin-left: auto; }
+.danger { margin-left: auto; color: var(--high); }
+.danger:hover:not(:disabled) { text-decoration: underline; }
 .key { color: var(--muted); font-size: 12px; font-weight: 650; letter-spacing: .02em; white-space: nowrap; }
 .unassigned { color: var(--muted); font-size: 12px; }
 .iconButton { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }

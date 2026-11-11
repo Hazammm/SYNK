@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, X } from "lucide-react";
+import { Send, Trash2, X } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import type { BoardSummary, ProjectDetail, ProjectMember, TicketComment, TicketDetail } from "@/lib/ticket-types";
 import { messageOf, request } from "@/lib/client-http";
@@ -13,7 +13,7 @@ import styles from "./Tracker.module.css";
 export type DrawerTarget = { ticketId: string } | { columnId: string };
 type Props = {
   target: DrawerTarget; project: ProjectDetail; board?: BoardSummary; userId: string; canWrite: boolean;
-  onClose: () => void; onSaved: (ticket: TicketDetail) => void; onCreated?: (ticket: TicketDetail) => void;
+  onClose: () => void; onSaved: (ticket: TicketDetail) => void; onCreated?: (ticket: TicketDetail) => void; onDeleted?: (ticketId: string) => void;
 };
 type Form = { title: string; description: string; priority: string; assigneeId: string; sprintId: string; dueDate: string; columnId: string };
 const formOf = (ticket: TicketDetail): Form => ({
@@ -24,7 +24,7 @@ const formOf = (ticket: TicketDetail): Form => ({
 const payloadOf = (form: Form, fields: (keyof Form)[]) => Object.fromEntries(fields.map(field =>
   [field, ["assigneeId", "sprintId", "dueDate"].includes(field) ? form[field] || null : form[field]]));
 
-export default function TicketDrawer({ target, project, board, userId, canWrite, onClose, onSaved, onCreated }: Props) {
+export default function TicketDrawer({ target, project, board, userId, canWrite, onClose, onSaved, onCreated, onDeleted }: Props) {
   const ticketId = "ticketId" in target ? target.ticketId : null;
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [error, setError] = useState("");
@@ -50,15 +50,15 @@ export default function TicketDrawer({ target, project, board, userId, canWrite,
     {ticketId && !ticket && !error && <p role="status" className={styles.loading}>Loading ticket…</p>}
     {ticketBoard && (ticket || !ticketId) && <Editor key={ticket?.id ?? "new"} ticket={ticket} project={project} board={ticketBoard} canWrite={canWrite}
       startColumnId={"columnId" in target ? target.columnId : undefined} onDirty={value => { dirty.current = value; }}
-      onSaved={update} onCreated={created => onCreated?.(created)} />}
+      onSaved={update} onCreated={created => onCreated?.(created)} onDeleted={onDeleted} />}
     {ticket && <Comments ticket={ticket} members={project.members} userId={userId} canWrite={canWrite}
       onAdded={comment => update({ ...ticket, comments: [...ticket.comments, comment], commentCount: ticket.commentCount + 1 })} />}
   </Modal>;
 }
 
-function Editor({ ticket, project, board, canWrite, startColumnId, onDirty, onSaved, onCreated }: {
+function Editor({ ticket, project, board, canWrite, startColumnId, onDirty, onSaved, onCreated, onDeleted }: {
   ticket: TicketDetail | null; project: ProjectDetail; board: BoardSummary; canWrite: boolean; startColumnId?: string;
-  onDirty: (dirty: boolean) => void; onSaved: (ticket: TicketDetail) => void; onCreated: (ticket: TicketDetail) => void;
+  onDirty: (dirty: boolean) => void; onSaved: (ticket: TicketDetail) => void; onCreated: (ticket: TicketDetail) => void; onDeleted?: (ticketId: string) => void;
 }) {
   const blank: Form = { title: "", description: "", priority: "MEDIUM", assigneeId: "", sprintId: "", dueDate: "", columnId: startColumnId ?? board.columns[0].id };
   const [saved, setSaved] = useState(ticket ? formOf(ticket) : blank);
@@ -88,6 +88,15 @@ function Editor({ ticket, project, board, canWrite, startColumnId, onDirty, onSa
     } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
   }
 
+  async function remove() {
+    if (!ticket || !window.confirm(`Delete ${ticket.key}? Its comments and alerts are deleted too. This cannot be undone.`)) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await request(`/api/tickets/${ticket.id}`, { method: "DELETE" });
+      onDirty(false); onDeleted?.(ticket.id);
+    } catch (error) { setError(messageOf(error)); setBusy(false); }
+  }
+
   return <form className={styles.editor} onSubmit={submit}>
     <label>Title<Input autoFocus={!ticket} required maxLength={200} value={form.title} onChange={set("title")} disabled={!canWrite} placeholder="What needs to be done?" /></label>
     <label>Description<textarea rows={5} maxLength={8000} value={form.description} onChange={set("description")} disabled={!canWrite} placeholder={canWrite ? "Add steps, context or acceptance criteria." : "No description."} /></label>
@@ -108,6 +117,7 @@ function Editor({ ticket, project, board, canWrite, startColumnId, onDirty, onSa
       <Button variant="primary" disabled={busy || (ticket ? !dirty : false)}>{busy ? "Saving…" : ticket ? "Save changes" : "Create ticket"}</Button>
       {ticket && dirty && <Button type="button" variant="quiet" onClick={() => setForm(saved)}>Discard changes</Button>}
       <span role="status">{notice}</span>
+      {ticket && onDeleted && <Button type="button" variant="quiet" className={styles.danger} disabled={busy} onClick={() => void remove()}><Trash2 size={15} /> Delete ticket</Button>}
     </div>}
   </form>;
 }

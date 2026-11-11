@@ -103,7 +103,8 @@ export default function SprintsView({ project, userId, initial, onProjectChange 
       {group(null)}
       {sprints.filter(sprint => sprint.state === "COMPLETED").map(group)}
     </div>
-    {openTicket && <TicketDrawer key={openTicket} target={{ ticketId: openTicket }} project={project} userId={userId} canWrite={canWrite} onClose={() => show("")} onSaved={replace} />}
+    {openTicket && <TicketDrawer key={openTicket} target={{ ticketId: openTicket }} project={project} userId={userId} canWrite={canWrite} onClose={() => show("")} onSaved={replace}
+      onDeleted={ticketId => { setTickets(current => current?.filter(item => item.id !== ticketId) ?? null); show(""); }} />}
   </>;
 }
 
