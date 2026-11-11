@@ -103,6 +103,12 @@ test("issue tracking permissions: READ views, WRITE changes, only admins manage 
   assert.equal(can("project:manage", { role: "ADMIN" }), true);
   assert.equal(can("project:manage", { role: "MEMBER", projectLevel: "WRITE" }), false);
 });
+test("deleting tickets needs edit access to the project", () => {
+  assert.equal(can("ticket:delete", { role: "MEMBER", projectLevel: "WRITE" }), true);
+  assert.equal(can("ticket:delete", { role: "MEMBER", projectLevel: "READ" }), false);
+  assert.equal(can("ticket:delete", { role: "ADMIN", projectLevel: null }), false);
+  assert.equal(can("ticket:delete", { role: null, projectLevel: "WRITE" }), false);
+});
 test("issue tracking validation: keys, dates, strict fields and filters", () => {
   assert.equal(projectSchema.parse({ name: " Synk ", key: " syn " }).key, "SYN");
   for (const key of ["S", "1AB", "SY-N", "TOOLONGKEY12", ""]) assert.equal(projectSchema.safeParse({ name: "P", key }).success, false, key);
