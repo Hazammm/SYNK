@@ -8,7 +8,7 @@ async function seed() {
   const { createWorkspace, addMember } = await import("../src/features/workspaces/service");
   const { listChannels, joinChannel, sendMessage } = await import("../src/features/chat/service");
   const { listProjects, createProject, setProjectAccess, getProject } = await import("../src/features/projects/service");
-  const { createTicket } = await import("../src/features/tickets/service");
+  const { createSprint, createTicket, updateSprint } = await import("../src/features/tickets/service");
   const password = process.env.SEED_DEMO_PASSWORD;
   registerSchema.parse({ name: "Demo", email: "admin@synk.test", password });
   if (process.env.NODE_ENV === "production") throw new Error("Demo seeding is disabled in production.");
@@ -34,6 +34,23 @@ async function seed() {
     if (!(await db.ticket.count({ where: { projectId: project.id, key: "SYN-101" } }))) {
       const board = (await getProject(admin.id, project.id)).boards[0];
       await createTicket(admin.id, { boardId: board.id, title: "Verify live workspace chat", description: "Check live delivery, threads and access control using the manual QA plan.", priority: "HIGH", assigneeId: member.id });
+    }
+    // A running sprint with some finished work, so the reports and overview have something to show.
+    const detail = await getProject(admin.id, project.id);
+    if (!detail.sprints.length) {
+      const board = detail.boards[0], [todo, doing] = board.columns, done = board.columns.find(column => column.isDone) ?? todo;
+      const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+      const sprint = await createSprint(admin.id, project.id, { name: "Sprint 4", goal: "Ship issue tracking and sprint reports", startDate: day(-4), endDate: day(9) });
+      const work: [string, typeof todo, typeof admin, "HIGH" | "MEDIUM" | "LOW", number | null][] = [
+        ["Drag tickets between board columns", done, member, "HIGH", -3], ["Sprint burndown report", done, admin, "MEDIUM", -1],
+        ["Ticket comments with mentions", doing, member, "MEDIUM", null], ["Workspace overview page", todo, admin, "LOW", null],
+      ];
+      for (const [title, column, assignee, priority, finished] of work) {
+        const ticket = await createTicket(admin.id, { boardId: board.id, title, priority, sprintId: sprint.id, columnId: column.id, assigneeId: assignee.id });
+        // Spread completion over earlier days so the burndown has a shape.
+        if (finished !== null) await db.ticket.update({ where: { id: ticket.id }, data: { completedAt: new Date(Date.now() + finished * 86_400_000) } });
+      }
+      await updateSprint(admin.id, sprint.id, { state: "ACTIVE" });
     }
     await sendMessage(admin.id, channel.id, { body: "Welcome! Our chat verification ticket is SYN-101.", clientMessageId: "b714897c-59df-425e-8567-1600f64ea760" });
     if (!(await db.membership.count({ where: { userId: outsider.id } }))) await createWorkspace(outsider.id, { name: "Separate Demo Workspace" });
