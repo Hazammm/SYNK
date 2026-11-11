@@ -251,7 +251,9 @@ test("tickets: completion time is set in done columns and cleared when work is r
   assert.equal((await updateTicket(admin, started.id, { title: "Tracked", position: 0 })).completedAt, finished.completedAt);
   assert.equal((await updateTicket(admin, started.id, { columnId: todo.id })).completedAt, null);
 
-  assert.ok((await createTicket(admin, ticket("Born done", { columnId: done.id }))).completedAt);
+  const bornDone = await createTicket(admin, ticket("Born done", { columnId: done.id }));
+  assert.ok(bornDone.completedAt);
+  await deleteTicket(admin, bornDone.id); // later tests expect an empty Done column
 });
 
 test("boards: marking a column as done completes its tickets, and unmarking reopens them", async () => {
