@@ -11,6 +11,7 @@ import {
 import type { ThemeName } from "@/mocks/data";
 import { applyTheme, useTheme } from "@/lib/theme";
 import { NOTIFICATIONS_CHANGED } from "@/lib/events";
+import AgentPanel from "@/features/agent/AgentPanel";
 import { Avatar } from "./Primitives";
 import styles from "./Synk.module.css";
 
@@ -88,6 +89,7 @@ export default function SynkShell({ children, userName }: { children: React.Reac
       <span className={styles.liveUser}>{userName}</span><button className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
     </header>
     <main>{children}</main><div className={styles.liveTheme}><ThemeBar /></div>
+    <AgentPanel />
   </div>;
 
   return (
@@ -168,6 +170,7 @@ export default function SynkShell({ children, userName }: { children: React.Reac
         </aside>
       </div>
       <ThemeBar />
+      <AgentPanel />
     </div>
   );
 }
