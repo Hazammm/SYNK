@@ -9,6 +9,7 @@ import {
 import { CalendarDays, GripVertical, MessageSquare, Plus, Settings2, X } from "lucide-react";
 import { Avatar, Badge, Button } from "@/components/Primitives";
 import type { BoardSummary, ColumnSummary, ProjectDetail, TicketSummary } from "@/lib/ticket-types";
+import { TICKETS_CHANGED } from "@/lib/agent-types";
 import { messageOf, request } from "@/lib/client-http";
 import BoardSettings from "./BoardSettings";
 import TicketDrawer, { type DrawerTarget } from "./TicketDrawer";
@@ -83,6 +84,12 @@ function Board({ project, board, userId, canWrite, initialTicket, toolbar }: { p
       .catch(error => { if (!controller.signal.aborted) setError(messageOf(error)); });
     return () => controller.abort();
   }, [board.id, revision]);
+
+  useEffect(() => {
+    const reload = () => setRevision(value => value + 1);
+    window.addEventListener(TICKETS_CHANGED, reload);
+    return () => window.removeEventListener(TICKETS_CHANGED, reload);
+  }, []);
 
   const visible = useMemo(() => (tickets ?? []).filter(ticket =>
     (!filters.priority || ticket.priority === filters.priority)
