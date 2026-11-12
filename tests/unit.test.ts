@@ -9,6 +9,7 @@ import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { toCsv } from "../src/lib/csv";
 import { AGENT_TOKEN_TTL_MS, mintAgentToken, verifyAgentToken } from "../src/lib/agent-token";
 import { isNone, isSelf, matchByName } from "../src/features/agent/resolve";
+import { agentChatSchema } from "../src/lib/validation";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -195,4 +196,17 @@ test("agent name matching prefers the most specific match and reports ties", () 
   assert.equal(names("Bilal"), null); assert.equal(names("   "), null);
   assert.equal(isSelf(" Me "), true); assert.equal(isSelf("Mehmet"), false);
   assert.equal(isNone("Unassigned"), true); assert.equal(isNone("nobody"), true); assert.equal(isNone("Noor"), false);
+});
+test("agent chat turns are either a message or a decision", () => {
+  const valid = (value: object) => agentChatSchema.safeParse(value).success;
+  assert.equal(valid({ workspaceId: "w1", message: "hi" }), true);
+  assert.equal(valid({ conversationId: "c1", message: "hi" }), true);
+  assert.equal(valid({ conversationId: "c1", decision: "approve" }), true);
+  assert.equal(valid({ workspaceId: "w1", decision: "approve" }), false); // a decision needs its conversation
+  assert.equal(valid({ conversationId: "c1", message: "hi", decision: "reject" }), false);
+  assert.equal(valid({ message: "hi" }), false); assert.equal(valid({ conversationId: "c1" }), false);
+  assert.equal(valid({ conversationId: "c1", message: "   " }), false);
+  assert.equal(valid({ conversationId: "c1", decision: "maybe" }), false);
+  assert.equal(valid({ conversationId: "c1", message: "x".repeat(4001) }), false);
+  assert.equal(valid({ conversationId: "c1", message: "hi", userId: "someone-else" }), false);
 });
