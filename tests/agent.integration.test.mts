@@ -115,3 +115,31 @@ test("tools never give the agent more access than the person has", async () => {
   await rejects(run(admin, "delete_everything", {}), 404);
 });
 
+test("update_ticket: the dry run previews changes and only the real call applies them", async () => {
+  const before = await db.ticket.findFirstOrThrow({ where: { projectId, key: "AGT-1" }, include: { column: true } });
+  const args = { ticket: "agt-1", status: "done", priority: "low", assignee: "Sarah Ali", sprint: "none", due_date: "none", title: "Login bug" };
+  const preview = succeeded(await run(admin, "update_ticket", args, true));
+  assert.deepEqual(preview.preview?.changes, [
+    { field: "Priority", from: "High", to: "Low" }, { field: "Status", from: "In Progress", to: "Done" },
+    { field: "Assignee", from: "Sarah Khan", to: "Sarah Ali" }, { field: "Sprint", from: "Sprint 5", to: "Backlog" }, { field: "Due date", from: "2026-11-30", to: "None" },
+  ]);
+  assert.match(preview.summary, /^Update AGT-1 “Login bug”: priority High → Low; status In Progress → Done;/);
+  assert.equal((await db.ticket.findUniqueOrThrow({ where: { id: before.id } })).updatedAt.getTime(), before.updatedAt.getTime()); // untouched
+
+  const applied = succeeded(await run(admin, "update_ticket", args));
+  assert.match(applied.summary, /^Updated AGT-1: /);
+  const ticket = await getTicket(admin, before.id);
+  assert.deepEqual([ticket.priority, ticket.assignee?.id, ticket.sprintId, ticket.dueDate, Boolean(ticket.completedAt)], ["LOW", ali, null, null, true]);
+
+  // Repeating the same request changes nothing and says so; an unassign uses "none".
+  const again = succeeded(await run(admin, "update_ticket", args, true));
+  assert.equal(again.preview, undefined);
+  assert.match(again.summary, /already has those values/);
+  succeeded(await run(admin, "update_ticket", { ticket: "AGT-1", assignee: "none" }));
+  assert.equal((await getTicket(admin, before.id)).assignee, null);
+
+  failed(await run(admin, "update_ticket", { ticket: "AGT-1" }), "invalid"); // nothing to change
+  failed(await run(admin, "update_ticket", { ticket: "the login one", status: "Done" }), "invalid"); // needs a key
+  failed(await run(admin, "update_ticket", { ticket: "AGT-1", assignee: "Sarah" }), "ambiguous");
+});
+
