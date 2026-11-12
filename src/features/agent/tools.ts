@@ -110,8 +110,62 @@ const createTicketTool = defineTool({
   },
 });
 
+// ── update_ticket ────────────────────────────────────────────────────────────
+
+const updateTicketTool = defineTool({
+  mutates: true,
+  schema: z.object({
+    ticket: z.string().trim().regex(ticketKeyPattern, "Give the ticket key, for example SYN-12.").transform(value => value.toUpperCase()),
+    title: optional(text(200)), description: optional(z.string().trim().max(8000)),
+    priority: optional(priority), status: optional(text(40)),
+    // "none" clears the assignee, sprint or due date.
+    assignee: optional(text(80)), sprint: optional(text(60)), due_date: optional(z.union([date, z.literal("none")])),
+  }).strict().refine(args => Object.keys(args).some(key => key !== "ticket" && args[key as keyof typeof args] !== undefined), "Say what to change on the ticket."),
+  async run(context, args, dryRun) {
+    const found = await findTicketByKey(context.userId, context.workspaceId, args.ticket);
+    if (!found) throw new ToolFailure("not_found", `I couldn't find ${args.ticket} in this workspace, or you don't have access to it.`);
+    const [ticket, project] = await Promise.all([getTicket(context.userId, found.id), getProject(context.userId, found.projectId)]);
+    requireEdit(project);
+    const board = project.boards.find(item => item.id === ticket.boardId)!;
+    const patch: Record<string, unknown> = {};
+    const changes: AgentChange[] = [];
+    const change = (field: string, label: string, value: unknown, changed: boolean, from: string, to: string) => {
+      if (changed) { patch[field] = value; changes.push({ field: label, from, to }); }
+    };
+
+    if (args.title !== undefined) change("title", "Title", args.title, args.title !== ticket.title, ticket.title, args.title);
+    if (args.description !== undefined) change("description", "Description", args.description, args.description !== ticket.description, clip(ticket.description), clip(args.description));
+    if (args.priority) change("priority", "Priority", args.priority, args.priority !== ticket.priority, PRIORITY_LABEL[ticket.priority], PRIORITY_LABEL[args.priority]);
+    if (args.status) {
+      const column = pickColumn(board, args.status);
+      change("columnId", "Status", column.id, column.id !== ticket.columnId, board.columns.find(item => item.id === ticket.columnId)?.name ?? "Unknown", column.name);
+    }
+    if (args.assignee) {
+      const assignee = isNone(args.assignee) ? null : pickMember(project, args.assignee, context.userId);
+      change("assigneeId", "Assignee", assignee?.id ?? null, (assignee?.id ?? null) !== (ticket.assignee?.id ?? null), ticket.assignee?.name ?? "Unassigned", assignee ? assignee.name ?? "Member" : "Unassigned");
+    }
+    if (args.sprint) {
+      const sprint = isNone(args.sprint) ? null : pickSprint(project, args.sprint);
+      const current = project.sprints.find(item => item.id === ticket.sprintId)?.name ?? "Backlog";
+      change("sprintId", "Sprint", sprint?.id ?? null, (sprint?.id ?? null) !== ticket.sprintId, current, sprint?.name ?? "Backlog");
+    }
+    if (args.due_date) {
+      const due = args.due_date === "none" ? null : args.due_date;
+      change("dueDate", "Due date", due, due !== ticket.dueDate, ticket.dueDate ?? "None", due ?? "None");
+    }
+
+    const target = targetOf(ticket);
+    if (!changes.length) return { ok: true, summary: `${ticket.key} already has those values, so nothing was changed.`, target };
+    const list = changes.map(item => `${item.field.toLowerCase()} ${item.from} → ${item.to}`).join("; ");
+    // The dry run is what the person is shown before they confirm.
+    if (dryRun) return { ok: true, summary: `Update ${ticket.key} “${ticket.title}”: ${list}.`, target, preview: { changes } };
+    return { ok: true, summary: `Updated ${ticket.key}: ${list}.`, target: targetOf(await updateTicket(context.userId, ticket.id, patch)) };
+  },
+});
+
 export const agentTools: Record<string, AgentTool> = {
   create_ticket: createTicketTool,
+  update_ticket: updateTicketTool,
 };
 
 // ── Running a tool for the agent ─────────────────────────────────────────────
