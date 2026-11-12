@@ -1,6 +1,6 @@
 # SYNK
 
-AI-powered team workspace. It implements the PRD's **critical-path chat module**, **issue tracking with sprint reports**, and the authentication, membership and database foundation they require.
+AI-powered team workspace. It implements the PRD's **critical-path chat module**, **issue tracking with sprint reports**, the first half of the **AI agent**, and the authentication, membership and database foundation they require.
 
 ## What is functional
 
@@ -16,9 +16,11 @@ AI-powered team workspace. It implements the PRD's **critical-path chat module**
 - Sprints with progress, and a Reports view with a burndown, velocity, breakdowns and CSV export.
 - An overview of your open tickets and active sprints, and in-app alerts for assignments, comments and mentions.
 
-See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated.
+- **Synk AI**, an assistant on every screen that creates, finds and updates tickets in plain language. It can only do what you are allowed to do, asks which one you mean when a name is unclear, and waits for your confirmation before changing an existing ticket.
 
-The docs, time and settings screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The LangGraph AI agent is a later milestone.
+See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated, and [AI agent notes](docs/ai-agent.md) for how the agent works and how to add a tool.
+
+The docs, time and settings screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The agent's `create_doc` and `search_workspace` tools are a later milestone.
 
 ## Local setup
 
@@ -41,6 +43,22 @@ Open <http://localhost:3000>, sign up, and create your first workspace. A `gener
 The Compose database binds to IPv4, so use `127.0.0.1` in `DATABASE_URL`; on Windows, `localhost` may attempt IPv6 first and exceed Prisma transaction startup timeouts. This database address is separate from the browser origin, which remains `http://localhost:3000`.
 
 Use your own PostgreSQL `DATABASE_URL` if not using Compose. The Compose password is a local-development value only. `NEXTAUTH_URL` must match the browser's origin exactly, including its port. Do not alternate between `localhost` and `127.0.0.1`.
+
+### Optional AI agent
+
+The assistant runs as a separate Python (LangGraph) service in Docker. Create a free key in [Google AI Studio](https://aistudio.google.com/apikey), then add these to `.env`:
+
+```bash
+AI_SERVICE_URL="http://127.0.0.1:8000"
+AI_SERVICE_SECRET=""   # generate like NEXTAUTH_SECRET
+GOOGLE_API_KEY=""
+```
+
+```bash
+npm run agent:up
+```
+
+Without these settings the rest of Synk works normally and the panel says the assistant is not set up. `npm run agent:test` runs the agent's own tests.
 
 ### Optional demo records
 
