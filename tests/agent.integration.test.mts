@@ -143,3 +143,15 @@ test("update_ticket: the dry run previews changes and only the real call applies
   failed(await run(admin, "update_ticket", { ticket: "AGT-1", assignee: "Sarah" }), "ambiguous");
 });
 
+test("find_tickets: matches words in any order and only searches projects the caller can open", async () => {
+  const titles = async (userId: string, args: object) => (succeeded(await run(userId, "find_tickets", args)).data as { tickets: { key: string; title: string }[] }).tickets.map(ticket => ticket.title).sort();
+  assert.deepEqual(await titles(reader, { query: "bug login" }), ["Login bug"]);
+  assert.deepEqual(await titles(reader, { query: "AGT-2" }), ["My task"]);
+  assert.deepEqual(await titles(khan, { assignee: "me" }), ["My task"]);
+  assert.deepEqual(await titles(admin, { assignee: "unassigned" }), ["Login bug"]);
+  assert.deepEqual(await titles(admin, { status: "to do", project: "agt" }), ["My task"]);
+  assert.deepEqual(await titles(admin, { query: "nothing matches this" }), []);
+  assert.deepEqual(await titles(bystander, {}), []);
+  failed(await run(outsider, "find_tickets", {}), "forbidden");
+});
+
