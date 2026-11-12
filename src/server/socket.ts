@@ -59,14 +59,6 @@ export function attachRealtime(http: HttpServer) {
     } catch { next(new Error("Unable to authenticate connection.")); }
   });
   io.on("connection", async socket => {
-    if (socket.data.workspaceId) {
-      const member = await db.membership.findUnique({
-        where: { workspaceId_userId: { workspaceId: socket.data.workspaceId, userId: socket.data.userId } },
-      });
-      if (member) {
-        await socket.join(`workspace:${socket.data.workspaceId}`);
-      }
-    }
     socket.on("channel:join", async (input, ack) => {
       if (typeof ack !== "function") return;
       try {
@@ -84,6 +76,14 @@ export function attachRealtime(http: HttpServer) {
       const parsed = idSchema.safeParse(input?.channelId);
       if (parsed.success) void socket.leave(`channel:${parsed.data}`);
     });
+    if (socket.data.workspaceId) {
+      const member = await db.membership.findUnique({
+        where: { workspaceId_userId: { workspaceId: socket.data.workspaceId, userId: socket.data.userId } },
+      });
+      if (member) {
+        await socket.join(`workspace:${socket.data.workspaceId}`);
+      }
+    }
   });
   setRealtime({
     async publish(event) {

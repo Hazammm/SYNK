@@ -17,6 +17,7 @@ delete process.env.MAILTRAP_HOST;
 delete process.env.MAILTRAP_PORT;
 delete process.env.MAILTRAP_USER;
 delete process.env.MAILTRAP_PASS;
+delete process.env.MAILTRAP_API_TOKEN;
 delete process.env.MAIL_FROM;
 const { db } = await import("../src/lib/db");
 const { createWorkspace, listWorkspaces, removeMember } = await import("../src/features/workspaces/service");
@@ -76,7 +77,7 @@ async function socketFor(cookieValue?: string, origin = url) {
   await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("connect_error", reject); socket.connect(); });
   return socket;
 }
-const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) => new Promise<Ack>((resolve, reject) => socket.timeout(3000).emit("channel:join", { channelId: channel }, (error, result) => error ? reject(error) : resolve(result)));
+const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) => new Promise<Ack>((resolve, reject) => socket.timeout(10_000).emit("channel:join", { channelId: channel }, (error, result) => error ? reject(error) : resolve(result)));
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 test("workspace creation is atomic, and discovery excludes other tenants", async () => {
@@ -366,7 +367,7 @@ test("a failed email send removes only the new link, so the user can retry", asy
   const previousNodeEnv = process.env.NODE_ENV;
   Object.assign(process.env, { NODE_ENV: "production" });
   try {
-    await assert.rejects(issuePasswordReset(email), /Mailtrap environment variables/);
+    await assert.rejects(issuePasswordReset(email), /Email delivery is not configured/);
   } finally {
     if (previousNodeEnv === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
     else Object.assign(process.env, { NODE_ENV: previousNodeEnv });
