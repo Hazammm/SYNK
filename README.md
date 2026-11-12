@@ -45,7 +45,7 @@ Use your own PostgreSQL `DATABASE_URL` if not using Compose. The Compose passwor
 
 ### Mailtrap email
 
-Set `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM` in `.env` for workspace invitations, password resets, and welcome emails. In development, password-reset links are printed to the server console when Mailtrap is not configured; account creation still succeeds if a welcome email cannot be delivered. A Mailtrap Email Testing inbox captures messages for inspection but does not deliver them to the recipient's real mailbox. Invitation tokens are stored only as SHA-256 hashes and expire after seven days.
+For live delivery, set `MAILTRAP_API_TOKEN` and `MAIL_FROM` in `.env`. Use a Mailtrap Email Sending API token and a sender address/domain verified in Mailtrap; API-token delivery takes precedence when both API and SMTP settings are present. Alternatively, configure `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM` to use SMTP. In development, password-reset links are printed to the server console when Mailtrap is not configured; account creation still succeeds if a welcome email cannot be delivered. A Mailtrap Email Testing inbox captures messages for inspection but does not deliver them to the recipient's real mailbox. Invitation tokens are stored only as SHA-256 hashes and expire after seven days.
 
 ### Optional demo records
 
@@ -113,4 +113,4 @@ Secrets belong only in environment variables. NextAuth JWT cookies use secure fl
 
 **Forgot password?** on the login page requests a single-use link that expires after 15 minutes. Each account receives at most one email every 5 minutes, and earlier links keep working until they expire or a reset succeeds. Only a SHA-256 hash of the token is stored. A successful reset changes the password, invalidates every reset link and signs the user out everywhere, including live chat sockets. The response is identical whether or not the email exists, and the account is processed after the response is sent. Accounts that only use OAuth do not receive links.
 
-Production requires `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM`: `npm start` refuses to run without them. In development, leaving Mailtrap unset prints password-reset links to the server console; welcome-email failures are reported after signup without rolling back the new account.
+Production requires either `MAILTRAP_API_TOKEN` and `MAIL_FROM`, or the Mailtrap SMTP settings and `MAIL_FROM`: `npm start` refuses to run without email delivery configuration. In development, leaving Mailtrap unset prints password-reset links to the server console; welcome-email failures are reported after signup without rolling back the new account.

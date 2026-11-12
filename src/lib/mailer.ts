@@ -1,18 +1,29 @@
 import nodemailer from "nodemailer";
+import { MailtrapTransport } from "mailtrap";
 import { AppError } from "./errors";
 
 type InviteEmail = { adminName: string; workspaceName: string; email: string; token: string };
 type WelcomeEmail = { name: string; workspaceId: string; workspaceName: string; email: string };
 type PasswordResetEmail = { email: string; resetUrl: string };
+type MailConfig =
+  | { mode: "api"; token: string; from: string }
+  | { mode: "smtp"; host: string; port: number; user: string; password: string; from: string };
 const SMTP_TIMEOUT_MS = 10_000;
 
-function mailConfig() {
-  const { MAILTRAP_HOST, MAILTRAP_PORT, MAILTRAP_USER, MAILTRAP_PASS, MAIL_FROM } = process.env;
+function mailConfig(): MailConfig {
+  const { MAILTRAP_API_TOKEN, MAILTRAP_HOST, MAILTRAP_PORT, MAILTRAP_USER, MAILTRAP_PASS, MAIL_FROM } = process.env;
+  if (MAILTRAP_API_TOKEN) {
+    if (!MAIL_FROM) {
+      throw new AppError(503, "Email delivery is not configured. Set MAIL_FROM for the Mailtrap sender address.");
+    }
+    return { mode: "api", token: MAILTRAP_API_TOKEN, from: MAIL_FROM };
+  }
+
   const port = Number(MAILTRAP_PORT);
   if (!MAILTRAP_HOST || !MAILTRAP_USER || !MAILTRAP_PASS || !MAIL_FROM || !Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new AppError(503, "Email delivery is not configured. Set the Mailtrap environment variables.");
+    throw new AppError(503, "Email delivery is not configured. Set MAILTRAP_API_TOKEN and MAIL_FROM, or the Mailtrap SMTP variables.");
   }
-  return { host: MAILTRAP_HOST, port, user: MAILTRAP_USER, password: MAILTRAP_PASS, from: MAIL_FROM };
+  return { mode: "smtp", host: MAILTRAP_HOST, port, user: MAILTRAP_USER, password: MAILTRAP_PASS, from: MAIL_FROM };
 }
 
 export function assertMailerConfigured() {
@@ -20,6 +31,10 @@ export function assertMailerConfigured() {
 }
 
 function createTransport(config: ReturnType<typeof mailConfig>) {
+  if (config.mode === "api") {
+    return nodemailer.createTransport(MailtrapTransport({ token: config.token }));
+  }
+
   return nodemailer.createTransport({
     host: config.host,
     port: config.port,
