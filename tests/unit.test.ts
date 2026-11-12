@@ -7,6 +7,7 @@ import { assertSameOrigin, readJson } from "../src/lib/http";
 import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
 import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { toCsv } from "../src/lib/csv";
+import { AGENT_TOKEN_TTL_MS, mintAgentToken, verifyAgentToken } from "../src/lib/agent-token";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -163,4 +164,22 @@ test("CSV export quotes every cell and defuses spreadsheet formulas", () => {
   assert.equal(toCsv([["Key", "Title"], ["SYN-1", 'Say "hi", then leave']]), '"Key","Title"\r\n"SYN-1","Say ""hi"", then leave"');
   assert.equal(toCsv([["=HYPERLINK(1)", "+1", "-2", "@x", 5, -3, null]]), `"'=HYPERLINK(1)","'+1","'-2","'@x","5","-3",""`);
   assert.equal(toCsv([["line\nbreak"]]), '"line\nbreak"');
+});
+
+test("agent tokens carry one person's claims and cannot be altered, reused late or re-signed", () => {
+  process.env.NEXTAUTH_SECRET ??= "unit-only-not-a-production-secret-1234567890";
+  const claims = { userId: "user1", workspaceId: "ws1", conversationId: "c1" };
+  const now = 1_800_000_000_000;
+  const token = mintAgentToken(claims, now);
+  assert.deepEqual(verifyAgentToken(token, now + AGENT_TOKEN_TTL_MS - 1), { ...claims, expiresAt: now + AGENT_TOKEN_TTL_MS });
+  const invalid = (value: string, at = now) => assert.throws(() => verifyAgentToken(value, at), { status: 401 });
+  invalid(token, now + AGENT_TOKEN_TTL_MS); // expired
+  const [payload, signature] = token.split(".");
+  const other = Buffer.from(JSON.stringify({ ...claims, userId: "admin", expiresAt: now + AGENT_TOKEN_TTL_MS })).toString("base64url");
+  invalid(`${other}.${signature}`); // changed claims, old signature
+  invalid(`${payload}.${signature}.extra`); invalid(payload); invalid(""); invalid(`.${signature}`);
+  // A token signed with another secret is refused.
+  const secret = process.env.NEXTAUTH_SECRET;
+  process.env.NEXTAUTH_SECRET = "a-different-secret-entirely-0000000000000000";
+  try { invalid(token); } finally { process.env.NEXTAUTH_SECRET = secret; }
 });
