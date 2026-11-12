@@ -53,6 +53,10 @@ model User {
   emailVerified       DateTime?
   image               String?
   passwordHash        String?
+  // In-app notification preferences, all on by default.
+  notifyAssigned      Boolean              @default(true)
+  notifyComments      Boolean              @default(true)
+  notifyMentions      Boolean              @default(true)
   createdAt           DateTime             @default(now())
   accounts            Account[]
   sessions            Session[]
