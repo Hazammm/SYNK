@@ -194,3 +194,68 @@ test("context: describes only what the caller can see", async () => {
   await rejects(buildAgentContext(outsider, workspaceId), 403);
 });
 
+test("conversations: a turn stores both messages and hands the agent a token for that person only", async () => {
+  const requests: AgentRequest[] = [];
+  const agent = async (request: AgentRequest): Promise<AgentReply> => {
+    requests.push(request);
+    return { reply: "Created AGT-9.", actions: [{ tool: "create_ticket", ok: true, summary: "Created AGT-9 “Ship it”." }], pending: null };
+  };
+  const turn = await sendAgentTurn(khan, { workspaceId, message: "  Create a ticket called Ship it  " }, agent);
+  assert.equal(turn.conversation.title, "Create a ticket called Ship it");
+  assert.deepEqual(turn.messages.map(message => [message.role, message.body, message.actions.length, message.pending]), [["USER", "Create a ticket called Ship it", 0, null], ["ASSISTANT", "Created AGT-9.", 1, null]]);
+  assert.equal(turn.resolved, null);
+  const [request] = requests;
+  assert.deepEqual([request.threadId, request.message, request.decision, request.context.user.name], [turn.conversation.id, "Create a ticket called Ship it", undefined, "Sarah Khan"]);
+  assert.deepEqual(verifyAgentToken(request.userToken), { ...verifyAgentToken(request.userToken), userId: khan, workspaceId, conversationId: turn.conversation.id });
+
+  await sendAgentTurn(khan, { conversationId: turn.conversation.id, message: "And another" }, agent);
+  assert.equal((await getConversation(khan, turn.conversation.id)).messages.length, 4);
+  assert.deepEqual((await listConversations(khan, workspaceId)).map(item => item.id), [turn.conversation.id]);
+
+  // Conversations are private: other people, even workspace admins, cannot read or continue them.
+  await rejects(getConversation(admin, turn.conversation.id), 404);
+  await rejects(sendAgentTurn(admin, { conversationId: turn.conversation.id, message: "Let me in" }, agent), 404);
+  assert.deepEqual(await listConversations(admin, workspaceId), []);
+  await rejects(listConversations(outsider, workspaceId), 403);
+  await rejects(sendAgentTurn(outsider, { workspaceId, message: "Hello" }, agent), 403);
+  await assert.rejects(sendAgentTurn(khan, { workspaceId }, agent)); // neither a message nor a decision
+  await assert.rejects(sendAgentTurn(khan, { workspaceId, decision: "approve" }, agent)); // a decision needs a conversation
+});
+
+test("conversations: a pending change blocks new messages until it is confirmed or cancelled once", async () => {
+  const pending = { tool: "update_ticket", summary: "Update AGT-1 “Login bug”: status To Do → Done.", changes: [{ field: "Status", from: "To Do", to: "Done" }] };
+  const seen: (string | undefined)[] = [];
+  const agent = async (request: AgentRequest): Promise<AgentReply> => {
+    seen.push(request.decision);
+    return request.decision ? { reply: request.decision === "approve" ? "Done." : "Cancelled.", actions: [], pending: null } : { reply: "Please confirm.", actions: [], pending };
+  };
+  const first = await sendAgentTurn(ali, { workspaceId, message: "Move AGT-1 to done" }, agent);
+  const waiting = first.messages[1];
+  assert.deepEqual(waiting.pending, { ...pending, status: "PENDING" });
+  await rejects(sendAgentTurn(ali, { conversationId: first.conversation.id, message: "Never mind, do something else" }, agent), 409);
+
+  const answered = await sendAgentTurn(ali, { conversationId: first.conversation.id, decision: "approve" }, agent);
+  assert.deepEqual(answered.resolved, { messageId: waiting.id, status: "APPROVED" });
+  assert.deepEqual(answered.messages.map(message => message.body), ["Done."]);
+  await rejects(sendAgentTurn(ali, { conversationId: first.conversation.id, decision: "approve" }, agent), 409); // already answered
+  assert.deepEqual(seen, [undefined, "approve"]);
+  const history = await getConversation(ali, first.conversation.id);
+  assert.deepEqual(history.messages.map(message => message.pending?.status ?? null), [null, "APPROVED", null]);
+
+  // Two clicks at the same moment resolve the change once.
+  const second = await sendAgentTurn(ali, { conversationId: first.conversation.id, message: "Move it back" }, agent);
+  const clicks = await Promise.allSettled([1, 2].map(() => sendAgentTurn(ali, { conversationId: second.conversation.id, decision: "reject" }, agent)));
+  assert.deepEqual(clicks.map(click => click.status).sort(), ["fulfilled", "rejected"]);
+});
+
+test("conversations: when the agent fails, the unanswered question is removed and a decision stays pending", async () => {
+  const down = async (): Promise<AgentReply> => { throw Object.assign(new Error("The AI assistant is not running."), { status: 503 }); };
+  await rejects(sendAgentTurn(reader, { workspaceId, message: "Anyone there?" }, down), 503);
+  assert.equal(await db.conversation.count({ where: { userId: reader } }), 0);
+
+  const pending = { tool: "update_ticket", summary: "Update AGT-2.", changes: [] };
+  const turn = await sendAgentTurn(reader, { workspaceId, message: "Change AGT-2" }, async () => ({ reply: "Please confirm.", actions: [], pending }));
+  await rejects(sendAgentTurn(reader, { conversationId: turn.conversation.id, decision: "approve" }, down), 503);
+  const history = await getConversation(reader, turn.conversation.id);
+  assert.deepEqual(history.messages.map(message => message.pending?.status ?? null), [null, "PENDING"]); // still answerable
+});
