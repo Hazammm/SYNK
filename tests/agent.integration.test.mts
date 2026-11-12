@@ -100,3 +100,18 @@ test("create_ticket: unclear names are reported with candidates instead of guess
   await db.project.delete({ where: { id: second.id } });
 });
 
+test("tools never give the agent more access than the person has", async () => {
+  assert.match(failed(await run(reader, "create_ticket", { title: "Read only" }), "forbidden").message, /view-only access/);
+  assert.match(failed(await run(bystander, "create_ticket", { title: "No project" }), "forbidden").message, /don't have access to any project/);
+  failed(await run(outsider, "create_ticket", { title: "Other workspace" }), "forbidden");
+  failed(await run(reader, "update_ticket", { ticket: "AGT-1", status: "Done" }), "forbidden");
+  // A ticket the caller cannot open is indistinguishable from one that does not exist.
+  const hidden = failed(await run(bystander, "update_ticket", { ticket: "AGT-1", status: "Done" }), "not_found");
+  const missing = failed(await run(bystander, "update_ticket", { ticket: "AGT-999", status: "Done" }), "not_found");
+  assert.equal(hidden.message.replace("AGT-1", "AGT-999"), missing.message);
+  assert.equal(await db.ticket.count({ where: { projectId, title: { in: ["Read only", "No project", "Other workspace"] } } }), 0);
+  assert.equal(await db.actionLog.count({ where: { userId: { in: [reader, bystander, outsider] }, ok: true } }), 0);
+  assert.equal(await db.actionLog.count({ where: { userId: outsider, ok: false, tool: "create_ticket" } }), 1); // denials are logged too
+  await rejects(run(admin, "delete_everything", {}), 404);
+});
+
