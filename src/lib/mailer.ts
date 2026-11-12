@@ -57,8 +57,74 @@ export async function sendWorkspaceInvite({ adminName, workspaceName, email, tok
   await sendMail({
     to: email,
     subject,
-    text: `${adminName} invited you to join ${workspaceName} on Synk.\n\nJoin workspace: ${joinUrl}\n\nThis link expires in 7 days.`,
-    html: `<p>${safeAdmin} invited you to join <strong>${safeWorkspace}</strong> on Synk.</p><p><a href="${safeUrl}">Join workspace</a></p><p>This link expires in 7 days.</p>`,
+    text: `YOU'RE INVITED TO SYNK\n\n${adminName} invited you to join ${workspaceName} on Synk.\n\nJoin your team and start collaborating in one shared workspace.\n\nACCEPT YOUR INVITATION\n${joinUrl}\n\nThis invitation link expires in 7 days and can only be used once. If you weren't expecting this invitation, you can ignore this email.\n\nThe Synk team`,
+    html: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>You're invited to Synk</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#f3f5f9;font-family:Arial,Helvetica,sans-serif;color:#172033;">
+    <div style="display:none;font-size:1px;color:#f3f5f9;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${safeAdmin} invited you to collaborate in ${safeWorkspace} on Synk.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f3f5f9;">
+      <tr>
+        <td align="center" style="padding:36px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;">
+            <tr>
+              <td style="padding:0 0 18px 4px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td align="center" width="34" height="34" style="width:34px;height:34px;border-radius:9px;background-color:#2563eb;color:#ffffff;font-size:21px;font-weight:bold;">s</td>
+                    <td style="padding-left:10px;color:#172033;font-size:21px;font-weight:bold;letter-spacing:-0.5px;">synk</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="overflow:hidden;border:1px solid #e4e8f0;border-radius:16px;background-color:#ffffff;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="padding:38px 40px 34px;background-color:#111827;">
+                      <p style="margin:0 0 12px;color:#93b4ff;font-size:12px;font-weight:bold;letter-spacing:1.6px;text-transform:uppercase;">A seat is waiting for you</p>
+                      <h1 style="margin:0;color:#ffffff;font-size:30px;line-height:1.2;letter-spacing:-0.8px;">You're invited!</h1>
+                      <p style="margin:14px 0 0;color:#cbd5e1;font-size:16px;line-height:1.6;"><strong style="color:#ffffff;">${safeAdmin}</strong> invited you to join their team on Synk.</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:32px 40px 38px;">
+                      <p style="margin:0 0 8px;color:#64748b;font-size:12px;font-weight:bold;letter-spacing:1.2px;text-transform:uppercase;">Your team workspace</p>
+                      <p style="margin:0 0 25px;color:#172033;font-size:21px;font-weight:bold;line-height:1.4;">${safeWorkspace}</p>
+                      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.7;">Bring conversations and team work together in one place. Accept your invitation to join your teammates.</p>
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                          <td align="center" style="border-radius:8px;background-color:#2563eb;">
+                            <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;border:1px solid #2563eb;border-radius:8px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;">Accept invitation&nbsp; &rarr;</a>
+                          </td>
+                        </tr>
+                      </table>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;">
+                        <tr>
+                          <td style="padding:14px 16px;border:1px solid #e4e8f0;border-radius:9px;background-color:#f8fafc;color:#64748b;font-size:13px;line-height:1.6;">
+                            This link expires in <strong style="color:#172033;">7 days</strong> and can only be used once. If you weren't expecting this invitation, you can safely ignore this email.
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:22px 12px 0;color:#8993a5;font-size:12px;line-height:1.6;">Made for teams that move work forward.<br>You're receiving this because someone invited you to a Synk workspace.</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`,
   });
 }
 
