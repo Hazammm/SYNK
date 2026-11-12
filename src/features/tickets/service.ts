@@ -6,6 +6,7 @@ import {
   boardSchema, boardUpdateSchema, commentSchema, idSchema, sprintSchema, sprintUpdateSchema,
   ticketFilterSchema, ticketSchema, ticketUpdateSchema,
 } from "../../lib/validation";
+import { wantedNotifications } from "../notifications/service";
 import { boardInclude, createBoardRecord, isoDate, serializeBoard, serializeSprint } from "../projects/service";
 import type { BoardSummary, SprintSummary, TicketComment, TicketDetail, TicketSummary } from "../../lib/ticket-types";
 
@@ -194,7 +195,8 @@ export async function createTicket(userId: string, input: unknown): Promise<Tick
       include: detailInclude,
     });
     if (ticket.assigneeId && ticket.assigneeId !== userId) {
-      await tx.notification.create({ data: { type: "TICKET_ASSIGNED", recipientId: ticket.assigneeId, actorId: userId, ticketId: ticket.id } });
+      const wanted = await wantedNotifications(tx, [{ type: "TICKET_ASSIGNED" as const, recipientId: ticket.assigneeId, actorId: userId, ticketId: ticket.id }]);
+      if (wanted.length) await tx.notification.createMany({ data: wanted });
     }
     return serializeDetail(ticket);
   });
@@ -239,7 +241,8 @@ export async function updateTicket(userId: string, ticketId: string, input: unkn
     }
     const updated = await tx.ticket.update({ where: { id: ticketId }, data, include: detailInclude });
     if (updated.assigneeId && updated.assigneeId !== ticket.assigneeId && updated.assigneeId !== userId) {
-      await tx.notification.create({ data: { type: "TICKET_ASSIGNED", recipientId: updated.assigneeId, actorId: userId, ticketId } });
+      const wanted = await wantedNotifications(tx, [{ type: "TICKET_ASSIGNED" as const, recipientId: updated.assigneeId, actorId: userId, ticketId }]);
+      if (wanted.length) await tx.notification.createMany({ data: wanted });
     }
     return serializeDetail(updated);
   });
@@ -271,9 +274,8 @@ export async function addComment(userId: string, ticketId: string, input: unknow
     const recipients = new Map<string, "TICKET_MENTION" | "TICKET_COMMENT">(mentioned.map(entry => [entry.userId, "TICKET_MENTION"]));
     // The assignee hears about every comment; a mention already covers it.
     if (ticket.assigneeId && ticket.assigneeId !== userId && !recipients.has(ticket.assigneeId)) recipients.set(ticket.assigneeId, "TICKET_COMMENT");
-    if (recipients.size) {
-      await tx.notification.createMany({ data: [...recipients].map(([recipientId, type]) => ({ type, recipientId, actorId: userId, ticketId, commentId: comment.id })) });
-    }
+    const wanted = await wantedNotifications(tx, [...recipients].map(([recipientId, type]) => ({ type, recipientId, actorId: userId, ticketId, commentId: comment.id })));
+    if (wanted.length) await tx.notification.createMany({ data: wanted });
     return serializeComment(comment);
   });
 }
