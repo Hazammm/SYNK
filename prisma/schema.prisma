@@ -44,6 +44,29 @@ model User {
   sentInvites           Invite[]             @relation("InviteSender")
   passwordResetTokens   PasswordResetToken[]
   lastActiveWorkspace   Workspace?           @relation("UserLastActiveWorkspace", fields: [lastActiveWorkspaceId], references: [id], onDelete: SetNull)
+  assignedTickets       Ticket[]             @relation("TicketAssignee")
+  reportedTickets       Ticket[]             @relation("TicketReporter")
+  comments              Comment[]
+  notifications         Notification[]       @relation("NotificationRecipient")
+  sentNotifications     Notification[]       @relation("NotificationActor")
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum SprintState {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+enum NotificationType {
+  TICKET_ASSIGNED
+  TICKET_COMMENT
+  TICKET_MENTION
 }
 
 model Account {
@@ -197,16 +220,23 @@ model Message {
   @@index([channelId, parentId, createdAt, id])
 }
 
-// Minimal ticket read model for FR-C5. Board CRUD belongs to the issue-tracking sprint.
+// Issue tracking (PRD 6.4). A project owns boards, sprints and tickets.
+// `key` is the ticket prefix (SYN in SYN-12) and is unique inside a workspace,
+// so a ticket key identifies one ticket per workspace.
 model Project {
-  id          String          @id @default(cuid())
-  workspaceId String
-  name        String
-  createdAt   DateTime        @default(now())
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  access      ProjectAccess[]
-  tickets     Ticket[]
+  id               String          @id @default(cuid())
+  workspaceId      String
+  name             String
+  key              String
+  nextTicketNumber Int             @default(1)
+  createdAt        DateTime        @default(now())
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  access           ProjectAccess[]
+  boards           Board[]
+  sprints          Sprint[]
+  tickets          Ticket[]
 
+  @@unique([workspaceId, key])
   @@index([workspaceId])
 }
 
@@ -221,14 +251,115 @@ model ProjectAccess {
   @@index([userId])
 }
 
-model Ticket {
-  id          String  @id @default(cuid())
+model Board {
+  id        String        @id @default(cuid())
+  projectId String
+  name      String
+  createdAt DateTime      @default(now())
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  columns   BoardColumn[]
+  tickets   Ticket[]
+
+  @@unique([id, projectId])
+  @@index([projectId])
+}
+
+// A status column. `isDone` marks columns whose tickets count as completed.
+model BoardColumn {
+  id       String   @id @default(cuid())
+  boardId  String
+  name     String
+  position Int
+  isDone   Boolean  @default(false)
+  board    Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tickets  Ticket[]
+
+  @@unique([id, boardId])
+  @@index([boardId, position])
+}
+
+model Sprint {
+  id          String      @id @default(cuid())
   projectId   String
-  key         String
-  title       String
-  description String  @default("") @db.Text
-  status      String  @default("To Do")
-  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  goal        String      @default("")
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  state       SprintState @default(PLANNED)
+  completedAt DateTime?
+  // Unfinished tickets returned to the backlog when the sprint was completed.
+  carriedOver Int?
+  createdAt   DateTime    @default(now())
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tickets     Ticket[]
+
+  @@unique([id, projectId])
+  @@index([projectId, state])
+}
+
+// Composite foreign keys guarantee a ticket's board, column and sprint all
+// belong to the ticket's own project. NoAction (checked at statement end)
+// lets a project or board delete cascade through all of them together.
+model Ticket {
+  id            String         @id @default(cuid())
+  projectId     String
+  boardId       String
+  columnId      String
+  sprintId      String?
+  key           String
+  title         String
+  description   String         @default("") @db.Text
+  priority      TicketPriority @default(MEDIUM)
+  assigneeId    String?
+  reporterId    String?
+  dueDate       DateTime?      @db.Date
+  position      Int            @default(0)
+  // Set while the ticket sits in a done column; sprint reports chart it.
+  completedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  board         Board          @relation(fields: [boardId, projectId], references: [id, projectId], onDelete: Cascade)
+  column        BoardColumn    @relation(fields: [columnId, boardId], references: [id, boardId], onDelete: NoAction)
+  sprint        Sprint?        @relation(fields: [sprintId, projectId], references: [id, projectId], onDelete: NoAction)
+  assignee      User?          @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporter      User?          @relation("TicketReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  comments      Comment[]
+  notifications Notification[]
 
   @@unique([projectId, key])
+  @@index([boardId, columnId, position])
+  @@index([projectId, sprintId])
+  @@index([assigneeId])
+}
+
+model Comment {
+  id            String         @id @default(cuid())
+  ticketId      String
+  authorId      String
+  body          String         @db.Text
+  createdAt     DateTime       @default(now())
+  ticket        Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  notifications Notification[]
+
+  @@index([ticketId, createdAt])
+}
+
+// In-app notification (PRD 6.9). `readAt` is null while unread.
+model Notification {
+  id          String           @id @default(cuid())
+  recipientId String
+  actorId     String?
+  type        NotificationType
+  ticketId    String
+  commentId   String?
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+  recipient   User             @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment     Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt, createdAt])
 }

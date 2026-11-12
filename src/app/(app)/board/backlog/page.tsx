@@ -1,5 +1,12 @@
-import SynkScreen from "@/components/SynkScreen";
+import Tracker from "@/features/tickets/Tracker";
+import type { Selection } from "@/features/tickets/ui";
+import { listWorkspaces } from "@/features/workspaces/service";
+import { requirePageUser } from "@/lib/session";
 
-export default function BacklogPage() {
-  return <SynkScreen screen="backlog" />;
+// Session checks and redirects intentionally wait for the current request.
+export const instant = false;
+
+export default async function SprintsPage({ searchParams }: { searchParams: Promise<Selection> }) {
+  const user = await requirePageUser();
+  return <Tracker view="sprints" userId={user.id} initialWorkspaces={await listWorkspaces(user.id)} initial={await searchParams} />;
 }

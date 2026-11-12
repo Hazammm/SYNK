@@ -67,3 +67,77 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(1, "Token is required.").max(200),
   password: passwordField,
 }).strict();
+
+// Issue tracking schemas
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use the date format YYYY-MM-DD.")
+  .transform(value => new Date(`${value}T00:00:00.000Z`))
+  .refine(date => !Number.isNaN(date.getTime()), "Enter a valid date.");
+const noneOrId = z.union([z.literal("none"), idSchema]);
+export const prioritySchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
+export const projectLevelSchema = z.enum(["READ", "WRITE"]);
+export const projectSchema = z.object({
+  name: z.string().trim().min(1, "Name the project.").max(80),
+  // Must match the ticket-key pattern chat links recognise (SYN in SYN-12).
+  key: z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9]{1,9}$/, "Use 2 to 10 letters or digits, starting with a letter."),
+}).strict();
+export const projectAccessSchema = z.object({ userId: idSchema, level: projectLevelSchema.nullable() }).strict();
+const columnInput = { name: z.string().trim().min(1, "Name every column.").max(40), isDone: z.boolean().default(false) };
+export const boardSchema = z.object({
+  name: z.string().trim().min(1, "Name the board.").max(60),
+  columns: z.array(z.object(columnInput).strict()).min(1, "Keep at least one column.").max(12).optional(),
+}).strict();
+export const boardUpdateSchema = z.object({
+  name: z.string().trim().min(1, "Name the board.").max(60).optional(),
+  columns: z.array(z.object({ id: idSchema.optional(), ...columnInput }).strict()).min(1, "Keep at least one column.").max(12).optional(),
+}).strict();
+const sprintFields = {
+  name: z.string().trim().min(1, "Name the sprint.").max(60),
+  goal: z.string().trim().max(240),
+  startDate: dateSchema,
+  endDate: dateSchema,
+};
+export const sprintSchema = z.object({ ...sprintFields, goal: sprintFields.goal.default("") }).strict()
+  .refine(sprint => sprint.endDate >= sprint.startDate, "The end date cannot be before the start date.");
+export const sprintUpdateSchema = z.object({
+  name: sprintFields.name.optional(), goal: sprintFields.goal.optional(),
+  startDate: dateSchema.optional(), endDate: dateSchema.optional(),
+  state: z.enum(["ACTIVE", "COMPLETED"]).optional(),
+}).strict();
+const ticketFields = {
+  title: z.string().trim().min(1, "Give the ticket a title.").max(200),
+  description: z.string().trim().max(8000),
+  priority: prioritySchema,
+  assigneeId: idSchema.nullable(),
+  sprintId: idSchema.nullable(),
+  dueDate: dateSchema.nullable(),
+  columnId: idSchema,
+};
+export const ticketSchema = z.object({
+  boardId: idSchema,
+  title: ticketFields.title,
+  description: ticketFields.description.default(""),
+  priority: ticketFields.priority.default("MEDIUM"),
+  assigneeId: ticketFields.assigneeId.optional(),
+  sprintId: ticketFields.sprintId.optional(),
+  dueDate: ticketFields.dueDate.optional(),
+  columnId: ticketFields.columnId.optional(),
+}).strict();
+export const ticketUpdateSchema = z.object({
+  title: ticketFields.title.optional(), description: ticketFields.description.optional(),
+  priority: ticketFields.priority.optional(), assigneeId: ticketFields.assigneeId.optional(),
+  sprintId: ticketFields.sprintId.optional(), dueDate: ticketFields.dueDate.optional(),
+  columnId: ticketFields.columnId.optional(),
+  // Index inside the target column; omitted means "at the end".
+  position: z.number().int().min(0).max(10_000).optional(),
+}).strict().refine(update => Object.keys(update).length > 0, "Nothing to update.");
+export const ticketFilterSchema = z.object({
+  boardId: idSchema.optional(), projectId: idSchema.optional(),
+  assigneeId: noneOrId.optional(), sprintId: noneOrId.optional(),
+  priority: prioritySchema.optional(), columnId: idSchema.optional(),
+}).strict().refine(filter => Boolean(filter.boardId) !== Boolean(filter.projectId), "Filter by either a board or a project.");
+export const commentSchema = z.object({
+  body: z.string().trim().min(1, "Write a comment first.").max(4000, "Comments can contain up to 4,000 characters."),
+  mentionIds: z.array(idSchema).max(20).default([]),
+}).strict();
+export const notificationReadSchema = z.object({ ids: z.array(idSchema).min(1).max(100).optional() }).strict();
+export const reportQuerySchema = z.object({ sprintId: idSchema.optional() }).strict();

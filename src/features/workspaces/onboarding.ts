@@ -6,8 +6,16 @@ import { createInviteToken, hashInviteToken } from "@/lib/invite-token";
 import { assertMailerConfigured, sendWelcomeEmail, sendWorkspaceInvite } from "@/lib/mailer";
 import { createWorkspaceSchema, createWorkspaceGoogleSchema } from "@/lib/validation";
 import type { GoogleProfile } from "@/lib/google-profile-cookie";
+import { createBoardRecord } from "../projects/service";
 
 const inviteLifetimeMs = 7 * 24 * 60 * 60 * 1000;
+
+function projectKeyFor(name: string) {
+  const cleaned = name.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 10);
+  if (!cleaned) return "PRJ";
+  if (!/^[A-Z]/.test(cleaned)) return `P${cleaned}`.slice(0, 10);
+  return cleaned.length === 1 ? `${cleaned}1` : cleaned;
+}
 
 export async function createWorkspaceForAdmin(input: unknown) {
   const data = createWorkspaceSchema.parse(input);
@@ -40,10 +48,11 @@ export async function createWorkspaceForAdmin(input: unknown) {
       });
       await tx.membership.create({ data: { workspaceId: workspace.id, userId: user.id, role: "ADMIN" } });
       const project = await tx.project.create({
-        data: { workspaceId: workspace.id, name: data.projectName },
+        data: { workspaceId: workspace.id, name: data.projectName, key: projectKeyFor(data.projectName) },
         select: { id: true },
       });
       await tx.projectAccess.create({ data: { projectId: project.id, userId: user.id, level: "WRITE" } });
+      await createBoardRecord(tx, project.id, "Main board");
       const channel = await tx.channel.create({
         data: {
           workspaceId: workspace.id,
@@ -164,10 +173,11 @@ export async function createWorkspaceForGoogleUser(googleProfile: GoogleProfile,
       await tx.membership.create({ data: { workspaceId: workspace.id, userId: user.id, role: "ADMIN" } });
 
       const project = await tx.project.create({
-        data: { workspaceId: workspace.id, name: data.projectName },
+        data: { workspaceId: workspace.id, name: data.projectName, key: projectKeyFor(data.projectName) },
         select: { id: true },
       });
       await tx.projectAccess.create({ data: { projectId: project.id, userId: user.id, level: "WRITE" } });
+      await createBoardRecord(tx, project.id, "Main board");
 
       const channel = await tx.channel.create({
         data: {

@@ -27,7 +27,7 @@ export default async function WorkspaceTicketReference({
       key: true,
       title: true,
       description: true,
-      status: true,
+      column: { select: { name: true } },
       project: { select: { name: true } },
     },
   });
@@ -39,7 +39,7 @@ export default async function WorkspaceTicketReference({
       <Link href={`/w/${workspaceId}/chat`}>← Back to chat</Link>
       {tickets.map(ticket => (
         <article key={ticket.id}>
-          <p>{ticket.project.name} · {ticket.key} · {ticket.status}</p>
+          <p>{ticket.project.name} · {ticket.key} · {ticket.column.name}</p>
           <h1>{ticket.title}</h1>
           <p style={{ whiteSpace: "pre-wrap" }}>{ticket.description}</p>
         </article>
@@ -47,4 +47,3 @@ export default async function WorkspaceTicketReference({
     </section>
   );
 }
-

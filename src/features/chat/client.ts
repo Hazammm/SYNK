@@ -4,14 +4,8 @@ import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import type { ChatMessage, ClientEvents, MessageEvent, MessagePage, ServerEvents } from "../../lib/chat-types";
 
-export class HttpError extends Error { constructor(message: string, public status: number) { super(message); } }
-export async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, { ...options, headers: { "Content-Type": "application/json", ...options?.headers }, cache: "no-store" });
-  const body = await response.json();
-  if (!response.ok) throw new HttpError(body.error ?? "Request failed. Please try again.", response.status);
-  return body as T;
-}
-export const messageOf = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Please try again.";
+import { HttpError, messageOf, request } from "../../lib/client-http";
+export { HttpError, messageOf, request };
 
 export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
   const byId = new Map(current.map(message => [message.id, message]));

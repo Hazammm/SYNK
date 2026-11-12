@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import {
   Bell, BookOpen, ChevronDown, Clock3, FileText, LayoutDashboard, MessageCircle,
   Search, Settings, KanbanSquare,
 } from "lucide-react";
 import { applyTheme, type ThemeName, useTheme } from "@/lib/theme";
+import { NOTIFICATIONS_CHANGED } from "@/lib/events";
 import { Avatar } from "./Primitives";
 import styles from "./Synk.module.css";
 
@@ -60,9 +61,25 @@ export default function SynkShell({
   const pathname = usePathname();
   const [mobilePanel, setMobilePanel] = useState(false);
   const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
   const base = workspaceId ? `/w/${workspaceId}` : "";
   const displayName = workspaceName || "Workspace";
   const displayGlyph = displayName[0]?.toUpperCase() || "W";
+
+  useEffect(() => {
+    const load = () => {
+      fetch("/api/notifications?summary=1", { cache: "no-store" })
+        .then(response => {
+          if (!response.ok) throw new Error(`Notification count request failed (${response.status}).`);
+          return response.json();
+        })
+        .then(body => setUnread(body.unread))
+        .catch(error => console.error("Unable to load notification count.", error));
+    };
+    load();
+    window.addEventListener(NOTIFICATIONS_CHANGED, load);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED, load);
+  }, [pathname]);
 
   const appTabs = [
     { label: "Overview", href: `${base}/overview`, icon: LayoutDashboard },
@@ -81,6 +98,9 @@ export default function SynkShell({
         <Link href={`${base}/chat`} className={`${styles.topTab} ${pathname.endsWith("/chat") ? styles.topTabActive : ""}`}>Chat</Link>
         <Link href={`${base}/overview`} className={styles.topTab}>Overview</Link>
       </nav>
+      <Link href={`${base}/alerts`} className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
+        <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
+      </Link>
       <span className={styles.liveUser}>{userName}</span>
       <button className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
     </header>
@@ -146,7 +166,7 @@ export default function SynkShell({
           <kbd>⌘ K</kbd>
         </label>
         <Link href={`${base}/alerts`} className={styles.alertButton} aria-label="Alerts">
-          <Bell size={18} />
+          <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
         </Link>
         <Link className={styles.profileLink} href={`${base}/settings`} aria-label="Open settings">
           <Avatar initials={userName.slice(0, 2).toUpperCase()} />

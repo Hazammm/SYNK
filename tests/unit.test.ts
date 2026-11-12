@@ -5,7 +5,11 @@ import { can, type Action } from "../src/lib/permissions";
 import { acceptInviteSchema, channelSchema, createWorkspaceSchema, forgotPasswordSchema, historySchema, messageSchema, passwordSchema, resetPasswordSchema } from "../src/lib/validation";
 import { assertSameOrigin, readJson } from "../src/lib/http";
 import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
+import { burndown, percent, sprintDays } from "../src/features/reports/calc";
+import { toCsv } from "../src/lib/csv";
 import { mergeMessages } from "../src/features/chat/client";
+import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
+import { initials, trackerHref } from "../src/features/tickets/ui";
 import type { ChatMessage } from "../src/lib/chat-types";
 
 test("deny by default, including workspace admins outside a channel or project", () => {
@@ -95,4 +99,82 @@ test("client IP only trusts X-Forwarded-For entries added by known proxies", () 
   assert.equal(resolveClientIp("10.0.0.1", undefined, proxies), "10.0.0.1");
   assert.equal(resolveClientIp("10.0.0.1", "10.0.0.2", proxies), "10.0.0.1");
   assert.equal(resolveClientIp(undefined, undefined, proxies), "unknown");
+});
+
+test("issue tracking permissions: READ views, WRITE changes, only admins manage projects", () => {
+  const writes: Action[] = ["project:write", "ticket:write", "ticket:comment", "board:manage", "sprint:manage"];
+  const reads: Action[] = ["project:read", "ticket:read"];
+  for (const action of [...reads, ...writes, "project:manage"] as Action[]) {
+    assert.equal(can(action, { role: null, projectLevel: "WRITE" }), false, `${action} without workspace membership`);
+  }
+  for (const action of reads) {
+    assert.equal(can(action, { role: "MEMBER", projectLevel: "READ" }), true);
+    assert.equal(can(action, { role: "ADMIN", projectLevel: null }), false, `${action}: admins need project access too`);
+  }
+  for (const action of writes) {
+    assert.equal(can(action, { role: "MEMBER", projectLevel: "READ" }), false, `${action} with READ`);
+    assert.equal(can(action, { role: "MEMBER", projectLevel: "WRITE" }), true, `${action} with WRITE`);
+    assert.equal(can(action, { role: "ADMIN" }), false, `${action}: admin without access`);
+  }
+  assert.equal(can("project:manage", { role: "ADMIN" }), true);
+  assert.equal(can("project:manage", { role: "MEMBER", projectLevel: "WRITE" }), false);
+});
+test("deleting tickets needs edit access to the project", () => {
+  assert.equal(can("ticket:delete", { role: "MEMBER", projectLevel: "WRITE" }), true);
+  assert.equal(can("ticket:delete", { role: "MEMBER", projectLevel: "READ" }), false);
+  assert.equal(can("ticket:delete", { role: "ADMIN", projectLevel: null }), false);
+  assert.equal(can("ticket:delete", { role: null, projectLevel: "WRITE" }), false);
+});
+test("issue tracking validation: keys, dates, strict fields and filters", () => {
+  assert.equal(projectSchema.parse({ name: " Synk ", key: " syn " }).key, "SYN");
+  for (const key of ["S", "1AB", "SY-N", "TOOLONGKEY12", ""]) assert.equal(projectSchema.safeParse({ name: "P", key }).success, false, key);
+  const ticket = ticketSchema.parse({ boardId: "b1", title: "  Fix it  ", dueDate: "2026-12-31" });
+  assert.equal(ticket.title, "Fix it"); assert.equal(ticket.priority, "MEDIUM"); assert.equal(ticket.description, "");
+  assert.equal(ticket.dueDate?.toISOString(), "2026-12-31T00:00:00.000Z");
+  for (const input of [{ boardId: "b1", title: " " }, { boardId: "b1", title: "x".repeat(201) }, { boardId: "b1", title: "T", priority: "URGENT" }, { boardId: "b1", title: "T", reporterId: "u1" }, { boardId: "b1", title: "T", dueDate: "31/12/2026" }, { boardId: "b1", title: "T", dueDate: "2026-13-45" }, { boardId: "../x", title: "T" }]) {
+    assert.equal(ticketSchema.safeParse(input).success, false, JSON.stringify(input));
+  }
+  assert.equal(ticketUpdateSchema.safeParse({}).success, false);
+  assert.equal(ticketUpdateSchema.safeParse({ key: "SYN-999" }).success, false);
+  assert.equal(ticketUpdateSchema.safeParse({ position: -1 }).success, false);
+  assert.deepEqual(ticketUpdateSchema.parse({ assigneeId: null, dueDate: null, position: 0 }), { assigneeId: null, dueDate: null, position: 0 });
+  assert.equal(ticketFilterSchema.safeParse({}).success, false);
+  assert.equal(ticketFilterSchema.safeParse({ boardId: "b1", projectId: "p1" }).success, false);
+  assert.equal(ticketFilterSchema.safeParse({ boardId: "b1", assigneeId: "none", sprintId: "none", priority: "HIGH" }).success, true);
+  assert.equal(ticketFilterSchema.safeParse({ boardId: "b1", limit: "5" }).success, false);
+  assert.equal(sprintSchema.safeParse({ name: "S", startDate: "2026-11-08", endDate: "2026-11-02" }).success, false);
+  assert.equal(sprintSchema.safeParse({ name: "S", startDate: "2026-11-02", endDate: "2026-11-02" }).success, true);
+  assert.equal(boardUpdateSchema.safeParse({ columns: [] }).success, false);
+  assert.equal(boardUpdateSchema.safeParse({ columns: Array.from({ length: 13 }, (_, index) => ({ name: `C${index}` })) }).success, false);
+  assert.equal(commentSchema.safeParse({ body: "   " }).success, false);
+  assert.equal(commentSchema.safeParse({ body: "x".repeat(4001) }).success, false);
+  assert.deepEqual(commentSchema.parse({ body: " hi " }), { body: "hi", mentionIds: [] });
+});
+test("tracker links keep only the selected values", () => {
+  assert.equal(trackerHref("board", {}), "/board");
+  assert.equal(trackerHref("sprints", { workspaceId: "w1", projectId: undefined, ticket: "" }), "/w/w1/board/backlog?workspaceId=w1");
+  assert.equal(trackerHref("board", { workspaceId: "w1", projectId: "p1", boardId: "b1", ticket: "t1" }), "/w/w1/board?workspaceId=w1&projectId=p1&boardId=b1&ticket=t1");
+  assert.equal(initials("Hazam Liaqat Khan"), "HL"); assert.equal(initials("  asra "), "A"); assert.equal(initials(null), "M");
+});
+
+test("sprint days are inclusive, cross month ends and reject backwards ranges", () => {
+  assert.deepEqual(sprintDays("2026-10-30", "2026-11-02"), ["2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]);
+  assert.deepEqual(sprintDays("2026-11-05", "2026-11-05"), ["2026-11-05"]);
+  assert.deepEqual(sprintDays("2026-11-05", "2026-11-04"), []);
+  assert.deepEqual(sprintDays("nonsense", "2026-11-04"), []);
+  assert.equal(sprintDays("2026-01-01", "2027-01-01").length, 92); // capped
+});
+test("burndown counts finished work per day and stops at today", () => {
+  const points = burndown({ startDate: "2026-11-02", endDate: "2026-11-06", total: 4, today: "2026-11-04", completedDays: ["2026-11-01", "2026-11-03", "2026-11-03"] });
+  assert.deepEqual(points.map(point => point.remaining), [3, 1, 1, null, null]); // early work counts from day one
+  assert.deepEqual(points.map(point => point.ideal), [4, 3, 2, 1, 0]);
+  assert.deepEqual(burndown({ startDate: "2026-11-02", endDate: "2026-11-02", total: 2, today: "2026-11-02", completedDays: [] }), [{ date: "2026-11-02", ideal: 2, remaining: 2 }]);
+  assert.equal(burndown({ startDate: "2026-11-02", endDate: "2026-11-03", total: 0, today: "2026-11-09", completedDays: [] }).every(point => point.remaining === 0 && point.ideal === 0), true);
+  assert.equal(percent(1, 3), 33); assert.equal(percent(0, 0), 0);
+});
+
+test("CSV export quotes every cell and defuses spreadsheet formulas", () => {
+  assert.equal(toCsv([["Key", "Title"], ["SYN-1", 'Say "hi", then leave']]), '"Key","Title"\r\n"SYN-1","Say ""hi"", then leave"');
+  assert.equal(toCsv([["=HYPERLINK(1)", "+1", "-2", "@x", 5, -3, null]]), `"'=HYPERLINK(1)","'+1","'-2","'@x","5","-3",""`);
+  assert.equal(toCsv([["line\nbreak"]]), '"line\nbreak"');
 });

@@ -1,0 +1,11 @@
+import { api } from "@/lib/errors";
+import { readWrite } from "@/lib/write-request";
+import { createSprint } from "@/features/tickets/service";
+type Context = { params: Promise<{ id: string }> };
+
+export async function POST(request: Request, context: Context) {
+  return api(async () => {
+    const { user, body } = await readWrite(request);
+    return { sprint: await createSprint(user.id, (await context.params).id, body) };
+  }, 201);
+}

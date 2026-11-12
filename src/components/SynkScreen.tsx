@@ -4,6 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import WorkspaceMembers from "@/features/workspaces/WorkspaceMembers";
+import OverviewView from "@/features/overview/OverviewView";
+import AlertsList from "@/features/notifications/AlertsList";
+import Tracker from "@/features/tickets/Tracker";
+import type { Selection } from "@/features/tickets/ui";
+import type { WorkspaceSummary } from "@/lib/chat-types";
 import { type ThemeName, applyTheme } from "@/lib/theme";
 import { Avatar, Card } from "./Primitives";
 import styles from "./Synk.module.css";
@@ -136,21 +141,25 @@ function Settings({
 
 export default function SynkScreen({
   screen,
-  workspaceId = "",
-  role = "MEMBER",
-  userId = "",
-  userName = "",
-  userEmail = "",
+  workspaceId,
+  role,
+  userId,
+  userName,
+  userEmail,
+  initialWorkspaces = [],
+  initialSelection = {},
   initialSettingsSection,
   inviteDeliveryFailed = false,
   welcomeEmailFailed = false,
 }: {
   screen: ScreenName;
-  workspaceId?: string;
-  role?: "ADMIN" | "MEMBER";
-  userId?: string;
-  userName?: string;
-  userEmail?: string;
+  workspaceId: string;
+  role: "ADMIN" | "MEMBER";
+  userId: string;
+  userName: string;
+  userEmail: string;
+  initialWorkspaces?: WorkspaceSummary[];
+  initialSelection?: Selection;
   initialSettingsSection?: string;
   inviteDeliveryFailed?: boolean;
   welcomeEmailFailed?: boolean;
@@ -168,7 +177,18 @@ export default function SynkScreen({
             inviteDeliveryFailed={inviteDeliveryFailed}
             welcomeEmailFailed={welcomeEmailFailed}
           />
-        : <EmptyScreen screen={screen} workspaceId={workspaceId} />}
+        : screen === "overview"
+          ? <OverviewView userName={userName} initialWorkspaces={initialWorkspaces} initialWorkspaceId={initialSelection.workspaceId ?? workspaceId} />
+          : screen === "alerts"
+            ? <AlertsList />
+            : screen === "board" || screen === "backlog" || screen === "reports"
+              ? <Tracker
+                  view={screen === "backlog" ? "sprints" : screen}
+                  userId={userId}
+                  initialWorkspaces={initialWorkspaces}
+                  initial={{ ...initialSelection, workspaceId: initialSelection.workspaceId ?? workspaceId }}
+                />
+              : <EmptyScreen screen={screen} workspaceId={workspaceId} />}
     </div>
   );
 }
