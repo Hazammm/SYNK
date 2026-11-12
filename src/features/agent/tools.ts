@@ -163,9 +163,41 @@ const updateTicketTool = defineTool({
   },
 });
 
+// ── find_tickets ─────────────────────────────────────────────────────────────
+
+const findTicketsTool = defineTool({
+  mutates: false,
+  schema: z.object({
+    query: optional(text(120)), project: optional(text(80)), assignee: optional(text(80)), status: optional(text(40)),
+  }).strict(),
+  async run({ userId, workspaceId }, args) {
+    // Only projects the caller can open, checked again here because this reads the database directly.
+    const filters: Prisma.TicketWhereInput[] = [{ project: { workspaceId, access: { some: { userId } }, workspace: { memberships: { some: { userId } } } } }];
+    if (args.query && ticketKeyPattern.test(args.query)) filters.push({ key: args.query.toUpperCase() });
+    // Every word must appear in the title or description, in any order.
+    else for (const word of (args.query ?? "").split(/\s+/).filter(Boolean).slice(0, 6)) {
+      filters.push({ OR: [{ title: { contains: word, mode: "insensitive" } }, { description: { contains: word, mode: "insensitive" } }] });
+    }
+    if (args.project) filters.push({ project: { OR: [{ key: args.project.toUpperCase() }, { name: { contains: args.project, mode: "insensitive" } }] } });
+    if (args.status) filters.push({ column: { name: { equals: args.status, mode: "insensitive" } } });
+    if (args.assignee) filters.push(isSelf(args.assignee) ? { assigneeId: userId } : isNone(args.assignee) ? { assigneeId: null } : { assignee: { name: { contains: args.assignee, mode: "insensitive" } } });
+    const rows = await db.ticket.findMany({
+      where: { AND: filters }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }], take: MAX_FOUND + 1,
+      select: { key: true, title: true, priority: true, dueDate: true, column: { select: { name: true } }, assignee: { select: { name: true } }, project: { select: { name: true } } },
+    });
+    const tickets = rows.slice(0, MAX_FOUND).map(row => ({
+      key: row.key, title: row.title, status: row.column.name, priority: PRIORITY_LABEL[row.priority], assignee: row.assignee?.name ?? "Unassigned",
+      project: row.project.name, due_date: row.dueDate?.toISOString().slice(0, 10) ?? null,
+    }));
+    const count = tickets.length === 1 ? "1 ticket" : `${tickets.length} tickets`;
+    return { ok: true, summary: rows.length > MAX_FOUND ? `Found more than ${MAX_FOUND} tickets; showing the ${MAX_FOUND} most recently updated.` : `Found ${count}.`, data: { tickets } };
+  },
+});
+
 export const agentTools: Record<string, AgentTool> = {
   create_ticket: createTicketTool,
   update_ticket: updateTicketTool,
+  find_tickets: findTicketsTool,
 };
 
 // ── Running a tool for the agent ─────────────────────────────────────────────
