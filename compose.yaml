@@ -14,5 +14,28 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  # The AI agent. It only receives the settings it needs: it never sees the database
+  # or NEXTAUTH_SECRET, and reaches Synk through the tool endpoints like any other client.
+  agent:
+    build: ./agent
+    environment:
+      AI_SERVICE_SECRET: ${AI_SERVICE_SECRET:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-google_genai:gemini-3.5-flash}
+      # The Next.js server runs on the host machine during development.
+      NEXTJS_API_URL: ${NEXTJS_API_URL:-http://host.docker.internal:3000}
+      AGENT_DATA_DIR: /data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - synk_agent:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 volumes:
   synk_postgres:
+  synk_agent:
