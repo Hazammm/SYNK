@@ -13,7 +13,7 @@
     "db:dev": "prisma migrate dev",
     "db:seed": "node --import tsx prisma/seed.ts",
     "test": "node --import tsx --test tests/unit.test.ts",
-    "test:integration": "node --import tsx --test tests/integration.test.mts tests/tickets.integration.test.mts tests/reports.integration.test.mts",
+    "test:integration": "node --import tsx --test tests/integration.test.mts tests/tickets.integration.test.mts tests/reports.integration.test.mts tests/agent.integration.test.mts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
