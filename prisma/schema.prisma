@@ -29,6 +29,17 @@ enum SprintState {
   COMPLETED
 }
 
+enum ConversationRole {
+  USER
+  ASSISTANT
+}
+
+enum PendingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum NotificationType {
   TICKET_ASSIGNED
   TICKET_COMMENT
@@ -56,6 +67,8 @@ model User {
   comments            Comment[]
   notifications       Notification[]       @relation("NotificationRecipient")
   sentNotifications   Notification[]       @relation("NotificationActor")
+  conversations       Conversation[]
+  actionLogs          ActionLog[]
 }
 
 model Account {
@@ -117,12 +130,14 @@ model PasswordResetToken {
 }
 
 model Workspace {
-  id          String       @id @default(cuid())
-  name        String
-  createdAt   DateTime     @default(now())
-  memberships Membership[]
-  channels    Channel[]
-  projects    Project[]
+  id            String         @id @default(cuid())
+  name          String
+  createdAt     DateTime       @default(now())
+  memberships   Membership[]
+  channels      Channel[]
+  projects      Project[]
+  conversations Conversation[]
+  actionLogs    ActionLog[]
 }
 
 model Membership {
@@ -327,4 +342,56 @@ model Notification {
   comment     Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   @@index([recipientId, readAt, createdAt])
+}
+
+// AI agent (PRD 6.6). A conversation is private to one person in one workspace.
+// The agent service keeps the model's working memory; these rows are the readable transcript.
+model Conversation {
+  id          String                @id @default(cuid())
+  userId      String
+  workspaceId String
+  title       String
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages    ConversationMessage[]
+
+  @@index([userId, workspaceId, updatedAt])
+}
+
+// `actions` lists the tool calls made for this reply. `pending` describes a change
+// that waits for the person's confirmation, and `pendingStatus` records their answer.
+model ConversationMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  role           ConversationRole
+  body           String           @db.Text
+  actions        Json             @default("[]")
+  pending        Json?
+  pendingStatus  PendingStatus?
+  createdAt      DateTime         @default(now())
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// Audit trail of every tool the agent ran or tried to run, including denials and previews.
+model ActionLog {
+  id             String    @id @default(cuid())
+  userId         String
+  workspaceId    String
+  conversationId String?
+  tool           String
+  dryRun         Boolean   @default(false)
+  ok             Boolean
+  target         String?
+  parameters     Json
+  result         Json
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([workspaceId, createdAt])
 }
