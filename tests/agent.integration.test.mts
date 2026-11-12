@@ -182,3 +182,15 @@ test("tool endpoint: only a valid, unexpired token signed by this server is acce
   assert.deepEqual(verifyAgentToken(token).userId, reader);
 });
 
+test("context: describes only what the caller can see", async () => {
+  const context = await buildAgentContext(reader, workspaceId, new Date("2026-11-12T08:00:00.000Z"));
+  assert.deepEqual([context.today, context.user.name, context.workspace.name, context.workspace.role], ["2026-11-12", "Reader Person", "Agent workspace", "member"]);
+  assert.deepEqual(context.projects, [{
+    key: "AGT", name: "Agent Tracker", access: "view", boards: [{ name: "Main board", statuses: ["To Do", "In Progress", "Review", "Done"] }],
+    members: ["Admin Person", "Reader Person", "Sarah Ali", "Sarah Khan"], sprints: [{ name: "Sprint 5", state: "planned" }],
+  }]);
+  assert.equal((await buildAgentContext(admin, workspaceId)).projects[0].access, "edit");
+  assert.deepEqual((await buildAgentContext(bystander, workspaceId)).projects, []);
+  await rejects(buildAgentContext(outsider, workspaceId), 403);
+});
+
