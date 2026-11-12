@@ -32,7 +32,7 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await admin.getByRole("button", { name: "Continue", exact: true }).click();
     await admin.getByLabel("Teammate email").fill("invalid-email");
     await admin.getByRole("button", { name: "Skip for now", exact: true }).click();
-    await expect(admin).toHaveURL(/\/overview/);
+    await expect(admin).toHaveURL(/\/w\/[^/]+\/(?:overview|settings)/);
     await admin.goto("/chat");
     await expect(admin.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
 
@@ -59,7 +59,7 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await member.getByLabel("Full name").fill("QA Member");
     await member.getByLabel("Password", { exact: true }).fill(password);
     await member.getByRole("button", { name: "Join workspace", exact: true }).click();
-    await expect(member).toHaveURL(/\/overview/);
+    await expect(member).toHaveURL(/\/w\/[^/]+\/(?:overview|settings)/);
     expect((await (await memberContext.request.get(`/api/invites/${token}`)).json()).valid).toBe(false);
 
     const origin = new URL(admin.url()).origin;
@@ -149,8 +149,20 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
   } finally {
     await adminContext.close();
     await memberContext.close();
-    if (workspaceId) await db.workspace.deleteMany({ where: { id: workspaceId } });
-    await db.user.deleteMany({ where: { email: { in: [adminEmail, memberEmail] } } });
+    const testUsers = await db.user.findMany({
+      where: { email: { in: [adminEmail, memberEmail] } },
+      select: { id: true },
+    });
+    const testUserIds = testUsers.map(user => user.id);
+    const ownedWorkspaces = testUserIds.length
+      ? await db.workspace.findMany({ where: { createdById: { in: testUserIds } }, select: { id: true } })
+      : [];
+    const workspaceIds = [...new Set([workspaceId, ...ownedWorkspaces.map(workspace => workspace.id)].filter(Boolean))];
+    if (workspaceIds.length) {
+      await db.channel.deleteMany({ where: { workspaceId: { in: workspaceIds } } });
+      await db.workspace.deleteMany({ where: { id: { in: workspaceIds } } });
+    }
+    if (testUserIds.length) await db.user.deleteMany({ where: { id: { in: testUserIds } } });
     await db.$disconnect();
   }
 });
