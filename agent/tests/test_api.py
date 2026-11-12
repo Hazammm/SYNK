@@ -65,6 +65,20 @@ def test_a_full_confirmation_round_trip_over_http():
     assert [call["token"] for call in synk.real_calls()] == ["token-2"]
 
 
+def test_forgetting_conversations_needs_the_secret_and_clears_their_memory():
+    model = ScriptedModel(replies=[AIMessage("First."), AIMessage("Fresh start.")])
+    checkpointer = InMemorySaver()
+    http = TestClient(create_app(Settings(service_secret=SECRET), model=model, checkpointer=checkpointer, api=FakeSynk().api))
+    turn = {"threadId": "t1", "userToken": "token-1", "context": CONTEXT}
+    http.post("/chat", json={**turn, "message": "remember this"}, headers=AUTH)
+
+    assert http.post("/threads/delete", json={"threadIds": ["t1"]}).status_code == 401
+    assert http.post("/threads/delete", json={"threadIds": ["t1", "never-existed"]}, headers=AUTH).json() == {"deleted": 2}
+    http.post("/chat", json={**turn, "message": "hello again"}, headers=AUTH)
+    assert [message.content for message in model.seen[-1][1:]] == ["hello again"]  # the earlier turn is gone
+    assert http.post("/threads/delete", json={"threadIds": "t1"}, headers=AUTH).status_code == 422
+
+
 def test_settings_need_a_real_secret_and_fall_back_to_defaults():
     with pytest.raises(RuntimeError):
         load_settings({})
