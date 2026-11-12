@@ -12,6 +12,7 @@ import type { ThemeName } from "@/mocks/data";
 import { applyTheme, useTheme } from "@/lib/theme";
 import { NOTIFICATIONS_CHANGED } from "@/lib/events";
 import AgentPanel from "@/features/agent/AgentPanel";
+import ProfileMenu, { initialsOf, SettingsLink } from "./ProfileMenu";
 import { Avatar } from "./Primitives";
 import styles from "./Synk.module.css";
 
@@ -73,7 +74,7 @@ export default function SynkShell({ children, userName }: { children: React.Reac
   }, [pathname]);
 
   // Live screens run on real data; everything else is still a sample-data preview.
-  const live = liveTabs.some(tab => tab.href === pathname) || pathname.startsWith("/board/") || pathname.startsWith("/tickets/");
+  const live = liveTabs.some(tab => tab.href === pathname) || pathname.startsWith("/board/") || pathname.startsWith("/tickets/") || pathname === "/settings";
   if (live) return <div className={styles.app}>
     <header className={styles.topbar}>
       <Link href="/chat" className={styles.brand} aria-label="Synk home"><span className={styles.brandMark}>s</span> synk</Link>
@@ -86,7 +87,9 @@ export default function SynkShell({ children, userName }: { children: React.Reac
         })}
         <Link href="/docs" className={styles.topTab}>Product preview</Link>
       </nav>
-      <span className={styles.liveUser}>{userName}</span><button className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
+      <ProfileMenu userName={userName} />
+      <SettingsLink className={`${styles.settingsLink} ${pathname === "/settings" ? styles.settingsActive : ""}`} />
+      <button className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
     </header>
     <main>{children}</main><div className={styles.liveTheme}><ThemeBar /></div>
     <AgentPanel />
@@ -122,8 +125,8 @@ export default function SynkShell({ children, userName }: { children: React.Reac
         <Link href="/alerts" className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
           <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
         </Link>
-        <Link className={styles.profileLink} href="/settings" aria-label="Open settings">
-          <Avatar initials="AR" />
+        <Link className={styles.profileLink} href="/settings" aria-label={`Settings for ${userName}`}>
+          <Avatar initials={initialsOf(userName)} />
         </Link>
         <button className={styles.mobileToggle} onClick={() => setMobilePanel(!mobilePanel)} type="button" aria-label="Toggle project menu">
           <ChevronDown size={18} />
