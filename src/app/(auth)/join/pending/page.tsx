@@ -7,12 +7,21 @@
  * then signs the user in via the Google flow so the JWT is established.
  */
 
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { readGoogleProfileCookie } from "@/lib/google-profile-cookie";
 import { db } from "@/lib/db";
 import PendingInviteClient from "./PendingInviteClient";
 
-export default async function JoinPendingPage() {
+export default function JoinPendingPage() {
+  return (
+    <Suspense fallback={<main role="status" style={{ padding: 32 }}>Loading invitations…</main>}>
+      <JoinPendingContent />
+    </Suspense>
+  );
+}
+
+async function JoinPendingContent() {
   const profile = await readGoogleProfileCookie();
   if (!profile) {
     // Cookie missing or expired — restart.
@@ -52,4 +61,3 @@ export default async function JoinPendingPage() {
     />
   );
 }
-
