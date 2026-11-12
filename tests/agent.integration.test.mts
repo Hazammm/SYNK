@@ -155,3 +155,30 @@ test("find_tickets: matches words in any order and only searches projects the ca
   failed(await run(outsider, "find_tickets", {}), "forbidden");
 });
 
+test("tool endpoint: only a valid, unexpired token signed by this server is accepted", async () => {
+  const call = (token: string | null, name = "find_tickets", body: object = { args: { query: "login" } }) => toolRoute(
+    new Request(`http://localhost:3000/api/agent-tools/${name}`, { method: "POST", headers: { "content-type": "application/json", ...(token && { authorization: `Bearer ${token}` }) }, body: JSON.stringify(body) }),
+    { params: Promise.resolve({ name }) },
+  );
+  const claims = { userId: reader, workspaceId, conversationId: "conversation-1" };
+  const token = mintAgentToken(claims);
+  const ok = await call(token);
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.json() as { data: { tickets: unknown[] } }).data.tickets.length, 1);
+  assert.equal((await db.actionLog.findFirstOrThrow({ where: { userId: reader, conversationId: "conversation-1" } })).tool, "find_tickets");
+
+  assert.equal((await call(null)).status, 401);
+  assert.equal((await call("not-a-token")).status, 401);
+  const [payload, signature] = token.split(".");
+  const forged = Buffer.from(JSON.stringify({ ...claims, userId: admin, expiresAt: Date.now() + 60_000 })).toString("base64url");
+  assert.equal((await call(`${forged}.${signature}`)).status, 401); // another user's claims with a real signature
+  assert.equal((await call(`${payload}.${signature.slice(0, -2)}xx`)).status, 401);
+  assert.equal((await call(mintAgentToken(claims, Date.now() - 6 * 60_000))).status, 401); // expired
+  assert.equal((await call(token, "no_such_tool")).status, 404);
+  // A denial is a normal 200 result, so the agent can explain it.
+  const denied = await call(token, "create_ticket", { args: { title: "Nope" } });
+  assert.equal(denied.status, 200);
+  assert.equal((await denied.json() as { code: string }).code, "forbidden");
+  assert.deepEqual(verifyAgentToken(token).userId, reader);
+});
+
