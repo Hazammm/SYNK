@@ -8,6 +8,7 @@ import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
 import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { toCsv } from "../src/lib/csv";
 import { AGENT_TOKEN_TTL_MS, mintAgentToken, verifyAgentToken } from "../src/lib/agent-token";
+import { isNone, isSelf, matchByName } from "../src/features/agent/resolve";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -182,4 +183,16 @@ test("agent tokens carry one person's claims and cannot be altered, reused late 
   const secret = process.env.NEXTAUTH_SECRET;
   process.env.NEXTAUTH_SECRET = "a-different-secret-entirely-0000000000000000";
   try { invalid(token); } finally { process.env.NEXTAUTH_SECRET = secret; }
+});
+test("agent name matching prefers the most specific match and reports ties", () => {
+  const people = [{ name: "Sarah Khan" }, { name: "Sarah Ali" }, { name: "Asra Sarahson" }, { name: null }];
+  const names = (query: string) => { const match = matchByName(people, query, person => person.name); return match.kind === "one" ? match.item.name : match.kind === "many" ? match.items.map(item => item.name) : null; };
+  assert.equal(names("sarah khan"), "Sarah Khan"); // exact, ignoring case
+  assert.equal(names("  KHAN "), "Sarah Khan"); // a whole word
+  assert.deepEqual(names("Sarah"), ["Sarah Khan", "Sarah Ali"]); // whole-word ties, not the "Sarahson" fragment
+  assert.equal(names("asr"), "Asra Sarahson"); // prefix
+  assert.equal(names("sarahs"), "Asra Sarahson"); // fragment, only when nothing better matches
+  assert.equal(names("Bilal"), null); assert.equal(names("   "), null);
+  assert.equal(isSelf(" Me "), true); assert.equal(isSelf("Mehmet"), false);
+  assert.equal(isNone("Unassigned"), true); assert.equal(isNone("nobody"), true); assert.equal(isNone("Noor"), false);
 });
