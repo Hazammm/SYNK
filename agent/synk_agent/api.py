@@ -21,6 +21,12 @@ from .settings import Settings, load_settings
 from .synk_api import SynkApi
 
 
+class ForgetRequest(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+    thread_ids: list[str] = Field(max_length=500)
+
+
 class ChatRequest(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
 
@@ -47,7 +53,8 @@ def create_app(settings: Settings | None = None, model: BaseChatModel | None = N
     """Builds the service. Tests pass a scripted model, in-memory storage and a fake Synk API."""
     settings = settings or load_settings()
     api = api or SynkApi(settings.api_url)
-    graph = build_graph(model or build_model(settings), checkpointer or sqlite_checkpointer(settings))
+    checkpointer = checkpointer or sqlite_checkpointer(settings)
+    graph = build_graph(model or build_model(settings), checkpointer)
     runner = AgentRunner(graph, api, settings.max_steps)
     # One turn at a time per conversation.
     locks: defaultdict[str, threading.Lock] = defaultdict(threading.Lock)
@@ -57,11 +64,24 @@ def create_app(settings: Settings | None = None, model: BaseChatModel | None = N
     def health() -> dict[str, str]:
         return {"status": "ok", "model": settings.model}
 
-    @app.post("/chat")
-    def chat(body: ChatRequest, authorization: str | None = Header(None)) -> dict[str, Any]:
+    def authorize(authorization: str | None) -> None:
         expected = f"Bearer {settings.service_secret}".encode()
         if not hmac.compare_digest((authorization or "").encode(), expected):
             raise HTTPException(status_code=401, detail="Not authorized.")
+
+    @app.post("/threads/delete")
+    def forget(body: ForgetRequest, authorization: str | None = Header(None)) -> dict[str, int]:
+        """Deletes the agent's memory of these conversations, after the user deleted them in Synk."""
+        authorize(authorization)
+        for thread_id in body.thread_ids:
+            with locks[thread_id]:
+                checkpointer.delete_thread(thread_id)
+            locks.pop(thread_id, None)
+        return {"deleted": len(body.thread_ids)}
+
+    @app.post("/chat")
+    def chat(body: ChatRequest, authorization: str | None = Header(None)) -> dict[str, Any]:
+        authorize(authorization)
         with locks[body.thread_id]:
             return runner.run(body.thread_id, body.user_token, body.context, body.message, body.decision)
 

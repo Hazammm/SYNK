@@ -14,6 +14,21 @@ const replySchema = z.object({
 });
 
 export type AgentClient = (request: AgentRequest) => Promise<AgentReply>;
+export type ForgetThreads = (threadIds: string[]) => Promise<boolean>;
+
+// Asks the agent service to delete its memory of these conversations. Returns false if it could not.
+export const forgetAgentThreads: ForgetThreads = async threadIds => {
+  const url = process.env.AI_SERVICE_URL, secret = process.env.AI_SERVICE_SECRET;
+  if (!threadIds.length) return true;
+  if (!url || !secret) return false;
+  try {
+    const response = await fetch(`${url.replace(/\/$/, "")}/threads/delete`, {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ threadIds }), signal: AbortSignal.timeout(10_000),
+    });
+    return response.ok;
+  } catch { return false; }
+};
 
 // Sends one turn to the Python agent service. The shared secret proves the request comes from this server.
 export const callAgent: AgentClient = async request => {

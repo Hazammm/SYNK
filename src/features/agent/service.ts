@@ -5,7 +5,7 @@ import { mintAgentToken } from "../../lib/agent-token";
 import { requireWorkspace } from "../../lib/permissions";
 import { agentChatSchema, idSchema } from "../../lib/validation";
 import { buildAgentContext } from "./context";
-import { callAgent, type AgentClient } from "./client";
+import { callAgent, forgetAgentThreads, type AgentClient, type ForgetThreads } from "./client";
 import type { AgentAction, AgentMessage, AgentPending, ChatTurn, ConversationDetail, ConversationSummary } from "../../lib/agent-types";
 
 const MAX_LISTED_CONVERSATIONS = 30;
@@ -44,6 +44,16 @@ export async function getConversation(userId: string, conversationId: string): P
   // The newest messages, returned oldest first.
   const rows = await db.conversationMessage.findMany({ where: { conversationId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: MAX_LISTED_MESSAGES });
   return { ...summarize(conversation), messages: rows.reverse().map(serialize) };
+}
+
+// Deletes the caller's own conversations, in one workspace or everywhere. `agentMemoryCleared` is false
+// when the agent service could not be reached, so its working copy may remain until it is cleared later.
+export async function deleteConversations(userId: string, workspaceId: string | null, forget: ForgetThreads = forgetAgentThreads) {
+  if (workspaceId) await requireWorkspace(userId, workspaceId);
+  const where = { userId, ...(workspaceId && { workspaceId }) };
+  const ids = (await db.conversation.findMany({ where, select: { id: true } })).map(row => row.id);
+  await db.conversation.deleteMany({ where: { id: { in: ids } } });
+  return { deleted: ids.length, agentMemoryCleared: await forget(ids) };
 }
 
 // One turn at a time per conversation: a second request while the agent is still working is refused.
