@@ -108,3 +108,13 @@ export const commentSchema = z.object({
 }).strict();
 export const notificationReadSchema = z.object({ ids: z.array(idSchema).min(1).max(100).optional() }).strict();
 export const reportQuerySchema = z.object({ sprintId: idSchema.optional() }).strict();
+
+// AI agent schemas
+// A turn is either a message (starting a conversation needs a workspace) or the answer to a pending confirmation.
+export const agentChatSchema = z.object({
+  workspaceId: idSchema.optional(), conversationId: idSchema.optional(),
+  message: z.string().trim().min(1, "Write a message first.").max(4000, "Messages can contain up to 4,000 characters.").optional(),
+  decision: z.enum(["approve", "reject"]).optional(),
+}).strict()
+  .refine(turn => Boolean(turn.message) !== Boolean(turn.decision), "Send either a message or a decision.")
+  .refine(turn => turn.decision ? Boolean(turn.conversationId) : Boolean(turn.conversationId ?? turn.workspaceId), "Choose a workspace or a conversation.");
