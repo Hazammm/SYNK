@@ -15,12 +15,13 @@ AI-powered team workspace. It implements the PRD's **critical-path chat module**
 - Projects with read or edit access per person, boards with configurable columns, and tickets with drag and drop, filters, comments, @mentions and deletion.
 - Sprints with progress, and a Reports view with a burndown, velocity, breakdowns and CSV export.
 - An overview of your open tickets and active sprints, and in-app alerts for assignments, comments and mentions.
+- A profile menu and **Settings**: display name, which alerts you get, theme, password changes, signing out other devices, leaving a workspace and deleting your AI conversations.
 
 - **Synk AI**, an assistant on every screen that creates, finds and updates tickets in plain language. It can only do what you are allowed to do, asks which one you mean when a name is unclear, and waits for your confirmation before changing an existing ticket.
 
 See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated, and [AI agent notes](docs/ai-agent.md) for how the agent works and how to add a tool.
 
-The docs, time and settings screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The agent's `create_doc` and `search_workspace` tools are a later milestone.
+The docs and time screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The agent's `create_doc` and `search_workspace` tools are a later milestone.
 
 ## Local setup
 
