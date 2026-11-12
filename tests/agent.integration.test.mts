@@ -80,3 +80,23 @@ test("create_ticket: resolves names, creates as the caller and writes the action
   assert.deepEqual(logs.map(log => [log.userId, log.dryRun, log.ok, log.target]), [[admin, true, true, null], [admin, false, true, "AGT-1"], [khan, false, true, "AGT-2"]]);
 });
 
+test("create_ticket: unclear names are reported with candidates instead of guessed", async () => {
+  const sarah = failed(await run(admin, "create_ticket", { title: "Assign me", assignee: "Sarah" }), "ambiguous");
+  assert.deepEqual(sarah.candidates?.sort(), ["Sarah Ali", "Sarah Khan"]);
+  assert.deepEqual(failed(await run(admin, "create_ticket", { title: "x", status: "Shipped" }), "not_found").candidates, ["To Do", "In Progress", "Review", "Done"]);
+  failed(await run(admin, "create_ticket", { title: "x", assignee: "Bystander" }), "not_found"); // not on the project
+  failed(await run(admin, "create_ticket", { title: "x", priority: "urgent" }), "invalid");
+  failed(await run(admin, "create_ticket", { title: "x", due_date: "next Friday" }), "invalid");
+  failed(await run(admin, "create_ticket", { title: "x", surprise: true }), "invalid");
+  assert.equal(await db.ticket.count({ where: { projectId, title: { in: ["Assign me", "x"] } } }), 0);
+
+  // With a second project, leaving the project out is a question, and unknown projects look the same as hidden ones.
+  const second = await createProject(admin, workspaceId, { name: "Second Tracker", key: "SEC" });
+  assert.deepEqual(failed(await run(admin, "create_ticket", { title: "Where?" }), "ambiguous").candidates, ["Agent Tracker (AGT)", "Second Tracker (SEC)"]);
+  failed(await run(admin, "create_ticket", { title: "Where?", project: "tracker" }), "ambiguous");
+  const hidden = failed(await run(khan, "create_ticket", { title: "Hidden", project: "SEC" }), "not_found");
+  const missing = failed(await run(khan, "create_ticket", { title: "Hidden", project: "NOPE" }), "not_found");
+  assert.equal(hidden.message.replace("SEC", "NOPE"), missing.message);
+  await db.project.delete({ where: { id: second.id } });
+});
+
