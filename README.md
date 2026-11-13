@@ -1,6 +1,6 @@
 # SYNK
 
-AI-powered team workspace. It implements the PRD's **critical-path chat module**, **issue tracking with sprint reports**, **docs**, the **AI agent**, and the authentication, membership and database foundation they require.
+AI-powered team workspace. It implements the PRD's **critical-path chat module**, **issue tracking with sprint reports**, **docs**, **time tracking**, the **AI agent**, and the authentication, membership and database foundation they require.
 
 ## What is functional
 
@@ -18,11 +18,11 @@ AI-powered team workspace. It implements the PRD's **critical-path chat module**
 - A profile menu and **Settings**: display name, which alerts you get, theme, password changes, signing out other devices, leaving a workspace and deleting your AI conversations.
 
 - **Docs**: nested pages per project written in Markdown, with a formatting toolbar, preview, checklists, edit-conflict protection and full-text search.
+- **Time tracking**: timers started from the Time page or a ticket, time added by hand, and a weekly report by day, ticket and person with CSV export.
 - **Synk AI**, an assistant on every screen that creates, finds and updates tickets, writes pages and searches the workspace in plain language. It can only do what you are allowed to do, asks which one you mean when a name is unclear, and waits for your confirmation before changing an existing ticket.
 
 See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated, [docs notes](docs/docs-module.md) for how pages work, and [AI agent notes](docs/ai-agent.md) for how the agent works and how to add a tool.
 
-The time tracking screen is explicitly labeled **Product preview with sample data**; it is not an implemented backend module yet.
 
 ## Local setup
 
