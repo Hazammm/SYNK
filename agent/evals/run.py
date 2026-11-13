@@ -73,3 +73,20 @@ def evaluate(runner: AgentRunner, cases: list[dict[str, Any]], delay: float = 0,
         if delay and index < len(cases):
             sleep(delay)
     return results
+
+
+def markdown_report(model: str, summary: dict[str, Any], results: list[dict[str, Any]]) -> str:
+    lines = [
+        "# Synk agent accuracy report", "",
+        f"- Model: `{model}`",
+        f"- Run: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"- Accuracy: **{summary['passed']}/{summary['scored']} ({summary['accuracy']:.0%})**, target {TARGET:.0%}"
+        + (f", {summary['errors']} not scored" if summary["errors"] else ""), "",
+        "| Category | Passed |", "| --- | --- |",
+        *[f"| {category} | {counts['passed']}/{counts['total']} |" for category, counts in summary["by_category"].items()], "",
+        "| Case | Category | Result | Notes |", "| --- | --- | --- | --- |",
+    ]
+    for result in results:
+        notes = "; ".join(result["problems"]).replace("|", "\\|") or "-"
+        lines.append(f"| `{result['id']}` | {result['category']} | {result['status']} | {notes} |")
+    return "\n".join(lines) + "\n"
