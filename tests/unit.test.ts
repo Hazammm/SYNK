@@ -9,7 +9,10 @@ import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { toCsv } from "../src/lib/csv";
 import { AGENT_TOKEN_TTL_MS, mintAgentToken, verifyAgentToken } from "../src/lib/agent-token";
 import { isNone, isSelf, matchByName } from "../src/features/agent/resolve";
-import { agentChatSchema, passwordChangeSchema, profileUpdateSchema } from "../src/lib/validation";
+import { agentChatSchema, docCreateSchema, docUpdateSchema, passwordChangeSchema, profileUpdateSchema } from "../src/lib/validation";
+import { parseInline, parseMarkdown, plainText, safeHref, toggleTask } from "../src/lib/markdown";
+import { insertCodeBlock, insertLink, toggleLinePrefix, wrapSelection } from "../src/features/docs/editing";
+import { buildTree, descendantsOf } from "../src/features/docs/tree";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -225,4 +228,16 @@ test("settings accept only a name or notification switches, and passwords that m
   assert.equal(password({ currentPassword: "", newPassword: "long-enough-1" }), false);
   assert.equal(password({ currentPassword: "old", newPassword: "short" }), false);
   assert.equal(password({ currentPassword: "old", newPassword: "é".repeat(40) }), false); // over 72 bytes
+});
+
+test("markdown blocks: headings, lists, checklists, code, quotes and paragraphs", () => {
+  const blocks = parseMarkdown("# Title\n\nFirst line\nsame paragraph\n- one\n- two\n1. first\n2) second\n- [ ] todo\n- [x] done\n> quoted\n> more\n---\n```ts\nconst x = 1;\n\nfoo()\n```\n#### four");
+  assert.deepEqual(blocks.map(block => block.type), ["heading", "paragraph", "list", "list", "list", "quote", "rule", "code", "paragraph"]);
+  assert.deepEqual(blocks[1], { type: "paragraph", inline: [{ type: "text", text: "First line same paragraph" }] });
+  assert.deepEqual(blocks[3], { type: "list", ordered: true, items: [{ inline: [{ type: "text", text: "first" }], checked: null, line: 6 }, { inline: [{ type: "text", text: "second" }], checked: null, line: 7 }] });
+  assert.deepEqual((blocks[4] as { items: { checked: boolean | null; line: number }[] }).items.map(item => [item.checked, item.line]), [[false, 8], [true, 9]]);
+  assert.deepEqual(blocks[5], { type: "quote", inline: [{ type: "text", text: "quoted more" }] });
+  assert.deepEqual(blocks[7], { type: "code", language: "ts", text: "const x = 1;\n\nfoo()" });
+  assert.deepEqual(parseMarkdown("```\nunclosed"), [{ type: "code", language: null, text: "unclosed" }]);
+  assert.deepEqual(parseMarkdown("  \n\n"), []);
 });
