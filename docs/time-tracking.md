@@ -26,3 +26,13 @@ People can delete only their own entries. Deleting a ticket deletes the time log
 - **A 24-hour limit.** A timer left running overnight stops counting at 24 hours, and manual entries longer than that are refused, so one forgotten timer cannot distort a report.
 - **Weeks in local time.** Weeks start on Monday at midnight in the reader's own time zone, and each entry counts on the day it started.
 - **One running timer per person.** Enforced by locking the person's row while a timer starts, rather than a database constraint that the schema tooling would not track.
+
+## API
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/time-entries/start` | Start a timer on a ticket; stops a running one first |
+| POST | `/api/time-entries/stop` | Stop the running timer |
+| GET | `/api/time-entries/active` | The caller's running timer, if any |
+| GET, POST | `/api/time-entries` | List a project's entries in a range, or add one by hand |
+| DELETE | `/api/time-entries/:id` | Delete one of your own entries |
