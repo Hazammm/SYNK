@@ -270,3 +270,14 @@ test("editor toolbar edits keep the right text selected", () => {
   assert.equal(link.text, "see [docs](https://)");
   assert.equal(link.text.slice(link.start, link.end), "https://");
 });
+test("docs permissions and schemas", () => {
+  assert.equal(can("doc:read", { role: "MEMBER", projectLevel: "READ" }), true);
+  assert.equal(can("doc:write", { role: "MEMBER", projectLevel: "READ" }), false);
+  assert.equal(can("doc:write", { role: "MEMBER", projectLevel: "WRITE" }), true);
+  assert.equal(can("doc:read", { role: "ADMIN", projectLevel: null }), false); // admins still need project access
+  assert.deepEqual(docCreateSchema.parse({ title: "  Spec " }), { title: "Spec", content: "" });
+  assert.equal(docCreateSchema.safeParse({ title: "Spec", projectId: "p1" }).success, false);
+  assert.equal(docUpdateSchema.safeParse({ version: 1 }).success, false); // nothing to update
+  assert.equal(docUpdateSchema.safeParse({ title: "x" }).success, false); // needs the version it started from
+  assert.equal(docUpdateSchema.safeParse({ version: 2, parentId: null }).success, true);
+});
