@@ -36,3 +36,9 @@ People can delete only their own entries. Deleting a ticket deletes the time log
 | GET | `/api/time-entries/active` | The caller's running timer, if any |
 | GET, POST | `/api/time-entries` | List a project's entries in a range, or add one by hand |
 | DELETE | `/api/time-entries/:id` | Delete one of your own entries |
+
+## Tests
+
+- `tests/unit.test.ts`: week boundaries, durations, totals and schemas.
+- `tests/time.integration.test.mts`: timers, concurrent starts, the 24-hour limit, manual entry rules, access, listing and deletion.
+- `tests/e2e/time.spec.ts`: a timer from a ticket, a manual entry, the week view, CSV export and deleting an entry.
