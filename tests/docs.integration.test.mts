@@ -101,3 +101,14 @@ test("docs: pages move between parents, never inside themselves", async () => {
   const back = await updateDoc(writer, moved.id, { version: moved.version, parentId: parent.id });
   assert.deepEqual([back.parentId, back.position], [parent.id, 1]); // after Child
 });
+
+test("docs: deleting a page removes its subpages and reports how many", async () => {
+  const top = await createDoc(writer, projectId, { title: "To delete" });
+  const sub = await createDoc(writer, projectId, { title: "Sub", parentId: top.id });
+  await createDoc(writer, projectId, { title: "Subsub", parentId: sub.id });
+  const keep = await createDoc(writer, projectId, { title: "Keep me" });
+  assert.deepEqual(await deleteDoc(writer, top.id), { deleted: 3 });
+  await rejects(getDoc(admin, sub.id), 404);
+  await rejects(deleteDoc(writer, top.id), 404);
+  assert.equal((await getDoc(admin, keep.id)).title, "Keep me");
+});
