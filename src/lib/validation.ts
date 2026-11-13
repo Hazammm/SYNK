@@ -144,3 +144,4 @@ const timestamp = z.string().datetime({ offset: true, message: "Use a full date 
 const timeNote = z.string().trim().max(500, "Notes can contain up to 500 characters.");
 export const timerStartSchema = z.object({ ticketId: idSchema, note: timeNote.default("") }).strict();
 export const timeEntrySchema = z.object({ ticketId: idSchema, startedAt: timestamp, endedAt: timestamp, note: timeNote.default("") }).strict();
+export const timeListSchema = z.object({ projectId: idSchema, from: timestamp, to: timestamp, userId: idSchema.optional() }).strict();
