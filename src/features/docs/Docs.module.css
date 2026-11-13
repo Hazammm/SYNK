@@ -48,3 +48,4 @@
 .treeList button[aria-current="page"] { background: var(--structure); color: var(--text); font-weight: 600; }
 .treeList button svg { flex: 0 0 auto; }
 .treeList button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main { min-width: 0; }
