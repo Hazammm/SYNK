@@ -31,3 +31,24 @@ export function formatDuration(seconds: number): string {
 }
 export const formatClock = (seconds: number) => `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
 export const hours = (seconds: number) => Math.round(seconds / 360) / 10;
+
+// Seconds per day of the week, by the local day each entry started.
+export function secondsByDay(entries: TimeEntry[], days: Date[], now: Date): number[] {
+  const totals = new Map(days.map(day => [dayKey(day), 0]));
+  for (const entry of entries) {
+    const key = dayKey(new Date(entry.startedAt));
+    if (totals.has(key)) totals.set(key, totals.get(key)! + entrySeconds(entry, now));
+  }
+  return days.map(day => totals.get(dayKey(day))!);
+}
+
+// Totals grouped by any key, largest first.
+export function totalsBy<Key extends string>(entries: TimeEntry[], keyOf: (entry: TimeEntry) => Key, labelOf: (entry: TimeEntry) => string, now: Date) {
+  const groups = new Map<Key, { key: Key; label: string; seconds: number }>();
+  for (const entry of entries) {
+    const key = keyOf(entry);
+    const group = groups.get(key) ?? { key, label: labelOf(entry), seconds: 0 };
+    groups.set(key, { ...group, seconds: group.seconds + entrySeconds(entry, now) });
+  }
+  return [...groups.values()].sort((a, b) => b.seconds - a.seconds || a.label.localeCompare(b.label));
+}
