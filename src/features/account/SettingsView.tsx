@@ -7,8 +7,7 @@ import { signOut } from "next-auth/react";
 import { Bell, Bot, Building2, Palette, Shield, UserRound } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import { initialsOf } from "@/components/ProfileMenu";
-import type { ThemeName } from "@/mocks/data";
-import { applyTheme, useTheme } from "@/lib/theme";
+import { applyTheme, THEMES, useTheme } from "@/lib/theme";
 import { messageOf, request } from "@/lib/client-http";
 import { SETTINGS_SECTIONS, type Account, type NotificationPreferences, type SettingsSection } from "@/lib/account-types";
 import styles from "./Settings.module.css";
@@ -141,8 +140,6 @@ function Notifications({ account, onSaved }: { account: Account; onSaved: () => 
     {feedback}
   </Section>;
 }
-
-const THEMES: { id: ThemeName; label: string }[] = [{ id: "black", label: "Black" }, { id: "white", label: "White" }, { id: "forest", label: "Forest" }, { id: "lavender", label: "Lavender" }];
 
 function Appearance() {
   const theme = useTheme();

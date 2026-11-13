@@ -70,7 +70,7 @@ def provider_problem(error: BaseException) -> str | None:
         text = f"{type(seen).__name__} {seen}".lower()
         if any(marker in text for marker in ("429", "quota", "resourceexhausted", "resource_exhausted", "ratelimit", "rate limit")):
             return QUOTA_REPLY
-        if any(marker in text for marker in ("503", "unavailable", "overloaded", "high demand")):
+        if any(marker in text for marker in ("503", "504", "unavailable", "overloaded", "high demand", "deadline", "timed out", "timeout")):
             return BUSY_REPLY
         seen = seen.__cause__ or seen.__context__
     return None
