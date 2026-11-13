@@ -4,7 +4,7 @@ import { AppError } from "./errors";
 import { idSchema } from "./validation";
 
 type Database = Prisma.TransactionClient;
-export type ProjectAction = "project:read" | "project:write" | "project:manage" | "ticket:read" | "ticket:write" | "ticket:comment" | "ticket:delete" | "board:manage" | "sprint:manage";
+export type ProjectAction = "project:read" | "project:write" | "project:manage" | "ticket:read" | "ticket:write" | "ticket:comment" | "ticket:delete" | "board:manage" | "sprint:manage" | "doc:read" | "doc:write";
 export type Action = "workspace:read" | "workspace:manage" | "channel:read" | "channel:write" | ProjectAction;
 export type AccessFacts = { role: WorkspaceRole | null; channelMember?: boolean; projectLevel?: "READ" | "WRITE" | null };
 
@@ -20,13 +20,15 @@ export function can(action: Action, facts: AccessFacts): boolean {
     case "channel:read":
     case "channel:write": return facts.channelMember === true;
     case "project:read":
-    case "ticket:read": return facts.projectLevel === "READ" || facts.projectLevel === "WRITE";
+    case "ticket:read":
+    case "doc:read": return facts.projectLevel === "READ" || facts.projectLevel === "WRITE";
     case "project:write":
     case "ticket:write":
     case "ticket:comment":
     case "ticket:delete":
     case "board:manage":
-    case "sprint:manage": return facts.projectLevel === "WRITE";
+    case "sprint:manage":
+    case "doc:write": return facts.projectLevel === "WRITE";
     default: return false;
   }
 }
