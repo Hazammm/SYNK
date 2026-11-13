@@ -281,3 +281,14 @@ test("docs permissions and schemas", () => {
   assert.equal(docUpdateSchema.safeParse({ title: "x" }).success, false); // needs the version it started from
   assert.equal(docUpdateSchema.safeParse({ version: 2, parentId: null }).success, true);
 });
+
+test("page tree: nests pages under parents and finds every page below one", () => {
+  const page = (id: string, parentId: string | null) => ({ id, parentId, title: id, position: 0, lastEditedAt: "2026-11-13T00:00:00.000Z", lastEditedBy: null });
+  const docs = [page("brief", null), page("spec", "brief"), page("api", "spec"), page("retro", null), page("orphan", "deleted")];
+  const tree = buildTree(docs);
+  assert.deepEqual(tree.map(node => node.id), ["brief", "retro", "orphan"]); // a missing parent shows at the top level
+  assert.deepEqual(tree[0].children.map(node => node.id), ["spec"]);
+  assert.deepEqual(tree[0].children[0].children.map(node => node.id), ["api"]);
+  assert.deepEqual([...descendantsOf(docs, "brief")].sort(), ["api", "brief", "spec"]);
+  assert.deepEqual([...descendantsOf(docs, "retro")], ["retro"]);
+});
