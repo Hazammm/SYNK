@@ -9,3 +9,13 @@ This covers PRD section 6.8 and journey 9.
 | FR-TT1 | Start a timer on a ticket from the Time page or from the ticket itself, and stop it. Each person has at most one running timer: starting another stops the first, even when two starts happen at once. |
 | FR-TT2 | Add time worked earlier with a date, start and end time and an optional note. Entries must end after they start, last at most 24 hours and not be in the future. |
 | FR-TT3 | A weekly view shows hours per day, totals by ticket and by person, and every entry, for everyone or just yourself. The week exports as CSV. |
+
+## Access
+
+| Project level | Can do |
+| --- | --- |
+| No access | Nothing. A ticket in the project looks the same as one that does not exist. |
+| `READ` | See everyone's time in the project. |
+| `WRITE` | Also start timers and add time on the project's tickets. |
+
+People can delete only their own entries. Deleting a ticket deletes the time logged on it.
