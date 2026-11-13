@@ -85,3 +85,19 @@ test("docs: saving on top of someone else's newer save is refused", async () => 
   assert.deepEqual(results.map(result => result.status).sort(), ["fulfilled", "rejected"]);
   await assert.rejects(updateDoc(writer, doc.id, { version: 4 })); // nothing to update
 });
+
+test("docs: pages move between parents, never inside themselves", async () => {
+  const parent = await createDoc(writer, projectId, { title: "Parent" });
+  const child = await createDoc(writer, projectId, { title: "Child", parentId: parent.id });
+  const grandchild = await createDoc(writer, projectId, { title: "Grandchild", parentId: child.id });
+  await rejects(updateDoc(writer, parent.id, { version: parent.version, parentId: grandchild.id }), 400);
+  await rejects(updateDoc(writer, parent.id, { version: parent.version, parentId: parent.id }), 400);
+  const foreign = (await listDocs(admin, otherProjectId))[0];
+  await rejects(updateDoc(writer, child.id, { version: child.version, parentId: foreign.id }), 400);
+
+  const moved = await updateDoc(writer, grandchild.id, { version: grandchild.version, parentId: null });
+  assert.equal(moved.parentId, null);
+  assert.equal(moved.position, Math.max(...(await listDocs(admin, projectId)).filter(doc => !doc.parentId && doc.id !== moved.id).map(doc => doc.position)) + 1);
+  const back = await updateDoc(writer, moved.id, { version: moved.version, parentId: parent.id });
+  assert.deepEqual([back.parentId, back.position], [parent.id, 1]); // after Child
+});
