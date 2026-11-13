@@ -46,3 +46,15 @@ export async function getActiveTimer(userId: string): Promise<TimeEntry | null> 
   });
   return running && serialize(running, userId);
 }
+
+// Starting a timer stops the one already running, so each person has at most one.
+export async function startTimer(userId: string, input: unknown, now = new Date()): Promise<TimerStart> {
+  const { ticketId, note } = timerStartSchema.parse(input);
+  return db.$transaction(async tx => {
+    const ticket = await requireTicket(userId, ticketId, "time:log", tx);
+    await lockUser(tx, userId);
+    const stopped = await stopRunning(tx, userId, now);
+    const entry = await tx.timeEntry.create({ data: { userId, ticketId, projectId: ticket.projectId, startedAt: now, note }, include });
+    return { entry: serialize(entry, userId), stopped: stopped && serialize(stopped, userId) };
+  });
+}
