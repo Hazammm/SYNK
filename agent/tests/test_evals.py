@@ -49,3 +49,19 @@ def test_scoring_explains_each_kind_of_failure():
     denied = Turn(reply="You only have view access.", actions=[{"tool": "create_ticket", "ok": False, "summary": "view-only"}])
     assert score({"no_mutation": True}, denied) == []
     assert score({"no_mutation": True}, Turn(reply="Please confirm.", pending={"tool": "update_ticket"})) != []
+
+
+def test_the_workspace_answers_like_the_real_tools():
+    assert respond("update_ticket", {"ticket": "SYN-12", "assignee": "Sarah"}, True)["candidates"] == ["Sarah Khan", "Sarah Ali"]
+    assert respond("update_ticket", {"ticket": "SYN-14", "assignee": "Khan"}, True)["candidates"] == ["Asra Khan", "Sarah Khan"]
+    assert respond("update_ticket", {"ticket": "MKT-3", "status": "Done"}, True)["code"] == "forbidden"
+    assert respond("update_ticket", {"ticket": "SYN-999", "status": "Done"}, True)["code"] == "not_found"
+    assert "already has those values" in respond("update_ticket", {"ticket": "SYN-30", "status": "done"}, True)["summary"]
+    assert respond("update_ticket", {"ticket": "syn-12", "status": "done"}, True)["preview"]["changes"] == [{"field": "Status", "from": "To Do", "to": "Done"}]
+    assert respond("create_ticket", {"title": "x", "project": "Secret"}, False)["code"] == "not_found"
+    assert respond("create_ticket", {"title": "x", "project": "Marketing site"}, False)["code"] == "forbidden"
+    assert respond("create_ticket", {"title": "x", "assignee": "me"}, False)["ok"] is True
+    assert respond("create_doc", {"title": "x", "parent": "brief"}, False)["candidates"] == ["Project brief", "Design brief"]
+    assert [row["key"] for row in respond("find_tickets", {"query": "login"}, False)["data"]["tickets"]] == ["SYN-12", "SYN-21"]
+    assert [row["key"] for row in respond("find_tickets", {"query": "dark mode ticket"}, False)["data"]["tickets"]] == ["SYN-14"]
+    assert [row["key"] for row in respond("find_tickets", {"assignee": "me"}, False)["data"]["tickets"]] == ["SYN-12"]
