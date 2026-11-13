@@ -98,3 +98,13 @@ test("access: viewers can read time but not log it, and outsiders see nothing", 
   await rejects(listTimeEntries(bystander, { projectId, ...week }), 403);
   await rejects(listTimeEntries(outsider, { projectId, ...week }), 403);
 });
+
+test("listing: filters by range and person, newest first", async () => {
+  const all = await listTimeEntries(admin, { projectId, ...week });
+  assert.deepEqual(all.map(entry => entry.startedAt), [...all.map(entry => entry.startedAt)].sort().reverse());
+  const writers = await listTimeEntries(admin, { projectId, ...week, userId: writer });
+  assert.ok(writers.length >= 3 && writers.every(entry => entry.user.id === writer));
+  assert.deepEqual(await listTimeEntries(admin, { projectId, from: "2026-12-01T00:00:00Z", to: "2026-12-08T00:00:00Z" }), []);
+  await rejects(listTimeEntries(admin, { projectId, from: week.to, to: week.from }), 400);
+  await rejects(listTimeEntries(admin, { projectId, from: "2026-01-01T00:00:00Z", to: "2026-12-01T00:00:00Z" }), 400); // over three months
+});
