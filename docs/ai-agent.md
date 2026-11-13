@@ -1,6 +1,6 @@
 # AI agent
 
-This covers PRD section 6.6 and the first half of the agent work in the delivery plan (Sprint 5): the agent graph, the `create_ticket` and `update_ticket` tools, permission enforcement and the confirmation flow. `create_doc` and `search_workspace` belong to Sprint 6 and are not built yet.
+This covers PRD section 6.6: the agent graph, all four tools in the PRD (`create_ticket`, `update_ticket`, `create_doc`, `search_workspace`), permission enforcement and the confirmation flow. See [docs-module.md](docs-module.md) for the docs feature behind `create_doc`.
 
 ## Requirement coverage
 
