@@ -3,7 +3,10 @@ import { AppError } from "../../lib/errors";
 import type { AgentReply, AgentRequest } from "../../lib/agent-types";
 
 const AGENT_TIMEOUT_MS = 90_000;
-const target = z.object({ type: z.literal("ticket"), id: z.string(), key: z.string(), title: z.string(), projectId: z.string(), boardId: z.string() });
+const target = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("ticket"), id: z.string(), key: z.string(), title: z.string(), projectId: z.string(), boardId: z.string() }),
+  z.object({ type: z.literal("doc"), id: z.string(), title: z.string(), projectId: z.string() }),
+]);
 const replySchema = z.object({
   reply: z.string().max(20_000),
   actions: z.array(z.object({ tool: z.string().max(60), ok: z.boolean(), summary: z.string().max(2000), target: target.optional() })).max(30),
