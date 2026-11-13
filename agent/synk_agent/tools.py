@@ -73,6 +73,10 @@ class CreateDocArgs(BaseModel):
     parent: str | None = Field(None, description="Title of an existing page to put the new page under.")
 
 
+class SearchWorkspaceArgs(BaseModel):
+    query: str = Field(description="Words to search for in tickets, pages and chat messages.")
+
+
 TOOL_SPECS: list[ToolSpec] = [
     ToolSpec(
         name="create_ticket",
@@ -97,6 +101,11 @@ TOOL_SPECS: list[ToolSpec] = [
         name="create_doc",
         description="Create a new page in a project's docs, optionally under an existing page. Use when the user asks to write, draft or save notes, a spec, a retro or any document.",
         args=CreateDocArgs,
+    ),
+    ToolSpec(
+        name="search_workspace",
+        description="Search tickets, pages and chat messages the user can see. Use for questions like 'find everything about authentication' or 'where did we discuss the login bug'.",
+        args=SearchWorkspaceArgs,
     ),
 ]
 
