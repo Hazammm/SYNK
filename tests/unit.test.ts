@@ -9,10 +9,12 @@ import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { toCsv } from "../src/lib/csv";
 import { AGENT_TOKEN_TTL_MS, mintAgentToken, verifyAgentToken } from "../src/lib/agent-token";
 import { isNone, isSelf, matchByName } from "../src/features/agent/resolve";
+import { timeEntrySchema, timeListSchema, timerStartSchema } from "../src/lib/validation";
 import { agentChatSchema, docCreateSchema, docUpdateSchema, passwordChangeSchema, profileUpdateSchema } from "../src/lib/validation";
 import { parseInline, parseMarkdown, plainText, safeHref, toggleTask } from "../src/lib/markdown";
 import { insertCodeBlock, insertLink, toggleLinePrefix, wrapSelection } from "../src/features/docs/editing";
 import { buildTree, descendantsOf } from "../src/features/docs/tree";
+import { addDays, dayKey, entrySeconds, formatClock, formatDuration, hours, localToIso, secondsByDay, startOfWeek, totalsBy, weekDays } from "../src/features/time/calc";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -291,4 +293,14 @@ test("page tree: nests pages under parents and finds every page below one", () =
   assert.deepEqual(tree[0].children[0].children.map(node => node.id), ["api"]);
   assert.deepEqual([...descendantsOf(docs, "brief")].sort(), ["api", "brief", "spec"]);
   assert.deepEqual([...descendantsOf(docs, "retro")], ["retro"]);
+});
+
+test("time weeks start on Monday and step by calendar days", () => {
+  assert.equal(dayKey(startOfWeek(new Date(2026, 10, 13, 15, 30))), "2026-11-09"); // Friday -> Monday
+  assert.equal(dayKey(startOfWeek(new Date(2026, 10, 15))), "2026-11-09"); // Sunday belongs to the week before
+  assert.equal(dayKey(startOfWeek(new Date(2026, 10, 16))), "2026-11-16"); // Monday starts a week
+  assert.deepEqual(weekDays(new Date(2026, 9, 26)).map(dayKey), ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"]);
+  assert.equal(dayKey(addDays(new Date(2026, 11, 31), 1)), "2027-01-01");
+  assert.equal(localToIso("2026-11-13", "09:30"), new Date(2026, 10, 13, 9, 30).toISOString());
+  assert.equal(localToIso("", "09:30"), null);
 });
