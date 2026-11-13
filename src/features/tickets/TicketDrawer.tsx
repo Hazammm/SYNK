@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Trash2, X } from "lucide-react";
+import { Send, Timer, Trash2, X } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import type { BoardSummary, ProjectDetail, ProjectMember, TicketComment, TicketDetail } from "@/lib/ticket-types";
 import { messageOf, request } from "@/lib/client-http";
+import { TIMER_CHANGED, type TimerStart } from "@/lib/time-types";
 import Modal from "./Modal";
 import { formatDateTime, initials, PRIORITIES } from "./ui";
 import styles from "./Tracker.module.css";
@@ -88,6 +89,16 @@ function Editor({ ticket, project, board, canWrite, startColumnId, onDirty, onSa
     } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
   }
 
+  async function startTimer() {
+    if (!ticket) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const { stopped } = await request<TimerStart>("/api/time-entries/start", { method: "POST", body: JSON.stringify({ ticketId: ticket.id }) });
+      window.dispatchEvent(new Event(TIMER_CHANGED));
+      setNotice(stopped ? `Timer started. The timer on ${stopped.ticket.key} was stopped.` : "Timer started. Stop it from the Time page.");
+    } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
+  }
+
   async function remove() {
     if (!ticket || !window.confirm(`Delete ${ticket.key}? Its comments and alerts are deleted too. This cannot be undone.`)) return;
     setBusy(true); setError(""); setNotice("");
@@ -117,6 +128,7 @@ function Editor({ ticket, project, board, canWrite, startColumnId, onDirty, onSa
       <Button variant="primary" disabled={busy || (ticket ? !dirty : false)}>{busy ? "Saving…" : ticket ? "Save changes" : "Create ticket"}</Button>
       {ticket && dirty && <Button type="button" variant="quiet" onClick={() => setForm(saved)}>Discard changes</Button>}
       <span role="status">{notice}</span>
+      {ticket && <Button type="button" disabled={busy} onClick={() => void startTimer()}><Timer size={15} /> Start timer</Button>}
       {ticket && onDeleted && <Button type="button" variant="quiet" className={styles.danger} disabled={busy} onClick={() => void remove()}><Trash2 size={15} /> Delete ticket</Button>}
     </div>}
   </form>;
