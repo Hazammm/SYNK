@@ -128,3 +128,21 @@ def update_ticket(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
     if dry_run:
         return {"ok": True, "summary": f"Update {key}: {summary}.", "preview": {"changes": changes}}
     return {"ok": True, "summary": f"Updated {key}: {summary}."}
+
+
+def find_tickets(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+    rows = [{"key": key, **ticket} for key, ticket in TICKETS.items() if key.startswith("SYN")]
+    query = (args.get("query") or "").lower()
+    if query:
+        if query.upper() in TICKETS:
+            rows = [{"key": query.upper(), **TICKETS[query.upper()]}]
+        else:
+            # Each word must appear, allowing simple endings ("dark mode" finds "Dark mode toggle").
+            words = [word.rstrip("s") for word in query.split() if len(word) > 2 and word not in ("the", "ticket", "tickets")]
+            rows = [row for row in rows if all(word in row["title"].lower() for word in words)]
+    if args.get("assignee"):
+        wanted = person(args["assignee"])
+        rows = [row for row in rows if row["assignee"] == wanted]
+    if args.get("status"):
+        rows = [row for row in rows if row["status"].lower() == args["status"].lower()]
+    return {"ok": True, "summary": f"Found {len(rows)} {'ticket' if len(rows) == 1 else 'tickets'}.", "data": {"tickets": rows}}
