@@ -280,3 +280,27 @@ test("create_doc: writes a page as the caller, under a parent found by title", a
   assert.equal(await db.doc.count({ where: { title: { in: ["x", "Read only", "No project"] } } }), 0);
   assert.deepEqual((await buildAgentContext(admin, workspaceId)).projects[0].pages.sort(), ["Project brief", "Project budget", "Sprint 5 retro"]);
 });
+
+test("search_workspace: finds tickets, pages and messages the caller can see, and nothing else", async () => {
+  await createDoc(admin, projectId, { title: "Login design", content: "The login flow uses NextAuth." });
+  const general = (await db.channel.findFirstOrThrow({ where: { workspaceId, name: "general" } })).id;
+  await sendMessage(admin, general, { body: "The login bug is fixed now", clientMessageId: randomUUID() });
+  const secret = await createChannel(admin, workspaceId, { name: "leadership", isPrivate: true });
+  await sendMessage(admin, secret.id, { body: "Private login discussion", clientMessageId: randomUUID() });
+
+  const search = async (userId: string, query: string) => succeeded(await run(userId, "search_workspace", { query }));
+  const results = (result: AgentToolResult) => ((result as { data: { results: { type: string; title: string }[] } }).data.results);
+  const forAdmin = await search(admin, "login");
+  assert.deepEqual(results(forAdmin).map(result => result.type).sort(), ["doc", "message", "message", "ticket"]);
+  assert.match(forAdmin.summary, /^Found 1 ticket, 1 page, 2 messages matching “login”\.$/);
+
+  // Sarah Khan can open the project but has not joined the private channel.
+  const forKhan = results(await search(khan, "login"));
+  assert.deepEqual(forKhan.map(result => result.type).sort(), ["doc", "ticket"]);
+  assert.equal(forKhan.some(result => /Private/.test(JSON.stringify(result))), false);
+  // The bystander has no project access and has not joined general, so nothing matches for them.
+  assert.deepEqual(results(await search(bystander, "login")), []);
+  assert.match((await search(admin, "zebra unicorn")).summary, /^Nothing matched/);
+  failed(await run(admin, "search_workspace", { query: "x" }), "invalid");
+  failed(await run(outsider, "search_workspace", { query: "login" }), "forbidden");
+});
