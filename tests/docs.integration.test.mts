@@ -71,3 +71,17 @@ test("docs: READ can read but not change pages; no access looks like a missing p
   }
   await rejects(getDoc(admin, "missing-doc-id"), 404);
 });
+
+test("docs: saving on top of someone else's newer save is refused", async () => {
+  const doc = await createDoc(writer, projectId, { title: "Shared page", content: "First draft" });
+  const mine = await updateDoc(writer, doc.id, { version: doc.version, content: "Writer's edit" });
+  assert.deepEqual([mine.version, mine.content, mine.lastEditedBy?.id], [2, "Writer's edit", writer]);
+  // The admin was still editing version 1.
+  await assert.rejects(updateDoc(admin, doc.id, { version: 1, content: "Admin's edit" }), (error: unknown) => status(409)(error) && /Writer saved this page/.test((error as Error).message));
+  const theirs = await updateDoc(admin, doc.id, { version: 2, title: "Shared page v2" });
+  assert.deepEqual([theirs.version, theirs.title, theirs.content, theirs.lastEditedBy?.id], [3, "Shared page v2", "Writer's edit", admin]);
+  // Two saves of the same version at the same moment: exactly one wins.
+  const results = await Promise.allSettled([updateDoc(writer, doc.id, { version: 3, content: "A" }), updateDoc(admin, doc.id, { version: 3, content: "B" })]);
+  assert.deepEqual(results.map(result => result.status).sort(), ["fulfilled", "rejected"]);
+  await assert.rejects(updateDoc(writer, doc.id, { version: 4 })); // nothing to update
+});
