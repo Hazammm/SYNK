@@ -6,6 +6,7 @@ import { requireWorkspace } from "../../lib/permissions";
 import { rateLimit } from "../../lib/rate-limit";
 import { getProject, listProjects } from "../projects/service";
 import { createTicket, findTicketByKey, getTicket, updateTicket } from "../tickets/service";
+import { createDoc } from "../docs/service";
 import { isNone, isSelf, matchByName, ticketKeyPattern } from "./resolve";
 import type { AgentChange, AgentFailureCode, AgentTarget, AgentToolFailure, AgentToolResult, AgentToolSuccess } from "../../lib/agent-types";
 import type { BoardSummary, Priority, ProjectDetail, ProjectSummary, TicketDetail } from "../../lib/ticket-types";
@@ -194,10 +195,32 @@ const findTicketsTool = defineTool({
   },
 });
 
+// ── create_doc ───────────────────────────────────────────────────────────────
+
+const createDocTool = defineTool({
+  mutates: true,
+  schema: z.object({
+    title: text(150), content: optional(z.string().max(100_000)),
+    project: optional(text(80)),
+    // The title of an existing page to put the new one under.
+    parent: optional(text(150)),
+  }).strict(),
+  async run(context, args, dryRun) {
+    const project = pickProject(await accessibleProjects(context), args.project);
+    if (project.level !== "WRITE") throw new ToolFailure("forbidden", `You have view-only access to ${project.name}, so I can't add pages to it. Ask a workspace admin for edit access.`);
+    const parent = args.parent ? pickNamed(await db.doc.findMany({ where: { projectId: project.id }, select: { id: true, title: true } }).then(pages => pages.map(page => ({ ...page, name: page.title }))), args.parent, "page", `in ${project.name}`) : null;
+    const where = parent ? `under “${parent.title}” in ${project.name}` : `in ${project.name}`;
+    if (dryRun) return { ok: true, summary: `Ready to create the page “${args.title}” ${where}.` };
+    const doc = await createDoc(context.userId, project.id, { title: args.title, content: args.content ?? "", parentId: parent?.id ?? null });
+    return { ok: true, summary: `Created the page “${doc.title}” ${where}.`, target: { type: "doc", id: doc.id, title: doc.title, projectId: doc.projectId } };
+  },
+});
+
 export const agentTools: Record<string, AgentTool> = {
   create_ticket: createTicketTool,
   update_ticket: updateTicketTool,
   find_tickets: findTicketsTool,
+  create_doc: createDocTool,
 };
 
 // ── Running a tool for the agent ─────────────────────────────────────────────
