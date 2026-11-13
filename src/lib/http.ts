@@ -5,7 +5,7 @@ export function assertSameOrigin(request: Request) {
   if (request.headers.get("origin") !== allowed) throw new AppError(403, "Request origin is not allowed.");
 }
 
-export async function readJson(request: Request) {
+export async function readJson(request: Request, maxBytes = 20_000) {
   if (!request.headers.get("content-type")?.includes("application/json")) throw new AppError(415, "Send JSON content.");
   const reader = request.body?.getReader();
   if (!reader) throw new AppError(400, "Request body is required.");
@@ -16,7 +16,7 @@ export async function readJson(request: Request) {
       const { done, value } = await reader.read();
       if (done) break;
       length += value.byteLength;
-      if (length > 20_000) { await reader.cancel(); throw new AppError(413, "Request is too large."); }
+      if (length > maxBytes) { await reader.cancel(); throw new AppError(413, "Request is too large."); }
       chunks.push(value);
     }
     return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
