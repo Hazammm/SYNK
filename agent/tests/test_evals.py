@@ -82,3 +82,10 @@ def test_evaluate_scores_turns_and_retries_rate_limits_without_counting_them():
     summary = summarize(results)
     assert (summary["passed"], summary["scored"], summary["accuracy"]) == (2, 2, 1.0)
     assert "| `create-basic` | happy | pass | - |" in markdown_report("scripted", summary, results)
+
+
+def test_an_unexpected_crash_in_one_prompt_does_not_stop_the_run():
+    cases = [case for case in load_cases() if case["id"] in ("create-basic", "edge-off-topic")]
+    model = ScriptedModel(replies=[ValueError("bad response"), ValueError("bad response"), ValueError("bad response"), ValueError("bad response"), AIMessage("A poem about cats.")])
+    results = evaluate(AgentRunner(build_graph(model, InMemorySaver()), fake_synk()), cases, sleep=lambda seconds: None, log=lambda line: None)
+    assert [result["status"] for result in results] == ["error", "pass"]
