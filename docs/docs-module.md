@@ -11,3 +11,13 @@ This covers PRD section 6.5 and the two agent tools from Sprint 6, `create_doc` 
 | FR-D3 | Each page records who created it, who last edited it and when. |
 | FR-D4 | Full-text search across titles and content in every project the reader can open. Title matches rank first, and partial words still match. |
 | FR-AI2 | `create_doc` and `search_workspace` complete the four agent tools in the PRD. |
+
+## Access
+
+Pages follow project access, through the same `can()` check as tickets:
+
+| Project level | Can do |
+| --- | --- |
+| No access | Nothing. A page in the project looks the same as one that does not exist. |
+| `READ` | Read pages and search them. |
+| `WRITE` | Also create, edit, move and delete pages. |
