@@ -1,0 +1,24 @@
+/* The profile button in the header and the card it opens. Colours come from the theme variables in globals.css. */
+.root { position: relative; margin-left: auto; min-width: 0; }
+.trigger { display: inline-flex; align-items: center; gap: 8px; max-width: 240px; min-height: 40px; padding: 4px 10px 4px 4px; border: 1px solid transparent; border-radius: 100px; background: transparent; color: var(--text); cursor: pointer; }
+.trigger:hover, .trigger[aria-expanded="true"] { border-color: var(--structure); background: var(--surface); }
+.trigger:focus-visible, .card a:focus-visible, .card button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.trigger svg { flex: 0 0 auto; color: var(--muted); }
+.name { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+
+.card { position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; display: grid; gap: 12px; width: min(320px, calc(100vw - 24px)); padding: 16px; border: 1px solid var(--structure); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 12px 32px rgb(0 0 0 / .3); }
+.identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.identity div { display: grid; min-width: 0; }
+.identity strong { font-size: 15px; overflow-wrap: anywhere; }
+.identity span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.facts { display: grid; gap: 8px; margin: 0; padding: 12px 0; border-top: 1px solid var(--structure); border-bottom: 1px solid var(--structure); font-size: 12px; }
+.facts div { display: grid; grid-template-columns: 96px 1fr; gap: 8px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.links { display: grid; }
+.links a, .signOut { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 13px; text-align: left; cursor: pointer; }
+.links a:hover, .signOut:hover { background: var(--structure); }
+.links svg, .signOut svg { color: var(--muted); }
+.signOut { width: 100%; border-top: 1px solid var(--structure); border-radius: 0 0 8px 8px; padding-top: 4px; }
+.muted { margin: 0; color: var(--muted); font-size: 12px; }
+.error { margin: 0; color: var(--high); font-size: 12px; }

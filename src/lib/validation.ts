@@ -3,7 +3,7 @@ import { z } from "zod";
 export const idSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9_-]+$/, "Invalid identifier.");
 export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 // bcrypt only uses the first 72 bytes, so the limit is on UTF-8 bytes, not characters.
-const passwordField = z.string().min(10, "Use at least 10 characters.").max(72)
+export const passwordField = z.string().min(10, "Use at least 10 characters.").max(72)
   .refine(value => new TextEncoder().encode(value).length <= 72, "Password must be at most 72 UTF-8 bytes.");
 export const credentialsSchema = z.object({ email: emailSchema, password: z.string().min(1).max(72) });
 export const registerSchema = z.object({
@@ -108,3 +108,23 @@ export const commentSchema = z.object({
 }).strict();
 export const notificationReadSchema = z.object({ ids: z.array(idSchema).min(1).max(100).optional() }).strict();
 export const reportQuerySchema = z.object({ sprintId: idSchema.optional() }).strict();
+
+// AI agent schemas
+// A turn is either a message (starting a conversation needs a workspace) or the answer to a pending confirmation.
+export const agentChatSchema = z.object({
+  workspaceId: idSchema.optional(), conversationId: idSchema.optional(),
+  message: z.string().trim().min(1, "Write a message first.").max(4000, "Messages can contain up to 4,000 characters.").optional(),
+  decision: z.enum(["approve", "reject"]).optional(),
+}).strict()
+  .refine(turn => Boolean(turn.message) !== Boolean(turn.decision), "Send either a message or a decision.")
+  .refine(turn => turn.decision ? Boolean(turn.conversationId) : Boolean(turn.conversationId ?? turn.workspaceId), "Choose a workspace or a conversation.");
+
+// Account settings schemas
+export const profileUpdateSchema = z.object({
+  name: z.string().trim().min(1, "Enter your name.").max(80, "Names can contain up to 80 characters.").optional(),
+  notifications: z.object({ assigned: z.boolean().optional(), comments: z.boolean().optional(), mentions: z.boolean().optional() }).strict().optional(),
+}).strict().refine(update => update.name !== undefined || (update.notifications && Object.keys(update.notifications).length > 0), "Nothing to update.");
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password.").max(72),
+  newPassword: passwordField,
+}).strict();

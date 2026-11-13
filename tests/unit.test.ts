@@ -7,6 +7,9 @@ import { assertSameOrigin, readJson } from "../src/lib/http";
 import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
 import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { toCsv } from "../src/lib/csv";
+import { AGENT_TOKEN_TTL_MS, mintAgentToken, verifyAgentToken } from "../src/lib/agent-token";
+import { isNone, isSelf, matchByName } from "../src/features/agent/resolve";
+import { agentChatSchema, passwordChangeSchema, profileUpdateSchema } from "../src/lib/validation";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -163,4 +166,63 @@ test("CSV export quotes every cell and defuses spreadsheet formulas", () => {
   assert.equal(toCsv([["Key", "Title"], ["SYN-1", 'Say "hi", then leave']]), '"Key","Title"\r\n"SYN-1","Say ""hi"", then leave"');
   assert.equal(toCsv([["=HYPERLINK(1)", "+1", "-2", "@x", 5, -3, null]]), `"'=HYPERLINK(1)","'+1","'-2","'@x","5","-3",""`);
   assert.equal(toCsv([["line\nbreak"]]), '"line\nbreak"');
+});
+
+test("agent tokens carry one person's claims and cannot be altered, reused late or re-signed", () => {
+  process.env.NEXTAUTH_SECRET ??= "unit-only-not-a-production-secret-1234567890";
+  const claims = { userId: "user1", workspaceId: "ws1", conversationId: "c1" };
+  const now = 1_800_000_000_000;
+  const token = mintAgentToken(claims, now);
+  assert.deepEqual(verifyAgentToken(token, now + AGENT_TOKEN_TTL_MS - 1), { ...claims, expiresAt: now + AGENT_TOKEN_TTL_MS });
+  const invalid = (value: string, at = now) => assert.throws(() => verifyAgentToken(value, at), { status: 401 });
+  invalid(token, now + AGENT_TOKEN_TTL_MS); // expired
+  const [payload, signature] = token.split(".");
+  const other = Buffer.from(JSON.stringify({ ...claims, userId: "admin", expiresAt: now + AGENT_TOKEN_TTL_MS })).toString("base64url");
+  invalid(`${other}.${signature}`); // changed claims, old signature
+  invalid(`${payload}.${signature}.extra`); invalid(payload); invalid(""); invalid(`.${signature}`);
+  // A token signed with another secret is refused.
+  const secret = process.env.NEXTAUTH_SECRET;
+  process.env.NEXTAUTH_SECRET = "a-different-secret-entirely-0000000000000000";
+  try { invalid(token); } finally { process.env.NEXTAUTH_SECRET = secret; }
+});
+test("agent name matching prefers the most specific match and reports ties", () => {
+  const people = [{ name: "Sarah Khan" }, { name: "Sarah Ali" }, { name: "Asra Sarahson" }, { name: null }];
+  const names = (query: string) => { const match = matchByName(people, query, person => person.name); return match.kind === "one" ? match.item.name : match.kind === "many" ? match.items.map(item => item.name) : null; };
+  assert.equal(names("sarah khan"), "Sarah Khan"); // exact, ignoring case
+  assert.equal(names("  KHAN "), "Sarah Khan"); // a whole word
+  assert.deepEqual(names("Sarah"), ["Sarah Khan", "Sarah Ali"]); // whole-word ties, not the "Sarahson" fragment
+  assert.equal(names("asr"), "Asra Sarahson"); // prefix
+  assert.equal(names("sarahs"), "Asra Sarahson"); // fragment, only when nothing better matches
+  assert.equal(names("Bilal"), null); assert.equal(names("   "), null);
+  assert.equal(isSelf(" Me "), true); assert.equal(isSelf("Mehmet"), false);
+  assert.equal(isNone("Unassigned"), true); assert.equal(isNone("nobody"), true); assert.equal(isNone("Noor"), false);
+});
+test("agent chat turns are either a message or a decision", () => {
+  const valid = (value: object) => agentChatSchema.safeParse(value).success;
+  assert.equal(valid({ workspaceId: "w1", message: "hi" }), true);
+  assert.equal(valid({ conversationId: "c1", message: "hi" }), true);
+  assert.equal(valid({ conversationId: "c1", decision: "approve" }), true);
+  assert.equal(valid({ workspaceId: "w1", decision: "approve" }), false); // a decision needs its conversation
+  assert.equal(valid({ conversationId: "c1", message: "hi", decision: "reject" }), false);
+  assert.equal(valid({ message: "hi" }), false); assert.equal(valid({ conversationId: "c1" }), false);
+  assert.equal(valid({ conversationId: "c1", message: "   " }), false);
+  assert.equal(valid({ conversationId: "c1", decision: "maybe" }), false);
+  assert.equal(valid({ conversationId: "c1", message: "x".repeat(4001) }), false);
+  assert.equal(valid({ conversationId: "c1", message: "hi", userId: "someone-else" }), false);
+});
+
+test("settings accept only a name or notification switches, and passwords that meet the rules", () => {
+  const profile = (value: object) => profileUpdateSchema.safeParse(value).success;
+  assert.equal(profile({ name: "Asra" }), true);
+  assert.equal(profile({ notifications: { mentions: false } }), true);
+  assert.equal(profile({ name: "Asra", notifications: { assigned: true, comments: false } }), true);
+  assert.equal(profile({}), false); assert.equal(profile({ notifications: {} }), false);
+  assert.equal(profile({ name: " " }), false); assert.equal(profile({ name: "x".repeat(81) }), false);
+  assert.equal(profile({ email: "a@b.test" }), false); assert.equal(profile({ notifications: { everything: true } }), false);
+  assert.equal(profileUpdateSchema.parse({ name: "  Asra Khan " }).name, "Asra Khan");
+  const password = (value: object) => passwordChangeSchema.safeParse(value).success;
+  assert.equal(password({ currentPassword: "old", newPassword: "long-enough-1" }), true);
+  assert.equal(password({ currentPassword: "", newPassword: "long-enough-1" }), false);
+  assert.equal(password({ currentPassword: "old", newPassword: "short" }), false);
+  assert.equal(password({ currentPassword: "old", newPassword: "é".repeat(40) }), false); // over 72 bytes
 });

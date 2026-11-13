@@ -43,3 +43,17 @@ export async function markNotificationsRead(userId: string, input: unknown) {
   const { count } = await db.notification.updateMany({ where: { recipientId: userId, readAt: null, ...(ids && { id: { in: ids } }) }, data: { readAt: new Date() } });
   return { updated: count };
 }
+
+type Recipient = { recipientId: string; type: "TICKET_ASSIGNED" | "TICKET_COMMENT" | "TICKET_MENTION" };
+const PREFERENCE = { TICKET_ASSIGNED: "notifyAssigned", TICKET_COMMENT: "notifyComments", TICKET_MENTION: "notifyMentions" } as const;
+
+// Drops the notifications people have turned off in their settings.
+export async function wantedNotifications<Entry extends Recipient>(database: Pick<typeof db, "user">, entries: Entry[]): Promise<Entry[]> {
+  if (!entries.length) return entries;
+  const people = await database.user.findMany({
+    where: { id: { in: [...new Set(entries.map(entry => entry.recipientId))] } },
+    select: { id: true, notifyAssigned: true, notifyComments: true, notifyMentions: true },
+  });
+  const byId = new Map(people.map(person => [person.id, person]));
+  return entries.filter(entry => byId.get(entry.recipientId)?.[PREFERENCE[entry.type]] ?? false);
+}

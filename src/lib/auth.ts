@@ -75,8 +75,11 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      const login = token.sessionId ? await db.loginSession.findUnique({ where: { id: token.sessionId } }) : null;
-      session.user.id = login && login.userId === token.sub && login.expiresAt > new Date() ? login.userId : "";
+      const login = token.sessionId ? await db.loginSession.findUnique({ where: { id: token.sessionId }, include: { user: { select: { name: true, email: true } } } }) : null;
+      const valid = Boolean(login && login.userId === token.sub && login.expiresAt > new Date());
+      session.user.id = valid ? login!.userId : "";
+      // Read from the database, so a renamed account shows its new name without signing in again.
+      if (valid) { session.user.name = login!.user.name; session.user.email = login!.user.email; }
       return session;
     },
   },
