@@ -7,7 +7,7 @@ This covers PRD section 6.6: the agent graph, all four tools in the PRD (`create
 | Requirement | Implementation |
 | --- | --- |
 | FR-AI1 | An **Ask Synk AI** button on every screen opens a side panel. The panel returns to your last conversation in each workspace. |
-| FR-AI2 | All four PRD tools are implemented, plus `find_tickets`, a read-only lookup the model uses to turn "the login ticket" into a key. The 30-prompt accuracy set is not done. |
+| FR-AI2 | All four PRD tools are implemented, plus `find_tickets`, a read-only lookup the model uses to turn "the login ticket" into a key. The PRD's 30-prompt accuracy set is in `agent/evals`; see [ai-agent-eval.md](ai-agent-eval.md) for results. |
 | FR-AI3 | Every tool runs on the Next.js server as the signed-in person, through the same services and `can()` check as their own requests. A denial is returned to the model, which explains it. |
 | FR-AI4 | An unclear project, person, status or sprint name is returned as `ambiguous` with the candidates, and the model asks which one. Names are never guessed. |
 | FR-AI5 | `update_ticket` is previewed first. The person sees each field's old and new value and must confirm before anything is saved. |
@@ -77,6 +77,7 @@ The agent runs in Docker, next to PostgreSQL:
 ```bash
 npm run agent:up      # build and start the agent on http://127.0.0.1:8000
 npm run agent:test    # run the agent's tests
+npm run agent:eval    # run the 30-prompt accuracy evaluation against the real model
 ```
 
 Settings, all in `.env`:
@@ -104,6 +105,6 @@ A live run against Gemini was done by hand: creating a ticket, updating one with
 
 ## Not done yet
 
-- The 30-prompt accuracy test set from the PRD.
+- A complete accuracy run: the first runs were cut short by free-tier limits (see [ai-agent-eval.md](ai-agent-eval.md)).
 - Streaming replies; the panel waits for the whole answer.
 - Free model tiers have tight limits. When the quota runs out the assistant says so and the conversation can continue later.
