@@ -64,3 +64,9 @@ input.title:hover, input.title:focus { border-bottom-color: var(--structure); ou
 .format button:hover { background: var(--structure); color: var(--text); }
 .move { display: grid; gap: 4px; margin-left: auto; color: var(--muted); font-size: 11px; }
 .move select { min-height: 34px; max-width: 220px; padding: 4px 8px; font-size: 12px; }
+.source { width: 100%; min-height: 420px; padding: 14px; border: 1px solid var(--structure); border-radius: 10px; background: var(--bg); color: var(--text); font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; }
+.source::placeholder { color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.notice { color: var(--muted); font-size: 12px; }
+.pushRight { margin-left: auto; }
+.danger { color: var(--high); }
