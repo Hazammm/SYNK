@@ -67,3 +67,14 @@ export async function stopTimer(userId: string, now = new Date()): Promise<TimeE
     return serialize(stopped, userId);
   });
 }
+
+// Time worked earlier, added by hand.
+export async function addTimeEntry(userId: string, input: unknown, now = new Date()): Promise<TimeEntry> {
+  const { ticketId, startedAt, endedAt, note } = timeEntrySchema.parse(input);
+  if (endedAt <= startedAt) throw new AppError(400, "The end time must be after the start time.");
+  if (endedAt.getTime() - startedAt.getTime() > MAX_ENTRY_HOURS * HOUR_MS) throw new AppError(400, `An entry can be at most ${MAX_ENTRY_HOURS} hours long.`);
+  if (endedAt.getTime() > now.getTime() + 5 * 60_000) throw new AppError(400, "Time can't be logged in the future.");
+  const ticket = await requireTicket(userId, ticketId, "time:log");
+  const entry = await db.timeEntry.create({ data: { userId, ticketId, projectId: ticket.projectId, startedAt, endedAt, note }, include });
+  return serialize(entry, userId);
+}
