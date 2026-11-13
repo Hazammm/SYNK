@@ -314,3 +314,14 @@ test("time durations count running timers up to now, capped at a day", () => {
   assert.equal(formatClock(3725), "01:02:05");
   assert.deepEqual([hours(5400), hours(1000)], [1.5, 0.3]);
 });
+test("time totals group entries by day, ticket and person", () => {
+  const now = new Date(2026, 10, 13, 18);
+  const entry = (id: string, start: Date, minutes: number, ticket: string, user: string) => ({
+    id, startedAt: start.toISOString(), endedAt: new Date(start.getTime() + minutes * 60_000).toISOString(), note: "", mine: user === "u1",
+    user: { id: user, name: user === "u1" ? "Asra" : "Bilal" }, ticket: { id: ticket, key: ticket.toUpperCase(), title: ticket, projectId: "p" },
+  });
+  const entries = [entry("a", new Date(2026, 10, 9, 9), 60, "t1", "u1"), entry("b", new Date(2026, 10, 9, 14), 30, "t2", "u2"), entry("c", new Date(2026, 10, 12, 10), 90, "t1", "u2"), entry("d", new Date(2026, 10, 2, 10), 60, "t1", "u1")];
+  assert.deepEqual(secondsByDay(entries, weekDays(new Date(2026, 10, 9)), now), [5400, 0, 0, 5400, 0, 0, 0]); // last week's entry is ignored
+  assert.deepEqual(totalsBy(entries.slice(0, 3), e => e.ticket.id, e => e.ticket.title, now).map(g => [g.key, g.seconds]), [["t1", 9000], ["t2", 1800]]);
+  assert.deepEqual(totalsBy(entries.slice(0, 3), e => e.user.id, e => e.user.name ?? "", now).map(g => [g.label, g.seconds]), [["Bilal", 7200], ["Asra", 3600]]);
+});
