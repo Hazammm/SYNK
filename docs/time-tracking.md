@@ -19,3 +19,10 @@ This covers PRD section 6.8 and journey 9.
 | `WRITE` | Also start timers and add time on the project's tickets. |
 
 People can delete only their own entries. Deleting a ticket deletes the time logged on it.
+
+## Design decisions
+
+- **Server time for timers.** Start and stop times come from the server clock, so a wrong computer clock cannot change how long a timer ran.
+- **A 24-hour limit.** A timer left running overnight stops counting at 24 hours, and manual entries longer than that are refused, so one forgotten timer cannot distort a report.
+- **Weeks in local time.** Weeks start on Monday at midnight in the reader's own time zone, and each entry counts on the day it started.
+- **One running timer per person.** Enforced by locking the person's row while a timer starts, rather than a database constraint that the schema tooling would not track.
