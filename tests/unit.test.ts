@@ -325,3 +325,15 @@ test("time totals group entries by day, ticket and person", () => {
   assert.deepEqual(totalsBy(entries.slice(0, 3), e => e.ticket.id, e => e.ticket.title, now).map(g => [g.key, g.seconds]), [["t1", 9000], ["t2", 1800]]);
   assert.deepEqual(totalsBy(entries.slice(0, 3), e => e.user.id, e => e.user.name ?? "", now).map(g => [g.label, g.seconds]), [["Bilal", 7200], ["Asra", 3600]]);
 });
+test("time schemas need real timestamps, tickets and short notes", () => {
+  assert.equal(timerStartSchema.safeParse({ ticketId: "t1" }).success, true);
+  assert.equal(timerStartSchema.safeParse({ ticketId: "t1", userId: "someone" }).success, false);
+  assert.equal(timeEntrySchema.safeParse({ ticketId: "t1", startedAt: "2026-11-13T09:00:00+05:00", endedAt: "2026-11-13T10:00:00Z" }).success, true);
+  assert.equal(timeEntrySchema.safeParse({ ticketId: "t1", startedAt: "2026-11-13", endedAt: "2026-11-13T10:00:00Z" }).success, false);
+  assert.equal(timeEntrySchema.safeParse({ ticketId: "t1", startedAt: "2026-11-13T09:00:00Z", endedAt: "2026-11-13T10:00:00Z", note: "x".repeat(501) }).success, false);
+  assert.equal(timeListSchema.safeParse({ projectId: "p1", from: "2026-11-09T00:00:00Z", to: "2026-11-16T00:00:00Z" }).success, true);
+  assert.equal(timeListSchema.safeParse({ from: "2026-11-09T00:00:00Z", to: "2026-11-16T00:00:00Z" }).success, false);
+  assert.equal(can("time:log", { role: "MEMBER", projectLevel: "READ" }), false);
+  assert.equal(can("time:read", { role: "MEMBER", projectLevel: "READ" }), true);
+  assert.equal(can("time:log", { role: "MEMBER", projectLevel: "WRITE" }), true);
+});
