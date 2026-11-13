@@ -89,3 +89,14 @@ def person(value: str) -> str | None:
 def view_only(project: str) -> None:
     if project == "MKT":
         raise Unresolved(failure("forbidden", "You have view-only access to Marketing site, so I can't change it."))
+
+
+def create_ticket(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+    project = project_of(args.get("project"))
+    view_only(project)
+    details = [match(STATUSES, args["status"], "status") if args.get("status") else "To Do"]
+    if args.get("assignee"):
+        details.append(f"assigned to {person(args['assignee'])}")
+    if args.get("sprint"):
+        details.append(f"in {match(SPRINTS, args['sprint'], 'open sprint')}")
+    return {"ok": True, "summary": f"Created SYN-40 “{args['title']}” in {', '.join(details)}."}
