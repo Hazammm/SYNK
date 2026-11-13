@@ -58,3 +58,12 @@ export async function startTimer(userId: string, input: unknown, now = new Date(
     return { entry: serialize(entry, userId), stopped: stopped && serialize(stopped, userId) };
   });
 }
+
+export async function stopTimer(userId: string, now = new Date()): Promise<TimeEntry> {
+  return db.$transaction(async tx => {
+    await lockUser(tx, userId);
+    const stopped = await stopRunning(tx, userId, now);
+    if (!stopped) throw new AppError(409, "No timer is running.");
+    return serialize(stopped, userId);
+  });
+}
