@@ -16,7 +16,7 @@
     "agent:test": "docker compose run --rm --no-deps --build agent pytest -q",
     "agent:eval": "docker compose run --rm --no-deps --build -v ./agent/evals/results:/results agent python -m evals.run --out /results",
     "test": "node --import tsx --test tests/unit.test.ts",
-    "test:integration": "node --import tsx --test tests/integration.test.mts tests/tickets.integration.test.mts tests/reports.integration.test.mts tests/agent.integration.test.mts tests/account.integration.test.mts tests/docs.integration.test.mts",
+    "test:integration": "node --import tsx --test tests/integration.test.mts tests/tickets.integration.test.mts tests/reports.integration.test.mts tests/agent.integration.test.mts tests/account.integration.test.mts tests/docs.integration.test.mts tests/time.integration.test.mts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

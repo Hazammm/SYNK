@@ -1,0 +1,63 @@
+import test, { after, before } from "node:test";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import nextEnv from "@next/env";
+
+nextEnv.loadEnvConfig(process.cwd(), true);
+if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a migrated, disposable PostgreSQL database.");
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+const { db } = await import("../src/lib/db");
+const { createWorkspace, addMember } = await import("../src/features/workspaces/service");
+const { createProject, getProject, setProjectAccess } = await import("../src/features/projects/service");
+const { createTicket, deleteTicket } = await import("../src/features/tickets/service");
+const { addTimeEntry, deleteTimeEntry, getActiveTimer, listTimeEntries, startTimer, stopTimer } = await import("../src/features/time/service");
+
+// writer: WRITE. reader: READ. bystander: workspace member without project access. outsider: another workspace.
+let admin: string, writer: string, reader: string, bystander: string, outsider: string;
+let workspaceId: string, projectId: string, ticketA: string, ticketB: string, otherTicket: string;
+const users: string[] = [];
+const workspaces: string[] = [];
+const status = (code: number) => (error: unknown) => (error as { status?: number }).status === code;
+const rejects = (promise: Promise<unknown>, code: number) => assert.rejects(promise, status(code));
+const at = (iso: string) => new Date(iso);
+const week = { from: "2026-11-09T00:00:00.000Z", to: "2026-11-16T00:00:00.000Z" };
+
+before(async () => {
+  for (const name of ["Admin", "Writer", "Reader", "Bystander", "Outsider"]) {
+    users.push((await db.user.create({ data: { name, email: `synk-time-${randomUUID()}@example.test` } })).id);
+  }
+  [admin, writer, reader, bystander, outsider] = users;
+  workspaceId = (await createWorkspace(admin, { name: "Time workspace" })).id;
+  workspaces.push(workspaceId, (await createWorkspace(outsider, { name: "Elsewhere" })).id);
+  for (const id of [writer, reader, bystander]) await addMember(admin, workspaceId, (await db.user.findUniqueOrThrow({ where: { id } })).email);
+  projectId = (await createProject(admin, workspaceId, { name: "Time project", key: "TIM" })).id;
+  await setProjectAccess(admin, projectId, { userId: writer, level: "WRITE" });
+  await setProjectAccess(admin, projectId, { userId: reader, level: "READ" });
+  const boardId = (await getProject(admin, projectId)).boards[0].id;
+  ticketA = (await createTicket(admin, { boardId, title: "Build the timer" })).id;
+  ticketB = (await createTicket(admin, { boardId, title: "Write the report" })).id;
+  const other = await createProject(admin, workspaceId, { name: "Other project", key: "OTH" });
+  otherTicket = (await createTicket(admin, { boardId: (await getProject(admin, other.id)).boards[0].id, title: "Elsewhere" })).id;
+});
+
+after(async () => {
+  await db.workspace.deleteMany({ where: { id: { in: workspaces } } });
+  await db.user.deleteMany({ where: { id: { in: users } } });
+  await db.$disconnect();
+});
+
+test("timers: starting one stops the running one, and stopping records the time", async () => {
+  const first = await startTimer(writer, { ticketId: ticketA }, at("2026-11-10T09:00:00.000Z"));
+  assert.deepEqual([first.entry.ticket.title, first.entry.endedAt, first.stopped, first.entry.mine], ["Build the timer", null, null, true]);
+  assert.equal((await getActiveTimer(writer))?.id, first.entry.id);
+
+  const second = await startTimer(writer, { ticketId: ticketB, note: "Draft" }, at("2026-11-10T10:30:00.000Z"));
+  assert.equal(second.stopped?.id, first.entry.id);
+  assert.equal(second.stopped?.endedAt, "2026-11-10T10:30:00.000Z");
+  assert.equal(await db.timeEntry.count({ where: { userId: writer, endedAt: null } }), 1);
+
+  const stopped = await stopTimer(writer, at("2026-11-10T11:00:00.000Z"));
+  assert.deepEqual([stopped.id, stopped.endedAt, stopped.note], [second.entry.id, "2026-11-10T11:00:00.000Z", "Draft"]);
+  assert.equal(await getActiveTimer(writer), null);
+  await rejects(stopTimer(writer), 409); // nothing running
+});
