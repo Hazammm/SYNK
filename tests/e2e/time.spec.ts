@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { createWorkspaceAs } from "./onboard";
 
 test("time: start and stop a timer from a ticket, add time by hand, see the week and export it", async ({ page }) => {
   // The manual entry is logged for 00:00 to 01:30 today, which is still in the future just after midnight.
@@ -9,19 +10,15 @@ test("time: start and stop a timer from a ticket, add time by hand, see the week
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
 
-  await page.goto("/signup");
-  await page.getByLabel("Full name").fill("Time QA");
-  await page.getByLabel("Workspace email").fill(`time-${nonce}@example.test`);
-  await page.getByLabel("Password", { exact: true }).fill("QA-secret-very-long-123!");
-  await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
-  await page.getByLabel("Workspace name").fill(`Time QA ${nonce}`);
-  await page.getByRole("button", { name: "Create workspace", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "general", exact: true })).toBeVisible();
+  await createWorkspaceAs(page, {
+    name: "Time QA",
+    email: `time-${nonce}@example.test`,
+    workspaceName: `Time QA ${nonce}`,
+  });
 
-  // A project with one ticket.
+  // A project with one ticket. The wizard already created a starter project.
   await page.goto("/board");
-  await page.getByRole("button", { name: "Create the first project" }).click();
+  await page.getByRole("button", { name: "New project", exact: true }).click();
   await page.getByLabel("Project name").fill("Timesheet");
   await page.getByRole("button", { name: "Create project", exact: true }).click();
   await page.getByRole("button", { name: "New ticket", exact: true }).click();

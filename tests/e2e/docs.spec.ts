@@ -1,31 +1,19 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { createWorkspaceAs } from "./onboard";
 
 test("docs: create nested pages, format them, check off a task, search and reload", async ({ page }) => {
   const nonce = randomUUID().slice(0, 8);
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
 
-  await page.goto("/signup");
-  await page.getByLabel("Full name").fill("Docs QA");
-  await page.getByLabel("Workspace email").fill(`docs-${nonce}@example.test`);
-  await page.getByLabel("Password", { exact: true }).fill("QA-secret-very-long-123!");
-  await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
-  await page.getByLabel("Workspace name").fill(`Docs QA ${nonce}`);
-  await page.getByRole("button", { name: "Create workspace", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "general", exact: true })).toBeVisible();
+  await createWorkspaceAs(page, {
+    name: "Docs QA",
+    email: `docs-${nonce}@example.test`,
+    workspaceName: `Docs QA ${nonce}`,
+  });
 
-  // Pages belong to a project, so the docs page points to the board until one exists.
-  await page.getByRole("link", { name: "Docs", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "No projects to write in yet" })).toBeVisible();
-  await page.goto("/board");
-  await page.getByRole("button", { name: "Create the first project" }).click();
-  await page.getByLabel("Project name").fill("Handbook");
-  await page.getByRole("button", { name: "Create project", exact: true }).click();
-  await expect(page.getByRole("region", { name: "To Do, 0 tickets" })).toBeVisible();
-
-  // First page: a new page opens ready to write.
+  // The wizard already created a starter project, so docs opens ready for the first page.
   await page.goto("/docs");
   await page.getByRole("button", { name: "Create the first page" }).click();
   await expect(page.getByLabel("Page title")).toHaveValue("Untitled"); // the new page has opened

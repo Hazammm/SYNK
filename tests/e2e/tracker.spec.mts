@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import nextEnv from "@next/env";
+import { createWorkspaceAs } from "./onboard";
 
 const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 nextEnv.loadEnvConfig(process.cwd(), true);
@@ -33,16 +34,7 @@ test("issue tracking: project, ticket lifecycle, delete, sprint, report export a
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
 
-  await page.goto("/create-workspace");
-  await expect(page.getByRole("heading", { name: "Create your workspace" })).toBeVisible({ timeout: 30_000 });
-  await page.getByLabel("Full name").fill("Tracker QA");
-  await page.getByLabel("Work email").fill(testEmail);
-  await page.getByLabel("Password", { exact: true }).fill("QA-secret-very-long-123!");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByLabel("Workspace name").fill(`Tracker QA ${nonce}`);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Skip for now", exact: true }).click();
-  await expect(page).toHaveURL(/\/w\/[^/]+\/(?:overview|settings)/);
+  await createWorkspaceAs(page, { name: "Tracker QA", email: testEmail, workspaceName: `Tracker QA ${nonce}` });
   await page.goto("/chat");
   await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
 

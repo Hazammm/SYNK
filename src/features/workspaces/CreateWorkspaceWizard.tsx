@@ -195,7 +195,7 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
           {step === 0 ? <Link className={styles.backLink} href="/login">Back to sign in</Link> : <Button type="button" onClick={() => { setError(""); setStep(current => current - 1); }}>Back</Button>}
           {step < 2
             ? <Button variant="primary" type="button" className={styles.wizardPrimary} onClick={continueStep}>Continue</Button>
-            : <><Button type="button" disabled={busy} onClick={() => void createWorkspace(true)}>Skip for now</Button><Button variant="primary" type="submit" className={styles.wizardPrimary} disabled={busy}>{busy ? "Creating…" : "Create workspace"}</Button></>}
+            : <><Button type="button" formNoValidate disabled={busy} onClick={() => void createWorkspace(true)}>Skip for now</Button><Button variant="primary" type="submit" formNoValidate className={styles.wizardPrimary} disabled={busy}>{busy ? "Creating…" : "Create workspace"}</Button></>}
         </div>
       </form>
       <p className={styles.switch}>Already have an account? <Link href="/login">Sign in</Link></p>

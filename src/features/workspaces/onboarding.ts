@@ -9,6 +9,28 @@ import type { GoogleProfile } from "@/lib/google-profile-cookie";
 import { createBoardRecord } from "../projects/service";
 
 const inviteLifetimeMs = 7 * 24 * 60 * 60 * 1000;
+const mailWaitMs = 2_000;
+
+async function settleOnboardingMail(
+  sendWelcome: () => Promise<unknown>,
+  invites: Array<{ email: string; send: () => Promise<unknown> }>,
+) {
+  const work = Promise.allSettled([sendWelcome(), ...invites.map(invite => invite.send())]);
+  const outcome = await Promise.race([
+    work.then(results => ({ timedOut: false as const, results })),
+    new Promise<{ timedOut: true }>(resolve => setTimeout(() => resolve({ timedOut: true }), mailWaitMs)),
+  ]);
+  if (outcome.timedOut) {
+    void work;
+    return { emailDelivery: { sent: 0, failedEmails: [] as string[] }, welcomeEmailFailed: false };
+  }
+  const [welcomeDelivery, ...deliveries] = outcome.results;
+  const failedEmails = deliveries.flatMap((result, index) => result.status === "rejected" ? [invites[index].email] : []);
+  return {
+    emailDelivery: { sent: deliveries.length - failedEmails.length, failedEmails },
+    welcomeEmailFailed: welcomeDelivery.status === "rejected",
+  };
+}
 
 function projectKeyFor(name: string) {
   const cleaned = name.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 10);
@@ -86,8 +108,8 @@ export async function createWorkspaceForAdmin(input: unknown) {
     throw error;
   }
 
-  const [welcomeDelivery, ...deliveries] = await Promise.allSettled([
-    Promise.resolve().then(() => {
+  const mail = await settleOnboardingMail(
+    () => {
       if (!created.user.email) throw new Error("New workspace owner has no email address.");
       return sendWelcomeEmail({
         email: created.user.email,
@@ -95,20 +117,17 @@ export async function createWorkspaceForAdmin(input: unknown) {
         workspaceId: created.workspace.id,
         workspaceName: created.workspace.name,
       });
-    }),
-    ...created.invites.map(invite => sendWorkspaceInvite({
-      adminName: created.user.name ?? data.adminName,
-      workspaceName: created.workspace.name,
-      ...invite,
+    },
+    created.invites.map(invite => ({
+      email: invite.email,
+      send: () => sendWorkspaceInvite({
+        adminName: created.user.name ?? data.adminName,
+        workspaceName: created.workspace.name,
+        ...invite,
+      }),
     })),
-  ]);
-  const failedEmails = deliveries.flatMap((result, index) => result.status === "rejected" ? [created.invites[index].email] : []);
-  return {
-    user: created.user,
-    workspace: created.workspace,
-    emailDelivery: { sent: deliveries.length - failedEmails.length, failedEmails },
-    welcomeEmailFailed: welcomeDelivery.status === "rejected",
-  };
+  );
+  return { user: created.user, workspace: created.workspace, ...mail };
 }
 
 /**
@@ -213,8 +232,8 @@ export async function createWorkspaceForGoogleUser(googleProfile: GoogleProfile,
     throw error;
   }
 
-  const [welcomeDelivery, ...deliveries] = await Promise.allSettled([
-    Promise.resolve().then(() => {
+  const mail = await settleOnboardingMail(
+    () => {
       if (!created.user.email) throw new Error("New workspace owner has no email address.");
       return sendWelcomeEmail({
         email: created.user.email,
@@ -222,18 +241,15 @@ export async function createWorkspaceForGoogleUser(googleProfile: GoogleProfile,
         workspaceId: created.workspace.id,
         workspaceName: created.workspace.name,
       });
-    }),
-    ...created.invites.map(invite => sendWorkspaceInvite({
-      adminName: created.user.name ?? googleProfile.name,
-      workspaceName: created.workspace.name,
-      ...invite,
+    },
+    created.invites.map(invite => ({
+      email: invite.email,
+      send: () => sendWorkspaceInvite({
+        adminName: created.user.name ?? googleProfile.name,
+        workspaceName: created.workspace.name,
+        ...invite,
+      }),
     })),
-  ]);
-  const failedEmails = deliveries.flatMap((result, index) => result.status === "rejected" ? [created.invites[index].email] : []);
-  return {
-    user: created.user,
-    workspace: created.workspace,
-    emailDelivery: { sent: deliveries.length - failedEmails.length, failedEmails },
-    welcomeEmailFailed: welcomeDelivery.status === "rejected",
-  };
+  );
+  return { user: created.user, workspace: created.workspace, ...mail };
 }

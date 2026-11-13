@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { createWorkspaceAs } from "./onboard";
 
 test("profile menu and settings: details, rename, notifications, theme and sessions", async ({ page }) => {
   const nonce = randomUUID().slice(0, 8);
@@ -7,12 +8,7 @@ test("profile menu and settings: details, rename, notifications, theme and sessi
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
 
-  await page.goto("/signup");
-  await page.getByLabel("Full name").fill("Settings QA");
-  await page.getByLabel("Workspace email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill("QA-secret-very-long-123!");
-  await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
+  await createWorkspaceAs(page, { name: "Settings QA", email, workspaceName: `Settings QA ${nonce}` });
 
   // The name in the header opens a card with the person's details.
   const trigger = page.getByRole("button", { name: "Settings QA" });
