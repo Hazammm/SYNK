@@ -23,3 +23,11 @@ def test_the_case_file_matches_the_prd_test_set():
         assert case["prompt"] and case["expect"], case["id"]
     tools = {call["tool"] for case in cases for call in case["expect"].get("calls", [])}
     assert {"create_ticket", "update_ticket", "find_tickets", "create_doc", "search_workspace"} <= tools  # every tool is exercised
+
+
+def test_values_match_ignoring_case_with_alternatives():
+    assert value_matches("fix login bug", "Fix login bug")
+    assert value_matches("me|asra", "Asra Khan")
+    assert value_matches("syn-12", "SYN-12")
+    assert not value_matches("high", "medium")
+    assert not value_matches("x", None)
