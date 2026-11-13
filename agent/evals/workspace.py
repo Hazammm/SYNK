@@ -163,3 +163,23 @@ def search_workspace(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
         {"type": "message", "title": "#general · Sarah Ali", "snippet": "The login bug is fixed on staging."},
     ]
     return {"ok": True, "summary": f"Found {len(results)} results matching “{args.get('query', '')}”.", "data": {"results": results}}
+
+
+TOOLS = {"create_ticket": create_ticket, "update_ticket": update_ticket, "find_tickets": find_tickets, "create_doc": create_doc, "search_workspace": search_workspace}
+
+
+def respond(name: str, args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+    if name not in TOOLS:
+        return failure("not_found", "Unknown tool.")
+    try:
+        return TOOLS[name](args, dry_run)
+    except Unresolved as error:
+        return error.result
+
+
+def fake_synk() -> SynkApi:
+    """A SynkApi whose requests are answered by the rules above instead of a server."""
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return httpx.Response(200, json=respond(request.url.path.rsplit("/", 1)[-1], body["args"], body["dryRun"]))
+    return SynkApi("http://synk.eval", transport=httpx.MockTransport(handle))
