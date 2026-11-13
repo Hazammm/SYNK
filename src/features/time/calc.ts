@@ -52,3 +52,13 @@ export function totalsBy<Key extends string>(entries: TimeEntry[], keyOf: (entry
   }
   return [...groups.values()].sort((a, b) => b.seconds - a.seconds || a.label.localeCompare(b.label));
 }
+
+// A date ("2026-11-13") and time ("09:30") typed into the form, as an ISO timestamp.
+export function localToIso(date: string, time: string): string | null {
+  const [year, month, day] = date.split("-").map(Number), [hour, minute] = time.split(":").map(Number);
+  const value = new Date(year, month - 1, day, hour, minute);
+  return Number.isNaN(value.getTime()) || !date || !time ? null : value.toISOString();
+}
+
+export const isSameWeek = (a: Date, b: Date) => startOfWeek(a).getTime() === startOfWeek(b).getTime();
+export const weeksBetween = (from: Date, to: Date) => Math.round((startOfWeek(to).getTime() - startOfWeek(from).getTime()) / (7 * DAY_MS));
