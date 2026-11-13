@@ -52,3 +52,9 @@ The assistant also receives each project's recent page titles, so it can file a 
 - `tests/docs.integration.test.mts`: nesting, access, edit conflicts, moves, recursive deletes and search ranking and visibility.
 - `tests/agent.integration.test.mts`: `create_doc` and `search_workspace`, including private-channel messages staying hidden.
 - `tests/e2e/docs.spec.ts`: writing, formatting, subpages, ticking a checklist item, search and reload in a browser.
+
+## Not done yet
+
+- Real-time co-editing. Two people editing at once get a conflict message instead.
+- Images and file attachments.
+- Page history and restoring earlier versions.
