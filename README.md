@@ -21,7 +21,7 @@ AI-powered team workspace. It implements the PRD's **critical-path chat module**
 - **Time tracking**: timers started from the Time page or a ticket, time added by hand, and a weekly report by day, ticket and person with CSV export.
 - **Synk AI**, an assistant on every screen that creates, finds and updates tickets, writes pages and searches the workspace in plain language. It can only do what you are allowed to do, asks which one you mean when a name is unclear, and waits for your confirmation before changing an existing ticket.
 
-See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated, [docs notes](docs/docs-module.md) for how pages work, and [AI agent notes](docs/ai-agent.md) for how the agent works and how to add a tool.
+See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated, [docs notes](docs/docs-module.md) for how pages work, [time tracking notes](docs/time-tracking.md) for timers and reports, and [AI agent notes](docs/ai-agent.md) for how the agent works and how to add a tool.
 
 
 ## Local setup
