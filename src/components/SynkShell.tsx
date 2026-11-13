@@ -27,6 +27,7 @@ const liveTabs = [
   { label: "Overview", href: "/overview" },
   { label: "Chat", href: "/chat" },
   { label: "Board", href: "/board" },
+  { label: "Docs", href: "/docs" },
   { label: "Alerts", href: "/alerts" },
 ];
 
@@ -85,7 +86,7 @@ export default function SynkShell({ children, userName }: { children: React.Reac
             {tab.label}{tab.href === "/alerts" && unread > 0 && <span className={styles.tabCount}>{unread > 99 ? "99+" : unread}<span className={styles.srOnly}> unread</span></span>}
           </Link>;
         })}
-        <Link href="/docs" className={styles.topTab}>Product preview</Link>
+        <Link href="/time" className={styles.topTab}>Product preview</Link>
       </nav>
       <ProfileMenu userName={userName} />
       <SettingsLink className={`${styles.settingsLink} ${pathname === "/settings" ? styles.settingsActive : ""}`} />
