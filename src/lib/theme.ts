@@ -1,10 +1,11 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-
 export type ThemeName = "black" | "white" | "forest" | "lavender";
-
-const themes: ThemeName[] = ["black", "white", "forest", "lavender"];
+export const THEMES: { id: ThemeName; label: string }[] = [
+  { id: "black", label: "Black" }, { id: "white", label: "White" }, { id: "forest", label: "Forest" }, { id: "lavender", label: "Lavender" },
+];
+const themes = THEMES.map(theme => theme.id);
 const eventName = "synk-theme-change";
 
 export function applyTheme(theme: ThemeName) {

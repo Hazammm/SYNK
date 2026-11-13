@@ -22,7 +22,7 @@ export function trackerHref(view: TrackerView, selection: Selection) {
 }
 
 // Keeps the address bar shareable without triggering a navigation.
-export function syncUrl(changes: Selection) {
+export function syncUrl(changes: Record<string, string | undefined>) {
   const url = new URL(window.location.href);
   for (const [name, value] of Object.entries(changes)) {
     if (value) url.searchParams.set(name, value);

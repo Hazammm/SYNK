@@ -1,0 +1,99 @@
+/* Docs: page tree, editor and rendered pages. Colours come from the theme variables in globals.css. */
+.page { min-width: 0; width: 100%; }
+.page select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--structure); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; }
+.page button:focus-visible, .page select:focus-visible, .page input:focus-visible, .page textarea:focus-visible, .page a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 24px 28px 18px; }
+.bar h1 { margin: 3px 0 0; font-size: 24px; letter-spacing: -.04em; }
+.bar .picker { margin-left: auto; }
+.eyebrow { color: var(--muted); font-size: 11px; letter-spacing: .12em; }
+.picker { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.picker select { min-width: 170px; max-width: 260px; }
+.subnav { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; padding: 0 28px 14px; border-bottom: 1px solid var(--structure); }
+.muted { margin: 0; padding: 4px 10px; color: var(--muted); font-size: 12px; }
+.loading { padding: 28px; color: var(--muted); }
+.error { margin: 12px 28px 0; padding: 10px 14px; border: 1px solid var(--high); border-radius: 8px; color: var(--high); font-size: 13px; }
+.error button { border: 0; background: transparent; color: var(--link); text-decoration: underline; cursor: pointer; }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 280px; padding: 32px; color: var(--muted); text-align: center; }
+.empty h2, .empty p { margin: 0; }
+.empty h2 { color: var(--text); font-size: 18px; }
+.empty a { color: var(--link); font-weight: 600; }
+
+/* Search */
+.search { position: relative; flex: 1; min-width: 260px; max-width: 560px; }
+.search form { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px 0 12px; border: 1px solid var(--structure); border-radius: 8px; background: var(--bg); }
+.search form > svg { color: var(--muted); flex: 0 0 auto; }
+.search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font-size: 13px; }
+.search input:focus-visible { outline: none; }
+.search form:focus-within { border-color: var(--link); }
+.search form button { min-height: 32px; }
+.search .error { margin: 8px 0 0; }
+.results { position: absolute; top: calc(100% + 6px); right: 0; left: 0; z-index: 30; max-height: 420px; overflow-y: auto; border: 1px solid var(--structure); border-radius: 10px; background: var(--surface); box-shadow: 0 12px 32px rgb(0 0 0 / .3); }
+.results header { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--structure); color: var(--muted); font-size: 12px; }
+.results header button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.results ul { margin: 0; padding: 4px; list-style: none; }
+.results li button { display: grid; gap: 2px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.results li button:hover { background: var(--structure); }
+.results small { color: var(--muted); font-size: 11px; }
+.results span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: calc(100vh - 220px); }
+.tree { padding: 14px 10px; border-right: 1px solid var(--structure); }
+.treeHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 10px 10px; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.treeHead button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.treeHead button:hover { background: var(--structure); color: var(--text); }
+.treeList { margin: 0; padding: 0; list-style: none; }
+.treeList button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding-right: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 13px; text-align: left; cursor: pointer; }
+.treeList button:hover { background: var(--surface); color: var(--text); }
+.treeList button[aria-current="page"] { background: var(--structure); color: var(--text); font-weight: 600; }
+.treeList button svg { flex: 0 0 auto; }
+.treeList button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main { min-width: 0; }
+
+/* Editor */
+.editor { display: grid; gap: 14px; max-width: 860px; padding: 24px 32px 40px; }
+.meta { color: var(--muted); font-size: 12px; }
+.title { width: 100%; margin: 0; padding: 4px 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--text); font-size: 30px; font-weight: 700; letter-spacing: -.03em; }
+input.title:hover, input.title:focus { border-bottom-color: var(--structure); outline: none; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--structure); }
+.modes { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--structure); border-radius: 8px; }
+.modes button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; cursor: pointer; }
+.modes button[aria-selected="true"] { background: var(--structure); color: var(--text); }
+.format { display: flex; flex-wrap: wrap; gap: 2px; }
+.format button { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.format button:hover { background: var(--structure); color: var(--text); }
+.move { display: grid; gap: 4px; margin-left: auto; color: var(--muted); font-size: 11px; }
+.move select { min-height: 34px; max-width: 220px; padding: 4px 8px; font-size: 12px; }
+.source { width: 100%; min-height: 420px; padding: 14px; border: 1px solid var(--structure); border-radius: 10px; background: var(--bg); color: var(--text); font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; }
+.source::placeholder { color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.notice { color: var(--muted); font-size: 12px; }
+.pushRight { margin-left: auto; }
+.danger { color: var(--high); }
+
+/* Rendered pages */
+.content { color: var(--text); font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; }
+.content > :first-child { margin-top: 0; }
+.content h2 { margin: 28px 0 8px; font-size: 22px; letter-spacing: -.02em; }
+.content h3 { margin: 22px 0 6px; font-size: 18px; }
+.content h4 { margin: 18px 0 4px; font-size: 15px; }
+.content p { margin: 0 0 12px; }
+.content a { color: var(--link); font-weight: 600; }
+.content code { padding: 1px 5px; border-radius: 4px; background: var(--structure); font-size: 13px; }
+.content pre { margin: 0 0 14px; padding: 14px; overflow-x: auto; border: 1px solid var(--structure); border-radius: 8px; background: var(--bg); }
+.content pre code { padding: 0; background: none; }
+.content blockquote { margin: 0 0 14px; padding: 4px 14px; border-left: 3px solid var(--structure); color: var(--muted); }
+.content hr { margin: 20px 0; border: 0; border-top: 1px solid var(--structure); }
+.content ul, .content ol { margin: 0 0 14px; padding-left: 24px; }
+.content li { margin: 2px 0; }
+.content .tasks { padding-left: 4px; list-style: none; }
+.content .tasks li { display: flex; align-items: flex-start; gap: 8px; }
+.content .tasks input { width: 16px; height: 16px; margin-top: 5px; flex: 0 0 auto; accent-color: var(--action); }
+.emptyPage { margin: 0; color: var(--muted); font-style: italic; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .tree { border-right: 0; border-bottom: 1px solid var(--structure); }
+  .editor { padding: 20px 16px 32px; }
+  .move { margin-left: 0; }
+}

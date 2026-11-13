@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCheck, ChevronDown, Play, Plus } from "lucide-react";
 import { Avatar, Badge, Button, Input } from "@/components/Primitives";
 import type { ProjectDetail, SprintSummary, TicketDetail, TicketSummary } from "@/lib/ticket-types";
+import { TICKETS_CHANGED } from "@/lib/agent-types";
 import { messageOf, request } from "@/lib/client-http";
 import TicketDrawer from "./TicketDrawer";
 import { formatDate, initials, priorityOf, syncUrl, type Selection } from "./ui";
@@ -32,6 +33,12 @@ export default function SprintsView({ project, userId, initial, onProjectChange 
       .catch(error => { if (!controller.signal.aborted) setError(messageOf(error)); });
     return () => controller.abort();
   }, [project.id, revision]);
+
+  useEffect(() => {
+    const reload = () => setRevision(value => value + 1);
+    window.addEventListener(TICKETS_CHANGED, reload);
+    return () => window.removeEventListener(TICKETS_CHANGED, reload);
+  }, []);
 
   function show(ticketId: string) { setOpenTicket(ticketId); syncUrl({ ticket: ticketId || undefined }); }
   const replace = (ticket: TicketSummary) => setTickets(current => current?.map(item => item.id === ticket.id ? ticket : item) ?? null);

@@ -1,6 +1,6 @@
 # SYNK
 
-AI-powered team workspace. It implements the PRD's **critical-path chat module**, **issue tracking with sprint reports**, and the authentication, membership and database foundation they require.
+AI-powered team workspace. It implements the PRD's **critical-path chat module**, **issue tracking with sprint reports**, **docs**, **time tracking**, the **AI agent**, and the authentication, membership and database foundation they require.
 
 ## What is functional
 
@@ -16,10 +16,12 @@ AI-powered team workspace. It implements the PRD's **critical-path chat module**
 - Projects with read or edit access per person, boards with configurable columns, and tickets with drag and drop, filters, comments, @mentions and deletion.
 - Sprints with progress, and a Reports view with a burndown, velocity, breakdowns and CSV export.
 - An overview of your open tickets and active sprints, and in-app alerts for assignments, comments and mentions.
+- A profile menu and **Settings**: display name, which alerts you get, theme, password changes, signing out other devices, leaving a workspace and deleting your AI conversations.
+- **Docs**: nested pages per project written in Markdown, with a formatting toolbar, preview, checklists, edit-conflict protection and full-text search.
+- **Time tracking**: timers started from the Time page or a ticket, time added by hand, and a weekly report by day, ticket and person with CSV export.
+- **Synk AI**, an assistant on every screen that creates, finds and updates tickets, writes pages and searches the workspace in plain language. It can only do what you are allowed to do, asks which one you mean when a name is unclear, and waits for your confirmation before changing an existing ticket.
 
-See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated.
-The docs, time and settings screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The LangGraph AI agent is a later milestone.
-The docs, time and settings screens are explicitly labeled **Product preview with sample data**. They are not implemented backend modules. The LangGraph AI agent is a later milestone.
+See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated, [docs notes](docs/docs-module.md) for how pages work, [time tracking notes](docs/time-tracking.md) for timers and reports, and [AI agent notes](docs/ai-agent.md) for how the agent works and how to add a tool.
 
 ## Local setup
 
@@ -46,6 +48,22 @@ Use your own PostgreSQL `DATABASE_URL` if not using Compose. The Compose passwor
 ### Mailtrap email
 
 For live delivery, set `MAILTRAP_API_TOKEN` and `MAIL_FROM` in `.env`. Use a Mailtrap Email Sending API token and a sender address/domain verified in Mailtrap; API-token delivery takes precedence when both API and SMTP settings are present. Alternatively, configure `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM` to use SMTP. In development, password-reset links are printed to the server console when Mailtrap is not configured; account creation still succeeds if a welcome email cannot be delivered. A Mailtrap Email Testing inbox captures messages for inspection but does not deliver them to the recipient's real mailbox. Invitation tokens are stored only as SHA-256 hashes and expire after seven days.
+
+### Optional AI agent
+
+The assistant runs as a separate Python (LangGraph) service in Docker. Create a free key in [Google AI Studio](https://aistudio.google.com/apikey), then add these to `.env`:
+
+```bash
+AI_SERVICE_URL="http://127.0.0.1:8000"
+AI_SERVICE_SECRET=""   # generate like NEXTAUTH_SECRET
+GOOGLE_API_KEY=""
+```
+
+```bash
+npm run agent:up
+```
+
+Without these settings the rest of Synk works normally and the panel says the assistant is not set up. `npm run agent:test` runs the agent's own tests, and `npm run agent:eval` runs the 30-prompt accuracy evaluation against the real model (see [the evaluation notes](docs/ai-agent-eval.md)).
 
 ### Optional demo records
 

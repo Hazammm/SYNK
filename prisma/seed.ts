@@ -9,6 +9,8 @@ async function seed() {
   const { listChannels, joinChannel, sendMessage } = await import("../src/features/chat/service");
   const { listProjects, createProject, setProjectAccess, getProject } = await import("../src/features/projects/service");
   const { createSprint, createTicket, updateSprint } = await import("../src/features/tickets/service");
+  const { createDoc } = await import("../src/features/docs/service");
+  const { addTimeEntry } = await import("../src/features/time/service");
   const password = process.env.SEED_DEMO_PASSWORD;
   registerSchema.parse({ name: "Demo", email: "admin@synk.test", password });
   if (process.env.NODE_ENV === "production") throw new Error("Demo seeding is disabled in production.");
@@ -55,6 +57,21 @@ async function seed() {
         if (finished !== null) await db.ticket.update({ where: { id: ticket.id }, data: { completedAt: new Date(Date.now() + finished * 86_400_000) } });
       }
       await updateSprint(admin.id, sprint.id, { state: "ACTIVE" });
+    }
+    // A few pages, so docs and the assistant's search have something to show.
+    if (!(await db.doc.count({ where: { projectId: project.id } }))) {
+      const brief = await createDoc(admin.id, project.id, { title: "Project brief", content: "## Goals\n\n- Ship chat, issue tracking and the AI assistant\n- Keep every action inside each person's permissions\n\n## Team\n\nDemo Admin leads; Demo Member builds the board. See SYN-101." });
+      await createDoc(admin.id, project.id, { parentId: brief.id, title: "Auth design spec", content: "## Authentication\n\nSign-in uses NextAuth with email and password, plus optional Google, GitHub and Bitbucket.\n\n- [x] Password reset\n- [ ] Email verification" });
+      await createDoc(member.id, project.id, { title: "Sprint 4 retro", content: "## What went well\n\n- Drag and drop on the board\n\n## To improve\n\n- Write tests earlier" });
+    }
+    // Some logged time this week, so the Time page has a report to show.
+    if (!(await db.timeEntry.count({ where: { projectId: project.id } }))) {
+      const tickets = await db.ticket.findMany({ where: { projectId: project.id }, orderBy: { key: "asc" }, take: 3 });
+      const hoursAgo = (value: number) => new Date(Date.now() - value * 3_600_000).toISOString();
+      const logged: [typeof admin, number, number, number][] = [[admin, 0, 6, 4.5], [member, 1, 5, 3], [admin, 2, 3, 2], [member, 0, 2, 1.25]];
+      for (const [person, ticket, start, end] of logged) {
+        if (tickets[ticket]) await addTimeEntry(person.id, { ticketId: tickets[ticket].id, startedAt: hoursAgo(start), endedAt: hoursAgo(end), note: "Demo time" });
+      }
     }
     await sendMessage(admin.id, channel.id, { body: "Welcome! Our chat verification ticket is SYN-101.", clientMessageId: "b714897c-59df-425e-8567-1600f64ea760" });
     if (!(await db.membership.count({ where: { userId: outsider.id } }))) await createWorkspace(outsider.id, { name: "Separate Demo Workspace" });

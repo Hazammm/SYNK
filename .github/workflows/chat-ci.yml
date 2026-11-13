@@ -6,6 +6,13 @@ on:
 permissions:
   contents: read
 jobs:
+  # The agent's tests use a scripted model, so they need no API key or network.
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t synk-agent ./agent
+      - run: docker run --rm synk-agent pytest -q
   verify:
     runs-on: ubuntu-latest
     services:

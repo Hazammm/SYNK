@@ -1,6 +1,6 @@
 import { db } from "../../lib/db";
 import { requireWorkspace } from "../../lib/permissions";
-import { workspaceSchema } from "../../lib/validation";
+import { emailSchema, workspaceSchema } from "../../lib/validation";
 import { AppError } from "../../lib/errors";
 import { realtime } from "../../lib/realtime";
 import { createBoardRecord, revokeProjectAccess } from "../projects/service";
@@ -28,6 +28,21 @@ export async function createWorkspace(userId: string, input: unknown) {
 export async function listMembers(actorId: string, workspaceId: string) {
   await requireWorkspace(actorId, workspaceId);
   return db.membership.findMany({ where: { workspaceId }, select: { role: true, user: { select: { id: true, name: true, email: true } } }, orderBy: { createdAt: "asc" } });
+}
+
+export async function addMember(actorId: string, workspaceId: string, email: unknown) {
+  const address = emailSchema.parse(email);
+  return db.$transaction(async tx => {
+    await requireWorkspace(actorId, workspaceId, "workspace:manage", tx);
+    const user = await tx.user.findUnique({ where: { email: address } });
+    if (!user) throw new AppError(404, "Ask your teammate to register with this email first.");
+    await tx.membership.upsert({
+      where: { workspaceId_userId: { workspaceId, userId: user.id } },
+      create: { workspaceId, userId: user.id },
+      update: {},
+    });
+    return { added: true };
+  });
 }
 
 export async function removeMember(actorId: string, workspaceId: string, userId: string) {

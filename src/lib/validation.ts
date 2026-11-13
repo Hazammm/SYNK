@@ -3,7 +3,7 @@ import { z } from "zod";
 export const idSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9_-]+$/, "Invalid identifier.");
 export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 // bcrypt only uses the first 72 bytes, so the limit is on UTF-8 bytes, not characters.
-const passwordField = z.string().min(10, "Use at least 10 characters.").max(72)
+export const passwordField = z.string().min(10, "Use at least 10 characters.").max(72)
   .refine(value => new TextEncoder().encode(value).length <= 72, "Password must be at most 72 UTF-8 bytes.");
 export const credentialsSchema = z.object({ email: emailSchema, password: z.string().min(1).max(72) });
 export const passwordSchema = z.string().min(8, "Use at least 8 characters.").max(72)
@@ -141,3 +141,40 @@ export const commentSchema = z.object({
 }).strict();
 export const notificationReadSchema = z.object({ ids: z.array(idSchema).min(1).max(100).optional() }).strict();
 export const reportQuerySchema = z.object({ sprintId: idSchema.optional() }).strict();
+
+// AI agent schemas
+// A turn is either a message (starting a conversation needs a workspace) or the answer to a pending confirmation.
+export const agentChatSchema = z.object({
+  workspaceId: idSchema.optional(), conversationId: idSchema.optional(),
+  message: z.string().trim().min(1, "Write a message first.").max(4000, "Messages can contain up to 4,000 characters.").optional(),
+  decision: z.enum(["approve", "reject"]).optional(),
+}).strict()
+  .refine(turn => Boolean(turn.message) !== Boolean(turn.decision), "Send either a message or a decision.")
+  .refine(turn => turn.decision ? Boolean(turn.conversationId) : Boolean(turn.conversationId ?? turn.workspaceId), "Choose a workspace or a conversation.");
+
+// Account settings schemas
+export const profileUpdateSchema = z.object({
+  name: z.string().trim().min(1, "Enter your name.").max(80, "Names can contain up to 80 characters.").optional(),
+  notifications: z.object({ assigned: z.boolean().optional(), comments: z.boolean().optional(), mentions: z.boolean().optional() }).strict().optional(),
+}).strict().refine(update => update.name !== undefined || (update.notifications && Object.keys(update.notifications).length > 0), "Nothing to update.");
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password.").max(72),
+  newPassword: passwordField,
+}).strict();
+
+// Docs schemas
+const docTitle = z.string().trim().min(1, "Give the page a title.").max(150, "Titles can contain up to 150 characters.");
+const docContent = z.string().max(100_000, "Pages can contain up to 100,000 characters.");
+export const docCreateSchema = z.object({ title: docTitle, content: docContent.default(""), parentId: idSchema.nullable().optional() }).strict();
+export const docUpdateSchema = z.object({
+  title: docTitle.optional(), content: docContent.optional(), parentId: idSchema.nullable().optional(),
+  version: z.number().int().min(1),
+}).strict().refine(update => update.title !== undefined || update.content !== undefined || update.parentId !== undefined, "Nothing to update.");
+export const docSearchSchema = z.object({ query: z.string().trim().min(2, "Search for at least 2 characters.").max(200) }).strict();
+
+// Time tracking schemas
+const timestamp = z.string().datetime({ offset: true, message: "Use a full date and time." }).transform(value => new Date(value));
+const timeNote = z.string().trim().max(500, "Notes can contain up to 500 characters.");
+export const timerStartSchema = z.object({ ticketId: idSchema, note: timeNote.default("") }).strict();
+export const timeEntrySchema = z.object({ ticketId: idSchema, startedAt: timestamp, endedAt: timestamp, note: timeNote.default("") }).strict();
+export const timeListSchema = z.object({ projectId: idSchema, from: timestamp, to: timestamp, userId: idSchema.optional() }).strict();

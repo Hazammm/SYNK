@@ -8,25 +8,18 @@ import {
   Bell, BookOpen, ChevronDown, Clock3, FileText, LayoutDashboard, MessageCircle,
   Search, Settings, KanbanSquare,
 } from "lucide-react";
-import { applyTheme, type ThemeName, useTheme } from "@/lib/theme";
+import { applyTheme, THEMES, useTheme } from "@/lib/theme";
 import { NOTIFICATIONS_CHANGED } from "@/lib/events";
-import { Avatar } from "./Primitives";
+import AgentPanel from "@/features/agent/AgentPanel";
+import ProfileMenu, { SettingsLink } from "./ProfileMenu";
 import styles from "./Synk.module.css";
-
-const themes: { id: ThemeName; label: string }[] = [
-  { id: "black", label: "Black" },
-  { id: "white", label: "White" },
-  { id: "forest", label: "Forest" },
-  { id: "lavender", label: "Lavender" },
-];
 
 export function ThemeBar() {
   const theme = useTheme();
-
   return (
     <div className={styles.themeBar} aria-label="Theme selection">
       <span className={styles.themeLabel}>Theme</span>
-      {themes.map((item) => (
+      {THEMES.map(item => (
         <button
           aria-label={`${item.label} theme`}
           aria-pressed={theme === item.id}
@@ -88,24 +81,31 @@ export default function SynkShell({
     { label: "Docs", href: `${base}/docs`, icon: FileText },
     { label: "Time", href: `${base}/time`, icon: Clock3 },
   ];
-
   const isChatOrTicket = pathname.endsWith("/chat") || pathname.includes("/tickets/");
 
-  if (isChatOrTicket) return <div className={styles.app}>
-    <header className={styles.topbar}>
-      <Link href={`${base}/chat`} className={styles.brand} aria-label="Synk home"><span className={styles.brandMark}>s</span> synk</Link>
-      <nav className={styles.topTabs} aria-label="Workspace navigation">
-        <Link href={`${base}/chat`} className={`${styles.topTab} ${pathname.endsWith("/chat") ? styles.topTabActive : ""}`}>Chat</Link>
-        <Link href={`${base}/overview`} className={styles.topTab}>Overview</Link>
-      </nav>
-      <Link href={`${base}/alerts`} className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
-        <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
-      </Link>
-      <span className={styles.liveUser}>{userName}</span>
-      <button className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
-    </header>
-    <main>{children}</main><div className={styles.liveTheme}><ThemeBar /></div>
-  </div>;
+  if (isChatOrTicket) {
+    return (
+      <div className={styles.app}>
+        <header className={styles.topbar}>
+          <Link href={`${base}/chat`} className={styles.brand} aria-label="Synk home">
+            <span className={styles.brandMark}>s</span> synk
+          </Link>
+          <nav className={styles.topTabs} aria-label="Workspace navigation">
+            <Link href={`${base}/chat`} className={`${styles.topTab} ${pathname.endsWith("/chat") ? styles.topTabActive : ""}`}>Chat</Link>
+            <Link href={`${base}/overview`} className={styles.topTab}>Overview</Link>
+          </nav>
+          <Link href={`${base}/alerts`} className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
+            <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
+          </Link>
+          <ProfileMenu userName={userName} />
+          <SettingsLink className={`${styles.settingsLink} ${pathname.endsWith("/settings") ? styles.settingsActive : ""}`} />
+        </header>
+        <main>{children}</main>
+        <div className={styles.liveTheme}><ThemeBar /></div>
+        <AgentPanel />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.app}>
@@ -133,11 +133,7 @@ export default function SynkShell({
                 </Link>
               ))}
               <div className={styles.workspaceMenuDivider} />
-              <Link
-                href="/create-workspace"
-                className={styles.workspaceMenuItem}
-                onClick={() => setWsDropdownOpen(false)}
-              >
+              <Link href="/create-workspace" className={styles.workspaceMenuItem} onClick={() => setWsDropdownOpen(false)}>
                 + New workspace
               </Link>
               <button
@@ -151,7 +147,7 @@ export default function SynkShell({
           )}
         </div>
         <nav className={styles.topTabs} aria-label="Project navigation">
-          {appTabs.map((tab) => {
+          {appTabs.map(tab => {
             const active = pathname === tab.href || (tab.href.endsWith("/board") && pathname.includes("/board"));
             return (
               <Link className={`${styles.topTab} ${active ? styles.topTabActive : ""}`} href={tab.href} key={tab.href}>
@@ -165,12 +161,11 @@ export default function SynkShell({
           <input aria-label="Search Synk" placeholder="Search anything..." />
           <kbd>⌘ K</kbd>
         </label>
-        <Link href={`${base}/alerts`} className={styles.alertButton} aria-label="Alerts">
+        <Link href={`${base}/alerts`} className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
           <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
         </Link>
-        <Link className={styles.profileLink} href={`${base}/settings`} aria-label="Open settings">
-          <Avatar initials={userName.slice(0, 2).toUpperCase()} />
-        </Link>
+        <ProfileMenu userName={userName} />
+        <SettingsLink className={`${styles.settingsLink} ${pathname.endsWith("/settings") ? styles.settingsActive : ""}`} />
         <button className={styles.mobileToggle} onClick={() => setMobilePanel(!mobilePanel)} type="button" aria-label="Toggle project menu">
           <ChevronDown size={18} />
         </button>
@@ -202,6 +197,7 @@ export default function SynkShell({
         </aside>
       </div>
       <ThemeBar />
+      <AgentPanel />
     </div>
   );
 }

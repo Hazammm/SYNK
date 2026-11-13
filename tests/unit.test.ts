@@ -7,6 +7,14 @@ import { assertSameOrigin, readJson } from "../src/lib/http";
 import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
 import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { toCsv } from "../src/lib/csv";
+import { AGENT_TOKEN_TTL_MS, mintAgentToken, verifyAgentToken } from "../src/lib/agent-token";
+import { isNone, isSelf, matchByName } from "../src/features/agent/resolve";
+import { timeEntrySchema, timeListSchema, timerStartSchema } from "../src/lib/validation";
+import { agentChatSchema, docCreateSchema, docUpdateSchema, passwordChangeSchema, profileUpdateSchema } from "../src/lib/validation";
+import { parseInline, parseMarkdown, plainText, safeHref, toggleTask } from "../src/lib/markdown";
+import { insertCodeBlock, insertLink, toggleLinePrefix, wrapSelection } from "../src/features/docs/editing";
+import { buildTree, descendantsOf } from "../src/features/docs/tree";
+import { addDays, dayKey, entrySeconds, formatClock, formatDuration, hours, localToIso, secondsByDay, startOfWeek, totalsBy, weekDays } from "../src/features/time/calc";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -177,4 +185,169 @@ test("CSV export quotes every cell and defuses spreadsheet formulas", () => {
   assert.equal(toCsv([["Key", "Title"], ["SYN-1", 'Say "hi", then leave']]), '"Key","Title"\r\n"SYN-1","Say ""hi"", then leave"');
   assert.equal(toCsv([["=HYPERLINK(1)", "+1", "-2", "@x", 5, -3, null]]), `"'=HYPERLINK(1)","'+1","'-2","'@x","5","-3",""`);
   assert.equal(toCsv([["line\nbreak"]]), '"line\nbreak"');
+});
+
+test("agent tokens carry one person's claims and cannot be altered, reused late or re-signed", () => {
+  process.env.NEXTAUTH_SECRET ??= "unit-only-not-a-production-secret-1234567890";
+  const claims = { userId: "user1", workspaceId: "ws1", conversationId: "c1" };
+  const now = 1_800_000_000_000;
+  const token = mintAgentToken(claims, now);
+  assert.deepEqual(verifyAgentToken(token, now + AGENT_TOKEN_TTL_MS - 1), { ...claims, expiresAt: now + AGENT_TOKEN_TTL_MS });
+  const invalid = (value: string, at = now) => assert.throws(() => verifyAgentToken(value, at), { status: 401 });
+  invalid(token, now + AGENT_TOKEN_TTL_MS); // expired
+  const [payload, signature] = token.split(".");
+  const other = Buffer.from(JSON.stringify({ ...claims, userId: "admin", expiresAt: now + AGENT_TOKEN_TTL_MS })).toString("base64url");
+  invalid(`${other}.${signature}`); // changed claims, old signature
+  invalid(`${payload}.${signature}.extra`); invalid(payload); invalid(""); invalid(`.${signature}`);
+  // A token signed with another secret is refused.
+  const secret = process.env.NEXTAUTH_SECRET;
+  process.env.NEXTAUTH_SECRET = "a-different-secret-entirely-0000000000000000";
+  try { invalid(token); } finally { process.env.NEXTAUTH_SECRET = secret; }
+});
+test("agent name matching prefers the most specific match and reports ties", () => {
+  const people = [{ name: "Sarah Khan" }, { name: "Sarah Ali" }, { name: "Asra Sarahson" }, { name: null }];
+  const names = (query: string) => { const match = matchByName(people, query, person => person.name); return match.kind === "one" ? match.item.name : match.kind === "many" ? match.items.map(item => item.name) : null; };
+  assert.equal(names("sarah khan"), "Sarah Khan"); // exact, ignoring case
+  assert.equal(names("  KHAN "), "Sarah Khan"); // a whole word
+  assert.deepEqual(names("Sarah"), ["Sarah Khan", "Sarah Ali"]); // whole-word ties, not the "Sarahson" fragment
+  assert.equal(names("asr"), "Asra Sarahson"); // prefix
+  assert.equal(names("sarahs"), "Asra Sarahson"); // fragment, only when nothing better matches
+  assert.equal(names("Bilal"), null); assert.equal(names("   "), null);
+  assert.equal(isSelf(" Me "), true); assert.equal(isSelf("Mehmet"), false);
+  assert.equal(isNone("Unassigned"), true); assert.equal(isNone("nobody"), true); assert.equal(isNone("Noor"), false);
+});
+test("agent chat turns are either a message or a decision", () => {
+  const valid = (value: object) => agentChatSchema.safeParse(value).success;
+  assert.equal(valid({ workspaceId: "w1", message: "hi" }), true);
+  assert.equal(valid({ conversationId: "c1", message: "hi" }), true);
+  assert.equal(valid({ conversationId: "c1", decision: "approve" }), true);
+  assert.equal(valid({ workspaceId: "w1", decision: "approve" }), false); // a decision needs its conversation
+  assert.equal(valid({ conversationId: "c1", message: "hi", decision: "reject" }), false);
+  assert.equal(valid({ message: "hi" }), false); assert.equal(valid({ conversationId: "c1" }), false);
+  assert.equal(valid({ conversationId: "c1", message: "   " }), false);
+  assert.equal(valid({ conversationId: "c1", decision: "maybe" }), false);
+  assert.equal(valid({ conversationId: "c1", message: "x".repeat(4001) }), false);
+  assert.equal(valid({ conversationId: "c1", message: "hi", userId: "someone-else" }), false);
+});
+
+test("settings accept only a name or notification switches, and passwords that meet the rules", () => {
+  const profile = (value: object) => profileUpdateSchema.safeParse(value).success;
+  assert.equal(profile({ name: "Asra" }), true);
+  assert.equal(profile({ notifications: { mentions: false } }), true);
+  assert.equal(profile({ name: "Asra", notifications: { assigned: true, comments: false } }), true);
+  assert.equal(profile({}), false); assert.equal(profile({ notifications: {} }), false);
+  assert.equal(profile({ name: " " }), false); assert.equal(profile({ name: "x".repeat(81) }), false);
+  assert.equal(profile({ email: "a@b.test" }), false); assert.equal(profile({ notifications: { everything: true } }), false);
+  assert.equal(profileUpdateSchema.parse({ name: "  Asra Khan " }).name, "Asra Khan");
+  const password = (value: object) => passwordChangeSchema.safeParse(value).success;
+  assert.equal(password({ currentPassword: "old", newPassword: "long-enough-1" }), true);
+  assert.equal(password({ currentPassword: "", newPassword: "long-enough-1" }), false);
+  assert.equal(password({ currentPassword: "old", newPassword: "short" }), false);
+  assert.equal(password({ currentPassword: "old", newPassword: "é".repeat(40) }), false); // over 72 bytes
+});
+
+test("markdown blocks: headings, lists, checklists, code, quotes and paragraphs", () => {
+  const blocks = parseMarkdown("# Title\n\nFirst line\nsame paragraph\n- one\n- two\n1. first\n2) second\n- [ ] todo\n- [x] done\n> quoted\n> more\n---\n```ts\nconst x = 1;\n\nfoo()\n```\n#### four");
+  assert.deepEqual(blocks.map(block => block.type), ["heading", "paragraph", "list", "list", "list", "quote", "rule", "code", "paragraph"]);
+  assert.deepEqual(blocks[1], { type: "paragraph", inline: [{ type: "text", text: "First line same paragraph" }] });
+  assert.deepEqual(blocks[3], { type: "list", ordered: true, items: [{ inline: [{ type: "text", text: "first" }], checked: null, line: 6 }, { inline: [{ type: "text", text: "second" }], checked: null, line: 7 }] });
+  assert.deepEqual((blocks[4] as { items: { checked: boolean | null; line: number }[] }).items.map(item => [item.checked, item.line]), [[false, 8], [true, 9]]);
+  assert.deepEqual(blocks[5], { type: "quote", inline: [{ type: "text", text: "quoted more" }] });
+  assert.deepEqual(blocks[7], { type: "code", language: "ts", text: "const x = 1;\n\nfoo()" });
+  assert.deepEqual(parseMarkdown("```\nunclosed"), [{ type: "code", language: null, text: "unclosed" }]);
+  assert.deepEqual(parseMarkdown("  \n\n"), []);
+});
+test("markdown inline: emphasis, code and only safe links", () => {
+  assert.deepEqual(parseInline("a **b** *c* _d_ `e` [f](https://x.test/p?q=1)"), [
+    { type: "text", text: "a " }, { type: "strong", text: "b" }, { type: "text", text: " " }, { type: "em", text: "c" }, { type: "text", text: " " },
+    { type: "em", text: "d" }, { type: "text", text: " " }, { type: "code", text: "e" }, { type: "text", text: " " }, { type: "link", text: "f", href: "https://x.test/p?q=1" },
+  ]);
+  // Script and data links stay as plain text, so a page can never run code.
+  assert.deepEqual(parseInline("[x](javascript:alert(1))"), [{ type: "text", text: "[x](javascript:alert(1))" }]);
+  assert.deepEqual(parseInline("[x](data:text/html,hi)"), [{ type: "text", text: "[x](data:text/html,hi)" }]);
+  assert.deepEqual([safeHref("/docs"), safeHref("//evil.test"), safeHref("mailto:a@b.test"), safeHref("JAVASCRIPT:x"), safeHref("not a url")], ["/docs", null, "mailto:a@b.test", null, null]);
+  assert.deepEqual(parseInline("<script>alert(1)</script>"), [{ type: "text", text: "<script>alert(1)</script>" }]);
+});
+test("markdown helpers: plain text for search and toggling checklist items", () => {
+  assert.equal(plainText("# Goals\n\nShip the **beta** by [Friday](https://x.test).\n- [ ] tests"), "Goals Ship the beta by Friday. tests");
+  assert.equal(toggleTask("a\n- [ ] one\n  * [x] two", 1), "a\n- [x] one\n  * [x] two");
+  assert.equal(toggleTask("a\n- [ ] one\n  * [x] two", 2), "a\n- [ ] one\n  * [ ] two");
+  assert.equal(toggleTask("- plain item", 0), "- plain item");
+  assert.equal(toggleTask("x", 9), "x");
+});
+test("editor toolbar edits keep the right text selected", () => {
+  assert.deepEqual(wrapSelection("hello world", 6, 11, "**"), { text: "hello **world**", start: 8, end: 13 });
+  assert.deepEqual(wrapSelection("hi ", 3, 3, "*"), { text: "hi *text*", start: 4, end: 8 });
+  assert.deepEqual(toggleLinePrefix("one\ntwo\nthree", 1, 6, "- "), { text: "- one\n- two\nthree", start: 0, end: 11 });
+  assert.equal(toggleLinePrefix("- one\n- two", 0, 11, "- ").text, "one\ntwo"); // all prefixed, so removed
+  assert.equal(toggleLinePrefix("a\nb", 2, 2, "## ").text, "a\n## b");
+  assert.deepEqual(insertCodeBlock("before x after", 7, 8), { text: "before \n```\nx\n```\n after", start: 12, end: 13 });
+  const link = insertLink("see docs", 4, 8);
+  assert.equal(link.text, "see [docs](https://)");
+  assert.equal(link.text.slice(link.start, link.end), "https://");
+});
+test("docs permissions and schemas", () => {
+  assert.equal(can("doc:read", { role: "MEMBER", projectLevel: "READ" }), true);
+  assert.equal(can("doc:write", { role: "MEMBER", projectLevel: "READ" }), false);
+  assert.equal(can("doc:write", { role: "MEMBER", projectLevel: "WRITE" }), true);
+  assert.equal(can("doc:read", { role: "ADMIN", projectLevel: null }), false); // admins still need project access
+  assert.deepEqual(docCreateSchema.parse({ title: "  Spec " }), { title: "Spec", content: "" });
+  assert.equal(docCreateSchema.safeParse({ title: "Spec", projectId: "p1" }).success, false);
+  assert.equal(docUpdateSchema.safeParse({ version: 1 }).success, false); // nothing to update
+  assert.equal(docUpdateSchema.safeParse({ title: "x" }).success, false); // needs the version it started from
+  assert.equal(docUpdateSchema.safeParse({ version: 2, parentId: null }).success, true);
+});
+
+test("page tree: nests pages under parents and finds every page below one", () => {
+  const page = (id: string, parentId: string | null) => ({ id, parentId, title: id, position: 0, lastEditedAt: "2026-11-13T00:00:00.000Z", lastEditedBy: null });
+  const docs = [page("brief", null), page("spec", "brief"), page("api", "spec"), page("retro", null), page("orphan", "deleted")];
+  const tree = buildTree(docs);
+  assert.deepEqual(tree.map(node => node.id), ["brief", "retro", "orphan"]); // a missing parent shows at the top level
+  assert.deepEqual(tree[0].children.map(node => node.id), ["spec"]);
+  assert.deepEqual(tree[0].children[0].children.map(node => node.id), ["api"]);
+  assert.deepEqual([...descendantsOf(docs, "brief")].sort(), ["api", "brief", "spec"]);
+  assert.deepEqual([...descendantsOf(docs, "retro")], ["retro"]);
+});
+
+test("time weeks start on Monday and step by calendar days", () => {
+  assert.equal(dayKey(startOfWeek(new Date(2026, 10, 13, 15, 30))), "2026-11-09"); // Friday -> Monday
+  assert.equal(dayKey(startOfWeek(new Date(2026, 10, 15))), "2026-11-09"); // Sunday belongs to the week before
+  assert.equal(dayKey(startOfWeek(new Date(2026, 10, 16))), "2026-11-16"); // Monday starts a week
+  assert.deepEqual(weekDays(new Date(2026, 9, 26)).map(dayKey), ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"]);
+  assert.equal(dayKey(addDays(new Date(2026, 11, 31), 1)), "2027-01-01");
+  assert.equal(localToIso("2026-11-13", "09:30"), new Date(2026, 10, 13, 9, 30).toISOString());
+  assert.equal(localToIso("", "09:30"), null);
+});
+test("time durations count running timers up to now, capped at a day", () => {
+  const now = new Date("2026-11-13T12:00:00.000Z");
+  assert.equal(entrySeconds({ startedAt: "2026-11-13T10:00:00.000Z", endedAt: "2026-11-13T11:30:00.000Z" }, now), 5400);
+  assert.equal(entrySeconds({ startedAt: "2026-11-13T11:59:00.000Z", endedAt: null }, now), 60);
+  assert.equal(entrySeconds({ startedAt: "2026-11-11T12:00:00.000Z", endedAt: null }, now), 86400);
+  assert.equal(entrySeconds({ startedAt: "2026-11-13T13:00:00.000Z", endedAt: null }, now), 0);
+  assert.deepEqual([formatDuration(0), formatDuration(59), formatDuration(2700), formatDuration(7500), formatDuration(36000)], ["0m", "0m", "45m", "2h 05m", "10h 00m"]);
+  assert.equal(formatClock(3725), "01:02:05");
+  assert.deepEqual([hours(5400), hours(1000)], [1.5, 0.3]);
+});
+test("time totals group entries by day, ticket and person", () => {
+  const now = new Date(2026, 10, 13, 18);
+  const entry = (id: string, start: Date, minutes: number, ticket: string, user: string) => ({
+    id, startedAt: start.toISOString(), endedAt: new Date(start.getTime() + minutes * 60_000).toISOString(), note: "", mine: user === "u1",
+    user: { id: user, name: user === "u1" ? "Asra" : "Bilal" }, ticket: { id: ticket, key: ticket.toUpperCase(), title: ticket, projectId: "p" },
+  });
+  const entries = [entry("a", new Date(2026, 10, 9, 9), 60, "t1", "u1"), entry("b", new Date(2026, 10, 9, 14), 30, "t2", "u2"), entry("c", new Date(2026, 10, 12, 10), 90, "t1", "u2"), entry("d", new Date(2026, 10, 2, 10), 60, "t1", "u1")];
+  assert.deepEqual(secondsByDay(entries, weekDays(new Date(2026, 10, 9)), now), [5400, 0, 0, 5400, 0, 0, 0]); // last week's entry is ignored
+  assert.deepEqual(totalsBy(entries.slice(0, 3), e => e.ticket.id, e => e.ticket.title, now).map(g => [g.key, g.seconds]), [["t1", 9000], ["t2", 1800]]);
+  assert.deepEqual(totalsBy(entries.slice(0, 3), e => e.user.id, e => e.user.name ?? "", now).map(g => [g.label, g.seconds]), [["Bilal", 7200], ["Asra", 3600]]);
+});
+test("time schemas need real timestamps, tickets and short notes", () => {
+  assert.equal(timerStartSchema.safeParse({ ticketId: "t1" }).success, true);
+  assert.equal(timerStartSchema.safeParse({ ticketId: "t1", userId: "someone" }).success, false);
+  assert.equal(timeEntrySchema.safeParse({ ticketId: "t1", startedAt: "2026-11-13T09:00:00+05:00", endedAt: "2026-11-13T10:00:00Z" }).success, true);
+  assert.equal(timeEntrySchema.safeParse({ ticketId: "t1", startedAt: "2026-11-13", endedAt: "2026-11-13T10:00:00Z" }).success, false);
+  assert.equal(timeEntrySchema.safeParse({ ticketId: "t1", startedAt: "2026-11-13T09:00:00Z", endedAt: "2026-11-13T10:00:00Z", note: "x".repeat(501) }).success, false);
+  assert.equal(timeListSchema.safeParse({ projectId: "p1", from: "2026-11-09T00:00:00Z", to: "2026-11-16T00:00:00Z" }).success, true);
+  assert.equal(timeListSchema.safeParse({ from: "2026-11-09T00:00:00Z", to: "2026-11-16T00:00:00Z" }).success, false);
+  assert.equal(can("time:log", { role: "MEMBER", projectLevel: "READ" }), false);
+  assert.equal(can("time:read", { role: "MEMBER", projectLevel: "READ" }), true);
+  assert.equal(can("time:log", { role: "MEMBER", projectLevel: "WRITE" }), true);
 });
