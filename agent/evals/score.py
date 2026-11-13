@@ -70,3 +70,16 @@ def score(expect: dict[str, Any], turn: Turn) -> list[str]:
     if expect.get("reply_any") and not any(text in reply for text in expect["reply_any"]):
         problems.append(f"reply should mention one of {expect['reply_any']}")
     return problems
+
+
+def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
+    scored = [result for result in results if result["status"] != "error"]
+    passed = [result for result in scored if result["status"] == "pass"]
+    by_category = {
+        category: {"passed": sum(r["status"] == "pass" for r in scored if r["category"] == category), "total": sum(r["category"] == category for r in scored)}
+        for category in CATEGORIES
+    }
+    return {
+        "passed": len(passed), "scored": len(scored), "errors": len(results) - len(scored),
+        "accuracy": round(len(passed) / len(scored), 4) if scored else 0.0, "by_category": by_category,
+    }
