@@ -259,3 +259,14 @@ test("markdown helpers: plain text for search and toggling checklist items", () 
   assert.equal(toggleTask("- plain item", 0), "- plain item");
   assert.equal(toggleTask("x", 9), "x");
 });
+test("editor toolbar edits keep the right text selected", () => {
+  assert.deepEqual(wrapSelection("hello world", 6, 11, "**"), { text: "hello **world**", start: 8, end: 13 });
+  assert.deepEqual(wrapSelection("hi ", 3, 3, "*"), { text: "hi *text*", start: 4, end: 8 });
+  assert.deepEqual(toggleLinePrefix("one\ntwo\nthree", 1, 6, "- "), { text: "- one\n- two\nthree", start: 0, end: 11 });
+  assert.equal(toggleLinePrefix("- one\n- two", 0, 11, "- ").text, "one\ntwo"); // all prefixed, so removed
+  assert.equal(toggleLinePrefix("a\nb", 2, 2, "## ").text, "a\n## b");
+  assert.deepEqual(insertCodeBlock("before x after", 7, 8), { text: "before \n```\nx\n```\n after", start: 12, end: 13 });
+  const link = insertLink("see docs", 4, 8);
+  assert.equal(link.text, "see [docs](https://)");
+  assert.equal(link.text.slice(link.start, link.end), "https://");
+});
