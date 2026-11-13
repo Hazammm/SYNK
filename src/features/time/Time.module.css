@@ -15,3 +15,10 @@
 .error { flex-basis: 100%; margin: 0; color: var(--high); font-size: 13px; }
 .notice { flex-basis: 100%; margin: 0; color: var(--done); font-size: 12px; }
 .notice:empty { display: none; }
+
+.weekBar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.weekNav { display: flex; align-items: center; gap: 4px; }
+.weekNav strong { min-width: 190px; font-size: 14px; text-align: center; }
+.scope { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--structure); border-radius: 8px; }
+.scope button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; cursor: pointer; }
+.scope button[aria-checked="true"] { background: var(--structure); color: var(--text); }
