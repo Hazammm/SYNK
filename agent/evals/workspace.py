@@ -146,3 +146,11 @@ def find_tickets(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
     if args.get("status"):
         rows = [row for row in rows if row["status"].lower() == args["status"].lower()]
     return {"ok": True, "summary": f"Found {len(rows)} {'ticket' if len(rows) == 1 else 'tickets'}.", "data": {"tickets": rows}}
+
+
+def create_doc(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+    project = project_of(args.get("project"))
+    if project == "MKT":
+        raise Unresolved(failure("forbidden", "You have view-only access to Marketing site, so I can't add pages to it."))
+    where = f"under “{match(PAGES, args['parent'], 'page')}” in FYP" if args.get("parent") else "in FYP"
+    return {"ok": True, "summary": f"Created the page “{args['title']}” {where}.", "target": {"type": "doc", "id": "d1", "title": args["title"], "projectId": "p1"}}
