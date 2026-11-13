@@ -154,3 +154,12 @@ def create_doc(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
         raise Unresolved(failure("forbidden", "You have view-only access to Marketing site, so I can't add pages to it."))
     where = f"under “{match(PAGES, args['parent'], 'page')}” in FYP" if args.get("parent") else "in FYP"
     return {"ok": True, "summary": f"Created the page “{args['title']}” {where}.", "target": {"type": "doc", "id": "d1", "title": args["title"], "projectId": "p1"}}
+
+
+def search_workspace(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+    results = [
+        {"type": "doc", "title": "Auth design spec", "snippet": "Sign-in uses NextAuth with email and password."},
+        {"type": "ticket", "title": "SYN-12 Login page crashes on submit", "snippet": ""},
+        {"type": "message", "title": "#general · Sarah Ali", "snippet": "The login bug is fixed on staging."},
+    ]
+    return {"ok": True, "summary": f"Found {len(results)} results matching “{args.get('query', '')}”.", "data": {"results": results}}
