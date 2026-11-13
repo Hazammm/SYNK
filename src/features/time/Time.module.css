@@ -22,3 +22,10 @@
 .scope { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--structure); border-radius: 8px; }
 .scope button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; cursor: pointer; }
 .scope button[aria-checked="true"] { background: var(--structure); color: var(--text); }
+
+.bar { fill: var(--link); opacity: .7; }
+.bar[data-active="true"] { opacity: 1; }
+.note { display: block; color: var(--muted); font-size: 12px; }
+.live { color: var(--done); font-size: 12px; }
+.delete { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.delete:hover { background: var(--structure); color: var(--high); }
