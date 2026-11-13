@@ -230,7 +230,7 @@ export async function runAgentTool(context: ToolContext, name: string, input: un
   await db.actionLog.create({
     data: {
       userId: context.userId, workspaceId: context.workspaceId, conversationId: context.conversationId ?? null, tool: name, dryRun, ok: result.ok,
-      target: result.ok ? result.target?.key ?? null : null, parameters: args as Prisma.InputJsonObject,
+      target: !result.ok || !result.target ? null : result.target.type === "ticket" ? result.target.key : `doc:${result.target.id}`, parameters: args as Prisma.InputJsonObject,
       result: result.ok ? { summary: result.summary } : { code: result.code, message: result.message },
     },
   });

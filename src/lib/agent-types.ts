@@ -1,5 +1,7 @@
 // Shapes shared by the AI agent API, the tool endpoints the agent calls, and the chat panel.
-export type AgentTarget = { type: "ticket"; id: string; key: string; title: string; projectId: string; boardId: string };
+export type AgentTarget =
+  | { type: "ticket"; id: string; key: string; title: string; projectId: string; boardId: string }
+  | { type: "doc"; id: string; title: string; projectId: string };
 export type AgentChange = { field: string; from: string; to: string };
 export type AgentFailureCode = "forbidden" | "not_found" | "ambiguous" | "invalid" | "rate_limited";
 
