@@ -133,3 +133,7 @@ export const passwordChangeSchema = z.object({
 const docTitle = z.string().trim().min(1, "Give the page a title.").max(150, "Titles can contain up to 150 characters.");
 const docContent = z.string().max(100_000, "Pages can contain up to 100,000 characters.");
 export const docCreateSchema = z.object({ title: docTitle, content: docContent.default(""), parentId: idSchema.nullable().optional() }).strict();
+export const docUpdateSchema = z.object({
+  title: docTitle.optional(), content: docContent.optional(), parentId: idSchema.nullable().optional(),
+  version: z.number().int().min(1),
+}).strict().refine(update => update.title !== undefined || update.content !== undefined || update.parentId !== undefined, "Nothing to update.");
