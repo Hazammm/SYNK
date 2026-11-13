@@ -304,3 +304,13 @@ test("time weeks start on Monday and step by calendar days", () => {
   assert.equal(localToIso("2026-11-13", "09:30"), new Date(2026, 10, 13, 9, 30).toISOString());
   assert.equal(localToIso("", "09:30"), null);
 });
+test("time durations count running timers up to now, capped at a day", () => {
+  const now = new Date("2026-11-13T12:00:00.000Z");
+  assert.equal(entrySeconds({ startedAt: "2026-11-13T10:00:00.000Z", endedAt: "2026-11-13T11:30:00.000Z" }, now), 5400);
+  assert.equal(entrySeconds({ startedAt: "2026-11-13T11:59:00.000Z", endedAt: null }, now), 60);
+  assert.equal(entrySeconds({ startedAt: "2026-11-11T12:00:00.000Z", endedAt: null }, now), 86400);
+  assert.equal(entrySeconds({ startedAt: "2026-11-13T13:00:00.000Z", endedAt: null }, now), 0);
+  assert.deepEqual([formatDuration(0), formatDuration(59), formatDuration(2700), formatDuration(7500), formatDuration(36000)], ["0m", "0m", "45m", "2h 05m", "10h 00m"]);
+  assert.equal(formatClock(3725), "01:02:05");
+  assert.deepEqual([hours(5400), hours(1000)], [1.5, 0.3]);
+});
