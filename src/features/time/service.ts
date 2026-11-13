@@ -78,3 +78,11 @@ export async function addTimeEntry(userId: string, input: unknown, now = new Dat
   const entry = await db.timeEntry.create({ data: { userId, ticketId, projectId: ticket.projectId, startedAt, endedAt, note }, include });
   return serialize(entry, userId);
 }
+
+// People can delete only their own entries.
+export async function deleteTimeEntry(userId: string, entryId: string) {
+  idSchema.parse(entryId);
+  const { count } = await db.timeEntry.deleteMany({ where: { id: entryId, userId } });
+  if (!count) throw new AppError(404, "Time entry not found.");
+  return { deleted: true };
+}
