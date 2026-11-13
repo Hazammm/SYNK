@@ -6,3 +6,5 @@ export type TimeTicket = { id: string; key: string; title: string; projectId: st
 export type TimeEntry = { id: string; startedAt: string; endedAt: string | null; note: string; user: Person; ticket: TimeTicket; mine: boolean };
 // Returned when a timer starts: the timer it replaced, if one was running.
 export type TimerStart = { entry: TimeEntry; stopped: TimeEntry | null };
+// Entries longer than this are refused, and running timers stop counting at this point.
+export const MAX_ENTRY_HOURS = 24;
