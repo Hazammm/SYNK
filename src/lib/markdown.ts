@@ -124,3 +124,12 @@ export function plainText(source: string): string {
     }
   }).filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 }
+
+// Flips a task list checkbox on the given source line, leaving everything else as it was.
+export function toggleTask(source: string, line: number): string {
+  const lines = source.replace(/\r\n?/g, "\n").split("\n");
+  const match = /^(\s*(?:[-*+]|\d{1,3}[.)])\s+\[)( |x|X)(\].*)$/.exec(lines[line] ?? "");
+  if (!match) return source;
+  lines[line] = `${match[1]}${match[2] === " " ? "x" : " "}${match[3]}`;
+  return lines.join("\n");
+}
