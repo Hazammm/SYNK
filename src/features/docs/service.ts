@@ -50,3 +50,18 @@ export async function getDoc(userId: string, docId: string): Promise<DocDetail> 
   const { canEdit } = await requireDoc(userId, docId, false);
   return serializeDetail(await db.doc.findUniqueOrThrow({ where: { id: docId }, include: detailInclude }), canEdit);
 }
+
+export async function createDoc(userId: string, projectId: string, input: unknown): Promise<DocDetail> {
+  const { title, content, parentId } = docCreateSchema.parse(input);
+  return db.$transaction(async tx => {
+    await requireProject(userId, projectId, "doc:write", tx);
+    if (parentId) await requireParent(tx, projectId, parentId);
+    // New pages go to the end of their level.
+    const last = await tx.doc.aggregate({ where: { projectId, parentId: parentId ?? null }, _max: { position: true } });
+    const doc = await tx.doc.create({
+      data: { projectId, parentId: parentId ?? null, title, content, position: (last._max.position ?? -1) + 1, createdById: userId, lastEditedById: userId },
+      include: detailInclude,
+    });
+    return serializeDetail(doc, true);
+  });
+}
