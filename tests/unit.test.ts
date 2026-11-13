@@ -19,6 +19,7 @@ import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
 import type { ChatMessage } from "../src/lib/chat-types";
+import { sendPasswordResetEmail } from "../src/lib/mailer";
 
 test("deny by default, including workspace admins outside a channel or project", () => {
   for (const action of ["workspace:read", "workspace:manage", "channel:read", "channel:write", "project:read", "project:write"] as Action[]) {
@@ -90,6 +91,26 @@ test("forgot password and reset password validation schemas", () => {
   assert.equal(resetPasswordSchema.safeParse({ token: "", password: "StrongPassword123!" }).success, false);
   assert.equal(resetPasswordSchema.safeParse({ token: "abc12345", password: "short" }).success, false);
   assert.equal(resetPasswordSchema.safeParse({ token: "abc12345", password: "😀".repeat(20) }).success, false);
+});
+test("password reset email logs a link only when delivery is unconfigured outside production", async () => {
+  const keys = ["NODE_ENV", "MAILTRAP_API_TOKEN", "MAILTRAP_HOST", "MAILTRAP_PORT", "MAILTRAP_USER", "MAILTRAP_PASS", "MAIL_FROM"] as const;
+  const previous = keys.map(key => [key, process.env[key]] as const);
+  const originalLog = console.log;
+  const output: string[] = [];
+  for (const key of keys) Reflect.deleteProperty(process.env, key);
+  Reflect.set(process.env, "NODE_ENV", "development");
+  console.log = (...args: Parameters<typeof console.log>) => { output.push(args.join(" ")); };
+  try {
+    await sendPasswordResetEmail({ email: "person@example.com", resetUrl: "http://localhost:3000/reset-password?token=one-time-token" });
+    assert.match(output.join("\n"), /one-time-token/);
+    assert.match(output.join("\n"), /dev mode, not emailed/);
+  } finally {
+    console.log = originalLog;
+    for (const [key, value] of previous) {
+      if (value === undefined) Reflect.deleteProperty(process.env, key);
+      else Reflect.set(process.env, key, value);
+    }
+  }
 });
 
 test("client IP only trusts X-Forwarded-For entries added by known proxies", () => {

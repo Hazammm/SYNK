@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { db } from "./db";
-import { sendPasswordResetEmail } from "./email";
+import { sendPasswordResetEmail } from "./mailer";
 
 const TOKEN_EXPIRY_MS = 15 * 60 * 1000;
 // At most one email per account in this window. Requests inside it are ignored
@@ -41,7 +41,7 @@ export async function issuePasswordReset(email: string) {
 
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   try {
-    await sendPasswordResetEmail({ to: email, resetUrl: `${baseUrl}/reset-password?token=${rawToken}` });
+    await sendPasswordResetEmail({ email, resetUrl: `${baseUrl}/reset-password?token=${rawToken}` });
   } catch (error) {
     // Nobody received this link, so don't let it hold the cooldown.
     await db.passwordResetToken.deleteMany({ where: { tokenHash } });

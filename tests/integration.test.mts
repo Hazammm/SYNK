@@ -321,6 +321,25 @@ test("forgot password never issues a token to an OAuth-only account", async () =
   assert.equal(await db.passwordResetToken.count({ where: { userId: user.id } }), 0);
 });
 
+test("Google sign-in redirects an unknown verified email to workspace creation without creating a user", async () => {
+  const callback = authOptions.callbacks?.signIn;
+  assert.ok(callback);
+  const email = `new-google-${randomUUID()}@example.test`;
+  const googleProfile = { email, email_verified: true, name: "New Google User" };
+  const result = await callback({
+    user: { id: randomUUID(), name: googleProfile.name, email, image: null },
+    account: { provider: "google", providerAccountId: randomUUID(), type: "oauth" },
+    profile: googleProfile,
+  });
+
+  assert.equal(typeof result, "string");
+  if (typeof result !== "string") throw new Error("Expected an onboarding redirect.");
+  const redirect = new URL(result, url);
+  assert.equal(redirect.pathname, "/api/auth/google-profile");
+  assert.equal(redirect.searchParams.get("next"), "/create-workspace?from=google");
+  assert.equal(await db.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } }), null);
+});
+
 const resetUser = async (label: string) => {
   const email = `${label}-${randomUUID()}@example.test`;
   const user = await db.user.create({ data: { name: label, email, passwordHash: await hash("OldPassword123!", 12) } });
