@@ -74,3 +74,14 @@ test("timers: a timer left running stops counting at 24 hours", async () => {
   const stopped = await stopTimer(admin, at("2026-11-14T08:00:00.000Z"));
   assert.equal(stopped.endedAt, "2026-11-13T08:00:00.000Z");
 });
+
+test("manual entries: must end after they start, last at most a day and not be in the future", async () => {
+  const now = at("2026-11-13T18:00:00.000Z");
+  const entry = await addTimeEntry(writer, { ticketId: ticketA, startedAt: "2026-11-12T13:00:00+05:00", endedAt: "2026-11-12T15:30:00+05:00", note: " Pairing " }, now);
+  assert.deepEqual([entry.startedAt, entry.endedAt, entry.note], ["2026-11-12T08:00:00.000Z", "2026-11-12T10:30:00.000Z", "Pairing"]);
+  await rejects(addTimeEntry(writer, { ticketId: ticketA, startedAt: "2026-11-12T10:00:00Z", endedAt: "2026-11-12T09:00:00Z" }, now), 400);
+  await rejects(addTimeEntry(writer, { ticketId: ticketA, startedAt: "2026-11-10T09:00:00Z", endedAt: "2026-11-11T09:00:01Z" }, now), 400);
+  await rejects(addTimeEntry(writer, { ticketId: ticketA, startedAt: "2026-11-13T19:00:00Z", endedAt: "2026-11-13T20:00:00Z" }, now), 400);
+  await assert.rejects(addTimeEntry(writer, { ticketId: ticketA, startedAt: "yesterday", endedAt: "2026-11-13T09:00:00Z" }, now));
+  await assert.rejects(addTimeEntry(writer, { ticketId: ticketA, startedAt: "2026-11-12T09:00:00Z", endedAt: "2026-11-12T10:00:00Z", note: "x".repeat(501) }, now));
+});
