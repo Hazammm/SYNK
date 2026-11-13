@@ -241,3 +241,14 @@ test("markdown blocks: headings, lists, checklists, code, quotes and paragraphs"
   assert.deepEqual(parseMarkdown("```\nunclosed"), [{ type: "code", language: null, text: "unclosed" }]);
   assert.deepEqual(parseMarkdown("  \n\n"), []);
 });
+test("markdown inline: emphasis, code and only safe links", () => {
+  assert.deepEqual(parseInline("a **b** *c* _d_ `e` [f](https://x.test/p?q=1)"), [
+    { type: "text", text: "a " }, { type: "strong", text: "b" }, { type: "text", text: " " }, { type: "em", text: "c" }, { type: "text", text: " " },
+    { type: "em", text: "d" }, { type: "text", text: " " }, { type: "code", text: "e" }, { type: "text", text: " " }, { type: "link", text: "f", href: "https://x.test/p?q=1" },
+  ]);
+  // Script and data links stay as plain text, so a page can never run code.
+  assert.deepEqual(parseInline("[x](javascript:alert(1))"), [{ type: "text", text: "[x](javascript:alert(1))" }]);
+  assert.deepEqual(parseInline("[x](data:text/html,hi)"), [{ type: "text", text: "[x](data:text/html,hi)" }]);
+  assert.deepEqual([safeHref("/docs"), safeHref("//evil.test"), safeHref("mailto:a@b.test"), safeHref("JAVASCRIPT:x"), safeHref("not a url")], ["/docs", null, "mailto:a@b.test", null, null]);
+  assert.deepEqual(parseInline("<script>alert(1)</script>"), [{ type: "text", text: "<script>alert(1)</script>" }]);
+});
