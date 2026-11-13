@@ -8,3 +8,4 @@
 .eyebrow { color: var(--muted); font-size: 11px; letter-spacing: .12em; }
 .picker { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
 .picker select { min-width: 170px; max-width: 260px; }
+.subnav { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; padding: 0 28px 14px; border-bottom: 1px solid var(--structure); }
