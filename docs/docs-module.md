@@ -37,3 +37,11 @@ Pages follow project access, through the same `can()` check as tickets:
 | `search_workspace` | No | Returns tickets in projects the person can open, pages in those projects, and messages from channels they have joined. |
 
 The assistant also receives each project's recent page titles, so it can file a new page under the right parent.
+
+## API
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET, POST | `/api/projects/:id/docs` | List pages (without content), or create one |
+| GET, PATCH, DELETE | `/api/docs/:id` | Read, update or delete a page. PATCH needs `version`. |
+| GET | `/api/workspaces/:id/docs/search?query=…` | Search pages |
