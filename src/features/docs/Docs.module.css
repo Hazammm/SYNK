@@ -9,3 +9,7 @@
 .picker { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
 .picker select { min-width: 170px; max-width: 260px; }
 .subnav { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; padding: 0 28px 14px; border-bottom: 1px solid var(--structure); }
+.muted { margin: 0; padding: 4px 10px; color: var(--muted); font-size: 12px; }
+.loading { padding: 28px; color: var(--muted); }
+.error { margin: 12px 28px 0; padding: 10px 14px; border: 1px solid var(--high); border-radius: 8px; color: var(--high); font-size: 13px; }
+.error button { border: 0; background: transparent; color: var(--link); text-decoration: underline; cursor: pointer; }
