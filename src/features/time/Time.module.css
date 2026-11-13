@@ -29,3 +29,13 @@
 .live { color: var(--done); font-size: 12px; }
 .delete { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
 .delete:hover { background: var(--structure); color: var(--high); }
+
+.manual { display: grid; gap: 12px; }
+.manual h2 { margin: 0; font-size: 15px; }
+.fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.fields label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+.fields .wide { grid-column: 1 / -1; }
+.manual select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--structure); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.actions .notice { flex-basis: auto; }
+@media (max-width: 600px) { .fields { grid-template-columns: minmax(0, 1fr); } }
