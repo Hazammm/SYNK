@@ -89,3 +89,11 @@ def test_an_unexpected_crash_in_one_prompt_does_not_stop_the_run():
     model = ScriptedModel(replies=[ValueError("bad response"), ValueError("bad response"), ValueError("bad response"), ValueError("bad response"), AIMessage("A poem about cats.")])
     results = evaluate(AgentRunner(build_graph(model, InMemorySaver()), fake_synk()), cases, sleep=lambda seconds: None, log=lambda line: None)
     assert [result["status"] for result in results] == ["error", "pass"]
+
+
+def test_a_model_that_stays_over_quota_is_reported_as_not_scored():
+    case = next(case for case in load_cases() if case["id"] == "create-basic")
+    model = ScriptedModel(replies=[RuntimeError("429 quota")] * 4)
+    results = evaluate(AgentRunner(build_graph(model, InMemorySaver()), fake_synk()), [case], sleep=lambda seconds: None, log=lambda line: None)
+    assert results[0]["status"] == "error"
+    assert summarize(results) == {"passed": 0, "scored": 0, "errors": 1, "accuracy": 0.0, "by_category": {"happy": {"passed": 0, "total": 0}, "ambiguity": {"passed": 0, "total": 0}, "denial": {"passed": 0, "total": 0}, "edge": {"passed": 0, "total": 0}}}
