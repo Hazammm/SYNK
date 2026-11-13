@@ -65,3 +65,31 @@ export async function createDoc(userId: string, projectId: string, input: unknow
     return serializeDetail(doc, true);
   });
 }
+
+// `version` is the one the editor started from. A save on top of someone else's newer save is
+// refused instead of silently overwriting it.
+export async function updateDoc(userId: string, docId: string, input: unknown): Promise<DocDetail> {
+  const { version, parentId, ...fields } = docUpdateSchema.parse(input);
+  return db.$transaction(async tx => {
+    const { doc } = await requireDoc(userId, docId, true, tx);
+    await tx.$executeRaw`SELECT 1 FROM "Doc" WHERE "id" = ${docId} FOR UPDATE`;
+    const current = await tx.doc.findUniqueOrThrow({ where: { id: docId }, include: { lastEditedBy: person } });
+    if (current.version !== version) {
+      throw new AppError(409, `${current.lastEditedBy?.name ?? "Someone"} saved this page while you were editing. Copy your changes, then reload to see theirs.`);
+    }
+    const data: Prisma.DocUncheckedUpdateInput = { ...fields, version: { increment: 1 }, lastEditedById: userId, lastEditedAt: new Date() };
+    if (parentId !== undefined && parentId !== current.parentId) {
+      if (parentId) {
+        await requireParent(tx, doc.projectId, parentId);
+        // Walking up from the new parent must never reach this page, or the tree would loop.
+        for (let at: string | null = parentId; at; at = (await tx.doc.findUnique({ where: { id: at }, select: { parentId: true } }))?.parentId ?? null) {
+          if (at === docId) throw new AppError(400, "A page cannot be moved inside itself or one of its subpages.");
+        }
+      }
+      const last = await tx.doc.aggregate({ where: { projectId: doc.projectId, parentId }, _max: { position: true } });
+      data.parentId = parentId;
+      data.position = (last._max.position ?? -1) + 1;
+    }
+    return serializeDetail(await tx.doc.update({ where: { id: docId }, data, include: detailInclude }), true);
+  });
+}
