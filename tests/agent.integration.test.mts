@@ -15,6 +15,8 @@ const { createSprint, getTicket } = await import("../src/features/tickets/servic
 const { runAgentTool } = await import("../src/features/agent/tools");
 const { buildAgentContext } = await import("../src/features/agent/context");
 const { getConversation, listConversations, sendAgentTurn } = await import("../src/features/agent/service");
+const { createDoc } = await import("../src/features/docs/service");
+const { createChannel, sendMessage } = await import("../src/features/chat/service");
 const { mintAgentToken, verifyAgentToken } = await import("../src/lib/agent-token");
 const { POST: toolRoute } = await import("../src/app/api/agent-tools/[name]/route");
 
@@ -187,7 +189,7 @@ test("context: describes only what the caller can see", async () => {
   assert.deepEqual([context.today, context.user.name, context.workspace.name, context.workspace.role], ["2026-11-12", "Reader Person", "Agent workspace", "member"]);
   assert.deepEqual(context.projects, [{
     key: "AGT", name: "Agent Tracker", access: "view", boards: [{ name: "Main board", statuses: ["To Do", "In Progress", "Review", "Done"] }],
-    members: ["Admin Person", "Reader Person", "Sarah Ali", "Sarah Khan"], sprints: [{ name: "Sprint 5", state: "planned" }],
+    members: ["Admin Person", "Reader Person", "Sarah Ali", "Sarah Khan"], sprints: [{ name: "Sprint 5", state: "planned" }], pages: [],
   }]);
   assert.equal((await buildAgentContext(admin, workspaceId)).projects[0].access, "edit");
   assert.deepEqual((await buildAgentContext(bystander, workspaceId)).projects, []);
