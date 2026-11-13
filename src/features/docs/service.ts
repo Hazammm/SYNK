@@ -119,3 +119,26 @@ export function snippetOf(content: string, query: string) {
   const excerpt = text.slice(start, start + SNIPPET_LENGTH);
   return `${start > 0 ? "…" : ""}${excerpt}${start + SNIPPET_LENGTH < text.length ? "…" : ""}`;
 }
+
+// Full-text search over title and content, title matches first, in projects the caller can open.
+// Partial words ("auth" for "authentication") still match, with a lower score.
+export async function searchDocs(userId: string, workspaceId: string, input: unknown): Promise<DocSearchResult[]> {
+  const { query } = docSearchSchema.parse(input);
+  await requireWorkspace(userId, workspaceId);
+  const like = `%${escapeLike(query)}%`;
+  const rows = await db.$queryRaw<{ id: string; projectId: string; projectName: string; title: string; content: string; score: number; lastEditedAt: Date }[]>`
+    WITH q AS (SELECT websearch_to_tsquery('english', ${query}) AS query)
+    SELECT d."id", d."projectId", p."name" AS "projectName", d."title", LEFT(d."content", 20000) AS "content", d."lastEditedAt",
+      (ts_rank(setweight(to_tsvector('english', d."title"), 'A') || setweight(to_tsvector('english', d."content"), 'B'), q.query)
+        + CASE WHEN d."title" ILIKE ${like} THEN 0.5 ELSE 0 END
+        + CASE WHEN d."content" ILIKE ${like} THEN 0.1 ELSE 0 END)::float8 AS score
+    FROM "Doc" d JOIN "Project" p ON p."id" = d."projectId", q
+    WHERE p."workspaceId" = ${workspaceId}
+      AND EXISTS (SELECT 1 FROM "ProjectAccess" a WHERE a."projectId" = p."id" AND a."userId" = ${userId})
+      AND EXISTS (SELECT 1 FROM "Membership" m WHERE m."workspaceId" = p."workspaceId" AND m."userId" = ${userId})
+      AND ((setweight(to_tsvector('english', d."title"), 'A') || setweight(to_tsvector('english', d."content"), 'B')) @@ q.query
+        OR d."title" ILIKE ${like} OR d."content" ILIKE ${like})
+    ORDER BY score DESC, d."lastEditedAt" DESC, d."id"
+    LIMIT ${MAX_SEARCH_RESULTS}`;
+  return rows.map(({ content, lastEditedAt, ...row }) => ({ ...row, snippet: snippetOf(content, query), lastEditedAt: lastEditedAt.toISOString() }));
+}
