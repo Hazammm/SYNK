@@ -41,3 +41,51 @@ CONTEXT = {
          "members": ["Bilal Ahmed"], "sprints": [], "pages": []},
     ],
 }
+
+
+def failure(code: str, message: str, candidates: list[str] | None = None) -> dict[str, Any]:
+    return {"ok": False, "code": code, "message": message, **({"candidates": candidates} if candidates else {})}
+
+
+class Unresolved(Exception):
+    def __init__(self, result: dict[str, Any]) -> None:
+        super().__init__(result["message"])
+        self.result = result
+
+
+def match(names: list[str], query: str, what: str) -> str:
+    """Resolves a name like the real tools: exact, then whole word, then prefix, then fragment."""
+    wanted = " ".join(query.lower().split())
+    rules = [lambda name: name == wanted, lambda name: wanted in name.split(), lambda name: name.startswith(wanted), lambda name: wanted in name]
+    for rule in rules:
+        hits = [name for name in names if rule(name.lower())]
+        if len(hits) == 1:
+            return hits[0]
+        if len(hits) > 1:
+            raise Unresolved(failure("ambiguous", f"More than one {what} matches “{query}”.", hits))
+    raise Unresolved(failure("not_found", f"There is no {what} called “{query}”.", names))
+
+
+def project_of(name: str | None) -> str:
+    if not name:
+        return "SYN"
+    lowered = name.lower()
+    if lowered in ("syn", "fyp") or "fyp" in lowered:
+        return "SYN"
+    if lowered == "mkt" or "marketing" in lowered:
+        return "MKT"
+    raise Unresolved(failure("not_found", f"I couldn't find a project called “{name}” that you can open.", ["FYP (SYN)", "Marketing site (MKT)"]))
+
+
+def person(value: str) -> str | None:
+    lowered = value.strip().lower()
+    if lowered in ("me", "myself", "i"):
+        return USER
+    if lowered in ("none", "nobody", "no one", "unassigned"):
+        return None
+    return match(MEMBERS, value, "person")
+
+
+def view_only(project: str) -> None:
+    if project == "MKT":
+        raise Unresolved(failure("forbidden", "You have view-only access to Marketing site, so I can't change it."))
