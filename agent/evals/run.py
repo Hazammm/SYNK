@@ -41,3 +41,35 @@ def run_case(runner: AgentRunner, case: dict[str, Any]) -> Turn:
 
 def is_provider_problem(turn: Turn) -> bool:
     return turn.reply.startswith(QUOTA_REPLY) or turn.reply.startswith(BUSY_REPLY)
+
+
+def evaluate(runner: AgentRunner, cases: list[dict[str, Any]], delay: float = 0, sleep: Callable[[float], None] = time.sleep, log: Callable[[str], None] = print) -> list[dict[str, Any]]:
+    results = []
+    for index, case in enumerate(cases, start=1):
+        try:
+            turn = run_case(runner, case)
+        except Exception as error:  # an unexpected failure should not stop the other prompts
+            turn = Turn(reply=f"{BUSY_REPLY} ({type(error).__name__}: {str(error)[:120]})")
+        # A rate limit is not the model's mistake: wait and retry the same prompt.
+        for wait in RETRY_WAITS:
+            if not is_provider_problem(turn):
+                break
+            log(f"  rate limited on {case['id']}, retrying in {wait}s")
+            sleep(wait)
+            try:
+                turn = run_case(runner, case)
+            except Exception as error:
+                turn = Turn(reply=f"{BUSY_REPLY} ({type(error).__name__}: {str(error)[:120]})")
+        if is_provider_problem(turn):
+            status, problems = "error", ["the model was unavailable or over quota"]
+        else:
+            problems = score(case["expect"], turn)
+            status = "fail" if problems else "pass"
+        results.append({
+            "id": case["id"], "category": case["category"], "prompt": case["prompt"], "status": status, "problems": problems,
+            "reply": turn.reply, "calls": turn.calls, "pending": bool(turn.pending),
+        })
+        log(f"[{index:2}/{len(cases)}] {status.upper():5} {case['id']}" + (f" - {'; '.join(problems)}" if problems else ""))
+        if delay and index < len(cases):
+            sleep(delay)
+    return results
