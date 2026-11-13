@@ -27,3 +27,11 @@
 .search form:focus-within { border-color: var(--link); }
 .search form button { min-height: 32px; }
 .search .error { margin: 8px 0 0; }
+.results { position: absolute; top: calc(100% + 6px); right: 0; left: 0; z-index: 30; max-height: 420px; overflow-y: auto; border: 1px solid var(--structure); border-radius: 10px; background: var(--surface); box-shadow: 0 12px 32px rgb(0 0 0 / .3); }
+.results header { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--structure); color: var(--muted); font-size: 12px; }
+.results header button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.results ul { margin: 0; padding: 4px; list-style: none; }
+.results li button { display: grid; gap: 2px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.results li button:hover { background: var(--structure); }
+.results small { color: var(--muted); font-size: 11px; }
+.results span { color: var(--muted); font-size: 12px; line-height: 1.45; }
