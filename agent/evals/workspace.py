@@ -100,3 +100,31 @@ def create_ticket(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
     if args.get("sprint"):
         details.append(f"in {match(SPRINTS, args['sprint'], 'open sprint')}")
     return {"ok": True, "summary": f"Created SYN-40 “{args['title']}” in {', '.join(details)}."}
+
+
+def update_ticket(args: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+    key = str(args["ticket"]).upper()
+    ticket = TICKETS.get(key)
+    if not ticket:
+        return failure("not_found", f"I couldn't find {key} in this workspace, or you don't have access to it.")
+    view_only(key.split("-")[0])
+    changes = []
+    if args.get("status"):
+        status = match(STATUSES, args["status"], "status")
+        if status != ticket["status"]:
+            changes.append({"field": "Status", "from": ticket["status"], "to": status})
+    if args.get("priority") and args["priority"].capitalize() != ticket["priority"]:
+        changes.append({"field": "Priority", "from": ticket["priority"], "to": args["priority"].capitalize()})
+    if args.get("assignee"):
+        assignee = person(args["assignee"])
+        if assignee != ticket["assignee"]:
+            changes.append({"field": "Assignee", "from": ticket["assignee"] or "Unassigned", "to": assignee or "Unassigned"})
+    for field in ("title", "description", "due_date", "sprint"):
+        if args.get(field):
+            changes.append({"field": field.replace("_", " ").capitalize(), "from": "(old)", "to": args[field]})
+    if not changes:
+        return {"ok": True, "summary": f"{key} already has those values, so nothing was changed."}
+    summary = "; ".join(f"{change['field'].lower()} {change['from']} → {change['to']}" for change in changes)
+    if dry_run:
+        return {"ok": True, "summary": f"Update {key}: {summary}.", "preview": {"changes": changes}}
+    return {"ok": True, "summary": f"Updated {key}: {summary}."}
