@@ -65,3 +65,20 @@ def test_the_workspace_answers_like_the_real_tools():
     assert [row["key"] for row in respond("find_tickets", {"query": "login"}, False)["data"]["tickets"]] == ["SYN-12", "SYN-21"]
     assert [row["key"] for row in respond("find_tickets", {"query": "dark mode ticket"}, False)["data"]["tickets"]] == ["SYN-14"]
     assert [row["key"] for row in respond("find_tickets", {"assignee": "me"}, False)["data"]["tickets"]] == ["SYN-12"]
+
+
+def test_evaluate_scores_turns_and_retries_rate_limits_without_counting_them():
+    cases = [case for case in load_cases() if case["id"] in ("create-basic", "edge-off-topic")]
+    model = ScriptedModel(replies=[
+        RuntimeError("429 You exceeded your current quota"),  # first attempt at create-basic
+        tool_call("create_ticket", title="Fix login bug", priority="high"), AIMessage("Created SYN-40."),
+        AIMessage("Here is a short poem about cats."),  # off-topic: no tools, so it passes
+    ])
+    runner = AgentRunner(build_graph(model, InMemorySaver()), fake_synk())
+    waits: list[float] = []
+    results = evaluate(runner, cases, sleep=waits.append, log=lambda line: None)
+    assert [result["status"] for result in results] == ["pass", "pass"]
+    assert waits == [30]
+    summary = summarize(results)
+    assert (summary["passed"], summary["scored"], summary["accuracy"]) == (2, 2, 1.0)
+    assert "| `create-basic` | happy | pass | - |" in markdown_report("scripted", summary, results)
