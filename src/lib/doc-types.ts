@@ -9,4 +9,3 @@ export type DocDetail = DocSummary & {
   canEdit: boolean;
 };
 export type DocSearchResult = { id: string; projectId: string; projectName: string; title: string; snippet: string; score: number; lastEditedAt: string };
-export const MAX_DOC_LENGTH = 100_000;

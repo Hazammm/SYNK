@@ -8,8 +8,8 @@ export type Inline =
   | { type: "code"; text: string }
   | { type: "link"; text: string; href: string };
 
-export type ListItem = { inline: Inline[]; checked: boolean | null; line: number };
-export type Block =
+type ListItem = { inline: Inline[]; checked: boolean | null; line: number };
+type Block =
   | { type: "heading"; level: 1 | 2 | 3; inline: Inline[] }
   | { type: "paragraph"; inline: Inline[] }
   | { type: "list"; ordered: boolean; items: ListItem[] }
