@@ -45,3 +45,10 @@ The assistant also receives each project's recent page titles, so it can file a 
 | GET, POST | `/api/projects/:id/docs` | List pages (without content), or create one |
 | GET, PATCH, DELETE | `/api/docs/:id` | Read, update or delete a page. PATCH needs `version`. |
 | GET | `/api/workspaces/:id/docs/search?query=…` | Search pages |
+
+## Tests
+
+- `tests/unit.test.ts`: the Markdown parser and its link safety, toolbar edits, permissions and schemas.
+- `tests/docs.integration.test.mts`: nesting, access, edit conflicts, moves, recursive deletes and search ranking and visibility.
+- `tests/agent.integration.test.mts`: `create_doc` and `search_workspace`, including private-channel messages staying hidden.
+- `tests/e2e/docs.spec.ts`: writing, formatting, subpages, ticking a checklist item, search and reload in a browser.
