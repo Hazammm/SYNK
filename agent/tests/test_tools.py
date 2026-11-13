@@ -11,7 +11,7 @@ from .fakes import CONTEXT, FakeSynk
 
 def test_tool_schemas_show_the_model_only_its_own_arguments():
     tools = {tool.name: tool for tool in tool_schemas()}
-    assert list(tools) == ["create_ticket", "update_ticket", "find_tickets"]
+    assert list(tools) == ["create_ticket", "update_ticket", "find_tickets", "create_doc", "search_workspace"]
     for tool in tools.values():
         properties = tool.tool_call_schema.model_json_schema()["properties"]
         assert "config" not in properties and "token" not in properties
@@ -23,7 +23,7 @@ def test_tool_schemas_show_the_model_only_its_own_arguments():
 
 
 def test_only_tools_that_change_existing_data_ask_for_confirmation():
-    assert {spec.name: spec.confirm for spec in TOOL_SPECS} == {"create_ticket": False, "update_ticket": True, "find_tickets": False}
+    assert {spec.name: spec.confirm for spec in TOOL_SPECS} == {"create_ticket": False, "update_ticket": True, "find_tickets": False, "create_doc": False, "search_workspace": False}
     assert len({spec.name for spec in TOOL_SPECS}) == len(TOOL_SPECS)
 
 
@@ -70,6 +70,7 @@ def test_the_system_prompt_describes_the_workspace_the_user_can_see():
     assert "Board Main board: statuses To Do, In Progress, Review, Done" in prompt
     assert "People with access: Asra Khan, Sarah Khan, Sarah Ali" in prompt
     assert "Open sprints: Sprint 5 (active)" in prompt
+    assert "Pages: Project brief, Auth design spec" in prompt
 
     view_only = build_system_prompt({**CONTEXT, "projects": [{**CONTEXT["projects"][0], "access": "view", "sprints": []}]})
     assert "view only, you cannot change its tickets" in view_only and "Open sprints: none" in view_only

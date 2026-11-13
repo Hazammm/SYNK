@@ -21,6 +21,7 @@ CONTEXT = {
         "key": "SYN", "name": "FYP", "access": "edit",
         "boards": [{"name": "Main board", "statuses": ["To Do", "In Progress", "Review", "Done"]}],
         "members": ["Asra Khan", "Sarah Khan", "Sarah Ali"], "sprints": [{"name": "Sprint 5", "state": "active"}],
+        "pages": ["Project brief", "Auth design spec"],
     }],
 }
 TARGET = {"type": "ticket", "id": "t1", "key": "SYN-12", "title": "Login bug", "projectId": "p1", "boardId": "b1"}
