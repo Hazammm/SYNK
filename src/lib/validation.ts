@@ -138,3 +138,8 @@ export const docUpdateSchema = z.object({
   version: z.number().int().min(1),
 }).strict().refine(update => update.title !== undefined || update.content !== undefined || update.parentId !== undefined, "Nothing to update.");
 export const docSearchSchema = z.object({ query: z.string().trim().min(2, "Search for at least 2 characters.").max(200) }).strict();
+
+// Time tracking schemas
+const timestamp = z.string().datetime({ offset: true, message: "Use a full date and time." }).transform(value => new Date(value));
+const timeNote = z.string().trim().max(500, "Notes can contain up to 500 characters.");
+export const timerStartSchema = z.object({ ticketId: idSchema, note: timeNote.default("") }).strict();
