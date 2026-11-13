@@ -85,3 +85,16 @@ test("manual entries: must end after they start, last at most a day and not be i
   await assert.rejects(addTimeEntry(writer, { ticketId: ticketA, startedAt: "yesterday", endedAt: "2026-11-13T09:00:00Z" }, now));
   await assert.rejects(addTimeEntry(writer, { ticketId: ticketA, startedAt: "2026-11-12T09:00:00Z", endedAt: "2026-11-12T10:00:00Z", note: "x".repeat(501) }, now));
 });
+
+test("access: viewers can read time but not log it, and outsiders see nothing", async () => {
+  await rejects(startTimer(reader, { ticketId: ticketA }), 403);
+  await rejects(addTimeEntry(reader, { ticketId: ticketA, startedAt: "2026-11-12T09:00:00Z", endedAt: "2026-11-12T10:00:00Z" }), 403);
+  for (const user of [bystander, outsider]) await rejects(startTimer(user, { ticketId: ticketA }), 404); // looks missing
+  await rejects(startTimer(writer, { ticketId: otherTicket }), 404); // a project the writer cannot open
+
+  const visible = await listTimeEntries(reader, { projectId, ...week });
+  assert.ok(visible.length >= 4);
+  assert.equal(visible.some(entry => entry.mine), false);
+  await rejects(listTimeEntries(bystander, { projectId, ...week }), 403);
+  await rejects(listTimeEntries(outsider, { projectId, ...week }), 403);
+});
