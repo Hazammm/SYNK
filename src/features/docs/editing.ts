@@ -29,3 +29,12 @@ export function insertCodeBlock(text: string, start: number, end: number): Edit 
   const codeStart = start + before.length + 4;
   return { text: text.slice(0, start) + block + text.slice(end), start: codeStart, end: codeStart + selected.length };
 }
+
+// [selected text](https://) with the address selected, ready to paste over.
+export function insertLink(text: string, start: number, end: number): Edit {
+  const label = text.slice(start, end) || "link text";
+  const url = "https://";
+  const inserted = `[${label}](${url})`;
+  const urlStart = start + label.length + 3;
+  return { text: text.slice(0, start) + inserted + text.slice(end), start: urlStart, end: urlStart + url.length };
+}
