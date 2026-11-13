@@ -49,3 +49,9 @@
 .treeList button svg { flex: 0 0 auto; }
 .treeList button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .main { min-width: 0; }
+
+/* Editor */
+.editor { display: grid; gap: 14px; max-width: 860px; padding: 24px 32px 40px; }
+.meta { color: var(--muted); font-size: 12px; }
+.title { width: 100%; margin: 0; padding: 4px 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--text); font-size: 30px; font-weight: 700; letter-spacing: -.03em; }
+input.title:hover, input.title:focus { border-bottom-color: var(--structure); outline: none; }
