@@ -10,7 +10,7 @@ import { HttpError, messageOf, request } from "@/lib/client-http";
 import { trackerHref } from "../tickets/ui";
 import styles from "./Agent.module.css";
 
-const SUGGESTIONS = ["What is assigned to me?", "Create a high priority ticket called ", "Move a ticket to Done: "];
+const SUGGESTIONS = ["What is assigned to me?", "Create a high priority ticket called ", "Find everything about ", "Create a page called "];
 const ticketKeys = /\b([A-Z][A-Z0-9]{1,9}-[1-9]\d*)\b/;
 const remembered = (workspaceId: string) => `synk-agent-conversation:${workspaceId}`;
 const READ_ONLY_TOOLS = ["find_tickets", "search_workspace"];
@@ -156,7 +156,7 @@ function Conversation({ workspaceId }: { workspaceId: string }) {
       <div ref={log} className={styles.log} role="log" aria-live="polite" aria-label="Conversation">
         {loading && <p role="status" className={styles.note}>Loading…</p>}
         {!loading && !conversation && !sending && <div className={styles.welcome}>
-          <p>Ask me to create or update tickets, or to find them. I can only do what you are allowed to do, and I ask before changing an existing ticket.</p>
+          <p>Ask me to create or update tickets, write pages, or find anything in this workspace. I can only do what you are allowed to do, and I ask before changing an existing ticket.</p>
           <ul>{SUGGESTIONS.map(text => <li key={text}><button type="button" onClick={() => { setDraft(text); field.current?.focus(); }}>{text}</button></li>)}</ul>
         </div>}
         {conversation?.messages.map(message => <Message key={message.id} message={message} workspaceId={workspaceId} busy={busy} onDecide={decide} />)}
