@@ -252,3 +252,10 @@ test("markdown inline: emphasis, code and only safe links", () => {
   assert.deepEqual([safeHref("/docs"), safeHref("//evil.test"), safeHref("mailto:a@b.test"), safeHref("JAVASCRIPT:x"), safeHref("not a url")], ["/docs", null, "mailto:a@b.test", null, null]);
   assert.deepEqual(parseInline("<script>alert(1)</script>"), [{ type: "text", text: "<script>alert(1)</script>" }]);
 });
+test("markdown helpers: plain text for search and toggling checklist items", () => {
+  assert.equal(plainText("# Goals\n\nShip the **beta** by [Friday](https://x.test).\n- [ ] tests"), "Goals Ship the beta by Friday. tests");
+  assert.equal(toggleTask("a\n- [ ] one\n  * [x] two", 1), "a\n- [x] one\n  * [x] two");
+  assert.equal(toggleTask("a\n- [ ] one\n  * [x] two", 2), "a\n- [ ] one\n  * [ ] two");
+  assert.equal(toggleTask("- plain item", 0), "- plain item");
+  assert.equal(toggleTask("x", 9), "x");
+});
