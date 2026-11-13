@@ -19,3 +19,13 @@ export function toggleLinePrefix(text: string, start: number, end: number, prefi
   const next = text.slice(0, lineStart) + changed + text.slice(lineEnd);
   return { text: next, start: lineStart, end: lineStart + changed.length };
 }
+
+// A fenced code block on lines of its own around the selection.
+export function insertCodeBlock(text: string, start: number, end: number): Edit {
+  const selected = text.slice(start, end) || "code";
+  const before = start > 0 && text[start - 1] !== "\n" ? "\n" : "";
+  const after = end < text.length && text[end] !== "\n" ? "\n" : "";
+  const block = `${before}\`\`\`\n${selected}\n\`\`\`${after}`;
+  const codeStart = start + before.length + 4;
+  return { text: text.slice(0, start) + block + text.slice(end), start: codeStart, end: codeStart + selected.length };
+}
