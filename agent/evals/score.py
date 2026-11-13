@@ -45,3 +45,28 @@ def call_matches(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
     if expected["tool"] != actual["tool"]:
         return False
     return all(value_matches(value, actual["args"].get(name)) for name, value in expected.get("args", {}).items())
+
+
+def score(expect: dict[str, Any], turn: Turn) -> list[str]:
+    """Returns the reasons the turn failed; an empty list means it passed."""
+    problems: list[str] = []
+    reply = turn.reply.lower()
+    for wanted in expect.get("calls", []):
+        if not any(call_matches(wanted, call) for call in turn.calls):
+            problems.append(f"expected {wanted['tool']} with {wanted.get('args', {})}")
+    if expect.get("pending") and not turn.pending:
+        problems.append("expected the change to wait for confirmation")
+    if expect.get("no_tools") and turn.calls:
+        problems.append(f"expected no tool calls, got {[call['tool'] for call in turn.calls]}")
+    if expect.get("no_mutation"):
+        changed = [action["tool"] for action in turn.actions if action.get("ok") and action["tool"] in MUTATING]
+        if changed or turn.pending:
+            problems.append(f"expected nothing to change, but {changed or 'a change is pending'}")
+    if expect.get("asks") and "?" not in turn.reply:
+        problems.append("expected a clarifying question")
+    missing = [text for text in expect.get("reply_all", []) if text not in reply]
+    if missing:
+        problems.append(f"reply should mention {missing}")
+    if expect.get("reply_any") and not any(text in reply for text in expect["reply_any"]):
+        problems.append(f"reply should mention one of {expect['reply_any']}")
+    return problems
