@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ArrowRight, Check, ChevronLeft, ChevronRight, Code2, FileText, Heading1,
-  Link2, List, MoreHorizontal, Plus, Send, Sparkles, Timer, Download,
+  ArrowRight, ChevronLeft, ChevronRight, Plus, Timer, Download,
 } from "lucide-react";
 import { tickets, weekHours } from "@/mocks/data";
-import { Avatar, Badge, Button, Card } from "./Primitives";
+import { Button, Card } from "./Primitives";
 import styles from "./Synk.module.css";
 
-// Sample-data preview screens. Overview, board, sprints, reports, alerts and settings are live features under src/features.
-type ScreenName = "docs" | "time";
+// Sample-data preview screen. Everything except time tracking is a live feature under src/features.
+type ScreenName = "time";
 
 function PageHeader({ title, eyebrow, children }: { title: string; eyebrow?: string; children?: React.ReactNode }) {
   return <div className={styles.pageHeader}><div>{eyebrow && <div className={styles.eyebrow}>{eyebrow}</div>}<h1>{title}</h1></div><div className={styles.headerActions}>{children}</div></div>;
@@ -26,28 +25,6 @@ function downloadCsv(filename: string, rows: string[][]) {
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function Docs() {
-  const [insertOpen, setInsertOpen] = useState(false);
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState(false);
-  const [resolved, setResolved] = useState(false);
-  const editor = useRef<HTMLDivElement>(null);
-  function insert(value: string) {
-    editor.current?.focus();
-    document.execCommand("insertText", false, value);
-    setInsertOpen(false);
-  }
-  return <>
-    <PageHeader title="Sprint 3 planning"><Button><MoreHorizontal size={16} /> Share</Button><Button variant="primary"><Check size={16} /> Publish</Button></PageHeader>
-    <div className={styles.docsLayout}><aside className={styles.docTree}><div className={styles.treeHeading}>FYP SYNK <button type="button" aria-label="Add document"><Plus size={14} /></button></div><a href="#project"><FileText size={15} /> Project brief</a><a href="#sprint" className={styles.treeSelected}><FileText size={15} /> Sprint 3 planning</a><a href="#research"><FileText size={15} /> Research notes</a><button type="button"><Plus size={15} /> Add page</button></aside>
-      <div className={styles.docEditor}><div className={styles.docToolbar}>{[[<strong key="b">B</strong>, "Bold"], [<em key="i">I</em>, "Italic"], [<Heading1 key="h" size={16} />, "Heading"], [<List key="l" size={16} />, "List"], [<Link2 key="link" size={16} />, "Link"], [<Code2 key="code" size={16} />, "Code"]].map(([icon, label]) => <button key={label as string} title={label as string} type="button" onClick={() => document.execCommand(label === "Bold" ? "bold" : label === "Italic" ? "italic" : label === "List" ? "insertUnorderedList" : "formatBlock", false, label === "Heading" ? "h2" : undefined)}>{icon}</button>)}<span className={styles.toolbarDivider} /><div className={styles.insertWrap}><button type="button" onClick={() => setInsertOpen(!insertOpen)}><Plus size={15} /> Insert</button>{insertOpen && <div className={styles.insertMenu}>{["Heading", "Ticket", "Table"].map((item) => <button key={item} type="button" onClick={() => insert(item === "Ticket" ? "SYN-12 · Login UI" : item === "Table" ? "Item | Owner | Status" : "New section")}>{item}</button>)}</div>}</div><span className={styles.saveState}><Check size={13} /> All changes saved</span></div>
-        <article className={styles.document}><div className={styles.docMeta}>FYP SYNK <span>·</span> UPDATED 12 MIN AGO</div><h1>Sprint 3 planning</h1><p className={styles.docIntro}>Our focus for the next two weeks: ship a polished onboarding experience and lay the groundwork for our first beta release.</p><div ref={editor} contentEditable suppressContentEditableWarning className={styles.editable}><h2>Goals for this sprint</h2><ul><li>Complete the login and onboarding flow</li><li>Finalize dashboard UI and get team feedback</li><li>Document API requirements for the next milestone</li></ul><h2>Key tickets</h2><p>Tickets planned for this sprint, prioritized by impact and effort.</p></div><a href="/board" className={styles.docTicket}><span className={styles.ticketId}>SYN-12</span><strong>Login UI</strong><Badge tone="action">In progress</Badge><ArrowRight size={15} /></a><p className={styles.docHint}>Type <kbd>/</kbd> to insert blocks</p></article>
-      </div>
-      <aside className={styles.aiPanel}><div className={styles.aiTitle}><Sparkles size={17} /><strong>Ask Synk AI</strong><span className={styles.readOnly}>READ ONLY</span></div><div className={styles.aiChat}><div className={styles.aiUser}>What are this sprint’s main goals?</div><div className={styles.aiAnswer}>Sprint 3 has three main goals: complete the login and onboarding flow, finalize the dashboard UI, and document API requirements for the next milestone.<div className={styles.sourceChips}><a href="#sprint">Sprint 3 planning</a><a href="/board">SYN-12</a></div></div>{answer && <div className={styles.aiAnswer}>I found that in the current project docs. You can review the sprint notes above for more detail.</div>}</div><form className={styles.aiInput} onSubmit={(event) => { event.preventDefault(); if (question.trim()) setAnswer(true); setQuestion(""); }}><input placeholder="Ask about this doc..." value={question} onChange={(event) => setQuestion(event.target.value)} /><button type="submit" aria-label="Ask Synk AI"><Send size={15} /></button></form><div className={styles.commentSection}><div className={styles.sectionTop}><h3>Comments <span>{resolved ? 1 : 2}</span></h3><button type="button" className={styles.iconButton} aria-label="Comment options"><MoreHorizontal size={17} /></button></div><div className={styles.comment}><Avatar initials="JL" small /><p><strong>Jordan Lee <small>· 1h</small></strong><span>Great direction. Let’s make sure design review is on the calendar.</span><button type="button" className={styles.resolve} onClick={() => setResolved(!resolved)}>{resolved ? "Resolved" : "Resolve"}</button></p></div><div className={styles.comment}><Avatar initials="MC" small /><p><strong>Maya Chen <small>· 34m</small></strong><span>I’ve updated the ticket priorities to reflect this.</span></p></div></div></aside>
-    </div>
-  </>;
 }
 
 function Time() {
@@ -71,7 +48,6 @@ function Time() {
 
 export default function SynkScreen({ screen }: { screen: ScreenName }) {
   return <div className={styles.screen}>
-    {screen === "docs" && <Docs />}
     {screen === "time" && <Time />}
   </div>;
 }
