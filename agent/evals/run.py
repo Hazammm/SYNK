@@ -90,3 +90,34 @@ def markdown_report(model: str, summary: dict[str, Any], results: list[dict[str,
         notes = "; ".join(result["problems"]).replace("|", "\\|") or "-"
         lines.append(f"| `{result['id']}` | {result['category']} | {result['status']} | {notes} |")
     return "\n".join(lines) + "\n"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", default="evals/results", help="Folder for results.json and report.md")
+    parser.add_argument("--only", nargs="*", help="Run only these case ids")
+    parser.add_argument("--delay", type=float, default=float(os.environ.get("EVAL_DELAY", "4")), help="Seconds between prompts, to stay inside free rate limits")
+    args = parser.parse_args()
+
+    # The evaluation needs only the model; the service secret is not used.
+    os.environ.setdefault("AI_SERVICE_SECRET", "evaluation-only-secret-not-used-0000000000")
+    from synk_agent.model import build_model
+    from synk_agent.settings import load_settings
+
+    settings = load_settings()
+    runner = AgentRunner(build_graph(build_model(settings), InMemorySaver()), fake_synk(), settings.max_steps)
+    cases = [case for case in load_cases() if not args.only or case["id"] in args.only]
+    print(f"Evaluating {len(cases)} prompts with {settings.model}")
+    results = evaluate(runner, cases, delay=args.delay)
+    summary = summarize(results)
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "results.json").write_text(json.dumps({"model": settings.model, "summary": summary, "results": results}, indent=2, ensure_ascii=False), encoding="utf-8")
+    (out / "report.md").write_text(markdown_report(settings.model, summary, results), encoding="utf-8")
+    print(f"\nAccuracy {summary['passed']}/{summary['scored']} ({summary['accuracy']:.0%}); report written to {out / 'report.md'}")
+    return 0 if summary["accuracy"] >= TARGET and not summary["errors"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
