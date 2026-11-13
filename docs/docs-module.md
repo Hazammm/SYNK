@@ -21,3 +21,10 @@ Pages follow project access, through the same `can()` check as tickets:
 | No access | Nothing. A page in the project looks the same as one that does not exist. |
 | `READ` | Read pages and search them. |
 | `WRITE` | Also create, edit, move and delete pages. |
+
+## Design decisions
+
+- **Markdown, not HTML.** Content is stored as Markdown and parsed into data that React renders, so a page can never inject markup or scripts. Only `http`, `https`, `mailto` and same-site links become links; anything else, such as `javascript:`, stays as plain text.
+- **No lost edits.** Every save sends the version the editor started from. If someone else saved in the meantime, the save is refused with their name, instead of silently overwriting their work.
+- **Deleting is recursive.** Deleting a page deletes its subpages, and the confirmation says how many.
+- **Search without extra infrastructure.** PostgreSQL's built-in full-text search ranks results, with a title weight and a substring fallback for partial words. There is no search index yet, which is fine at FYP scale; a GIN index can be added later if pages grow into the thousands.
