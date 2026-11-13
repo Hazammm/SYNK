@@ -93,3 +93,16 @@ export async function updateDoc(userId: string, docId: string, input: unknown): 
     return serializeDetail(await tx.doc.update({ where: { id: docId }, data, include: detailInclude }), true);
   });
 }
+
+// Deleting a page deletes its subpages too. Returns how many pages were removed.
+export async function deleteDoc(userId: string, docId: string) {
+  return db.$transaction(async tx => {
+    await requireDoc(userId, docId, true, tx);
+    const [{ count }] = await tx.$queryRaw<{ count: bigint }[]>`
+      WITH RECURSIVE tree AS (SELECT "id" FROM "Doc" WHERE "id" = ${docId} UNION ALL SELECT d."id" FROM "Doc" d JOIN tree t ON d."parentId" = t."id")
+      SELECT COUNT(*) AS count FROM tree`;
+    // deleteMany reports a count instead of throwing, so losing a race with another delete is a clean 404.
+    if (!(await tx.doc.deleteMany({ where: { id: docId } })).count) throw new AppError(404, "Page not found.");
+    return { deleted: Number(count) };
+  });
+}
