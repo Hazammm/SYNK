@@ -31,3 +31,21 @@ def test_values_match_ignoring_case_with_alternatives():
     assert value_matches("syn-12", "SYN-12")
     assert not value_matches("high", "medium")
     assert not value_matches("x", None)
+
+
+def test_scoring_explains_each_kind_of_failure():
+    created = Turn(reply="Created SYN-40.", calls=[{"tool": "create_ticket", "args": {"title": "Fix login bug", "priority": "high"}}],
+                   actions=[{"tool": "create_ticket", "ok": True, "summary": "Created"}])
+    assert score({"calls": [{"tool": "create_ticket", "args": {"title": "fix login bug", "priority": "high"}}]}, created) == []
+    assert score({"calls": [{"tool": "create_ticket", "args": {"priority": "low"}}]}, created) == ["expected create_ticket with {'priority': 'low'}"]
+    assert score({"pending": True}, created) == ["expected the change to wait for confirmation"]
+    assert score({"no_tools": True}, created) == ["expected no tool calls, got ['create_ticket']"]
+    assert score({"no_mutation": True}, created)[0].startswith("expected nothing to change")
+    question = Turn(reply="Which one: Sarah Khan or Sarah Ali?")
+    assert score({"asks": True, "reply_all": ["sarah khan", "sarah ali"], "no_mutation": True, "no_tools": True}, question) == []
+    assert score({"asks": True}, Turn(reply="Done.")) == ["expected a clarifying question"]
+    assert score({"reply_any": ["access", "permission"]}, Turn(reply="Nothing was changed.")) == ["reply should mention one of ['access', 'permission']"]
+    # A failed mutation is not a change, and a pending one is.
+    denied = Turn(reply="You only have view access.", actions=[{"tool": "create_ticket", "ok": False, "summary": "view-only"}])
+    assert score({"no_mutation": True}, denied) == []
+    assert score({"no_mutation": True}, Turn(reply="Please confirm.", pending={"tool": "update_ticket"})) != []
