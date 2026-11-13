@@ -188,6 +188,8 @@ def test_the_token_and_system_prompt_are_never_written_to_storage(tmp_path):
 @pytest.mark.parametrize(("error", "reply"), [
     (RuntimeError("429 You exceeded your current quota"), QUOTA_REPLY),
     (RuntimeError("503 This model is currently experiencing high demand"), BUSY_REPLY),
+    (RuntimeError("504 DEADLINE_EXCEEDED. Deadline expired before operation could complete."), BUSY_REPLY),
+    (TimeoutError("The read operation timed out"), BUSY_REPLY),
 ])
 def test_provider_limits_become_a_friendly_reply_and_the_conversation_continues(error, reply):
     runner, model, _ = make([error, AIMessage("Back now.")])
