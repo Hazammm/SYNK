@@ -62,3 +62,52 @@ export function parseInline(source: string): Inline[] {
   push({ type: "text", text: source.slice(last) });
   return parts;
 }
+
+export function parseMarkdown(source: string): Block[] {
+  const lines = source.replace(/\r\n?/g, "\n").split("\n");
+  const blocks: Block[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) { index++; continue; }
+
+    const fence = FENCE.exec(line);
+    if (fence) {
+      const body: string[] = [];
+      index++;
+      while (index < lines.length && !FENCE_END.test(lines[index])) body.push(lines[index++]);
+      index++; // the closing fence, if there is one
+      blocks.push({ type: "code", language: fence[1] || null, text: body.join("\n") });
+      continue;
+    }
+    const heading = HEADING.exec(line);
+    if (heading) {
+      blocks.push({ type: "heading", level: heading[1].length as 1 | 2 | 3, inline: parseInline(heading[2].trim()) });
+      index++; continue;
+    }
+    if (RULE.test(line)) { blocks.push({ type: "rule" }); index++; continue; }
+    if (QUOTE.test(line)) {
+      const body: string[] = [];
+      while (index < lines.length && QUOTE.test(lines[index])) body.push(QUOTE.exec(lines[index++])![1]);
+      blocks.push({ type: "quote", inline: parseInline(body.join(" ").trim()) });
+      continue;
+    }
+    const first = ITEM.exec(line);
+    if (first) {
+      const ordered = /\d/.test(first[1]);
+      const items: ListItem[] = [];
+      // A list continues while lines are items of the same kind.
+      for (let item = ITEM.exec(lines[index]); index < lines.length && item && /\d/.test(item[1]) === ordered; item = ITEM.exec(lines[index] ?? "")) {
+        const task = TASK.exec(item[2]);
+        items.push({ inline: parseInline((task ? task[2] : item[2]).trim()), checked: task ? task[1] !== " " : null, line: index });
+        index++;
+      }
+      blocks.push({ type: "list", ordered, items });
+      continue;
+    }
+    const body: string[] = [];
+    while (index < lines.length && lines[index].trim() && (body.length === 0 || !startsBlock(lines[index]))) body.push(lines[index++].trim());
+    blocks.push({ type: "paragraph", inline: parseInline(body.join(" ")) });
+  }
+  return blocks;
+}
