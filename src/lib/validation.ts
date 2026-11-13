@@ -137,3 +137,4 @@ export const docUpdateSchema = z.object({
   title: docTitle.optional(), content: docContent.optional(), parentId: idSchema.nullable().optional(),
   version: z.number().int().min(1),
 }).strict().refine(update => update.title !== undefined || update.content !== undefined || update.parentId !== undefined, "Nothing to update.");
+export const docSearchSchema = z.object({ query: z.string().trim().min(2, "Search for at least 2 characters.").max(200) }).strict();
