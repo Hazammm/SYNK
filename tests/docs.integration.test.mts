@@ -56,3 +56,18 @@ test("docs: pages nest under parents in the same project and record who created 
   await assert.rejects(createDoc(writer, projectId, { title: "x".repeat(151) }));
   await assert.rejects(createDoc(writer, projectId, { title: "Too long", content: "x".repeat(100_001) }));
 });
+
+test("docs: READ can read but not change pages; no access looks like a missing page", async () => {
+  const [brief] = await listDocs(admin, projectId);
+  const view = await getDoc(reader, brief.id);
+  assert.deepEqual([view.title, view.canEdit], ["Project brief", false]);
+  await rejects(createDoc(reader, projectId, { title: "Nope" }), 403);
+  await rejects(updateDoc(reader, brief.id, { version: view.version, title: "Nope" }), 403);
+  await rejects(deleteDoc(reader, brief.id), 403);
+  for (const user of [bystander, outsider]) {
+    await rejects(getDoc(user, brief.id), 404);
+    await rejects(updateDoc(user, brief.id, { version: 1, title: "Nope" }), 404);
+    await rejects(listDocs(user, projectId), 403);
+  }
+  await rejects(getDoc(admin, "missing-doc-id"), 404);
+});
