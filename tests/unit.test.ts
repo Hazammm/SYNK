@@ -9,7 +9,10 @@ import { burndown, percent, sprintDays } from "../src/features/reports/calc";
 import { toCsv } from "../src/lib/csv";
 import { AGENT_TOKEN_TTL_MS, mintAgentToken, verifyAgentToken } from "../src/lib/agent-token";
 import { isNone, isSelf, matchByName } from "../src/features/agent/resolve";
-import { agentChatSchema, passwordChangeSchema, profileUpdateSchema } from "../src/lib/validation";
+import { agentChatSchema, docCreateSchema, docUpdateSchema, passwordChangeSchema, profileUpdateSchema } from "../src/lib/validation";
+import { parseInline, parseMarkdown, plainText, safeHref, toggleTask } from "../src/lib/markdown";
+import { insertCodeBlock, insertLink, toggleLinePrefix, wrapSelection } from "../src/features/docs/editing";
+import { buildTree, descendantsOf } from "../src/features/docs/tree";
 import { mergeMessages } from "../src/features/chat/client";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
 import { initials, trackerHref } from "../src/features/tickets/ui";
@@ -225,4 +228,67 @@ test("settings accept only a name or notification switches, and passwords that m
   assert.equal(password({ currentPassword: "", newPassword: "long-enough-1" }), false);
   assert.equal(password({ currentPassword: "old", newPassword: "short" }), false);
   assert.equal(password({ currentPassword: "old", newPassword: "é".repeat(40) }), false); // over 72 bytes
+});
+
+test("markdown blocks: headings, lists, checklists, code, quotes and paragraphs", () => {
+  const blocks = parseMarkdown("# Title\n\nFirst line\nsame paragraph\n- one\n- two\n1. first\n2) second\n- [ ] todo\n- [x] done\n> quoted\n> more\n---\n```ts\nconst x = 1;\n\nfoo()\n```\n#### four");
+  assert.deepEqual(blocks.map(block => block.type), ["heading", "paragraph", "list", "list", "list", "quote", "rule", "code", "paragraph"]);
+  assert.deepEqual(blocks[1], { type: "paragraph", inline: [{ type: "text", text: "First line same paragraph" }] });
+  assert.deepEqual(blocks[3], { type: "list", ordered: true, items: [{ inline: [{ type: "text", text: "first" }], checked: null, line: 6 }, { inline: [{ type: "text", text: "second" }], checked: null, line: 7 }] });
+  assert.deepEqual((blocks[4] as { items: { checked: boolean | null; line: number }[] }).items.map(item => [item.checked, item.line]), [[false, 8], [true, 9]]);
+  assert.deepEqual(blocks[5], { type: "quote", inline: [{ type: "text", text: "quoted more" }] });
+  assert.deepEqual(blocks[7], { type: "code", language: "ts", text: "const x = 1;\n\nfoo()" });
+  assert.deepEqual(parseMarkdown("```\nunclosed"), [{ type: "code", language: null, text: "unclosed" }]);
+  assert.deepEqual(parseMarkdown("  \n\n"), []);
+});
+test("markdown inline: emphasis, code and only safe links", () => {
+  assert.deepEqual(parseInline("a **b** *c* _d_ `e` [f](https://x.test/p?q=1)"), [
+    { type: "text", text: "a " }, { type: "strong", text: "b" }, { type: "text", text: " " }, { type: "em", text: "c" }, { type: "text", text: " " },
+    { type: "em", text: "d" }, { type: "text", text: " " }, { type: "code", text: "e" }, { type: "text", text: " " }, { type: "link", text: "f", href: "https://x.test/p?q=1" },
+  ]);
+  // Script and data links stay as plain text, so a page can never run code.
+  assert.deepEqual(parseInline("[x](javascript:alert(1))"), [{ type: "text", text: "[x](javascript:alert(1))" }]);
+  assert.deepEqual(parseInline("[x](data:text/html,hi)"), [{ type: "text", text: "[x](data:text/html,hi)" }]);
+  assert.deepEqual([safeHref("/docs"), safeHref("//evil.test"), safeHref("mailto:a@b.test"), safeHref("JAVASCRIPT:x"), safeHref("not a url")], ["/docs", null, "mailto:a@b.test", null, null]);
+  assert.deepEqual(parseInline("<script>alert(1)</script>"), [{ type: "text", text: "<script>alert(1)</script>" }]);
+});
+test("markdown helpers: plain text for search and toggling checklist items", () => {
+  assert.equal(plainText("# Goals\n\nShip the **beta** by [Friday](https://x.test).\n- [ ] tests"), "Goals Ship the beta by Friday. tests");
+  assert.equal(toggleTask("a\n- [ ] one\n  * [x] two", 1), "a\n- [x] one\n  * [x] two");
+  assert.equal(toggleTask("a\n- [ ] one\n  * [x] two", 2), "a\n- [ ] one\n  * [ ] two");
+  assert.equal(toggleTask("- plain item", 0), "- plain item");
+  assert.equal(toggleTask("x", 9), "x");
+});
+test("editor toolbar edits keep the right text selected", () => {
+  assert.deepEqual(wrapSelection("hello world", 6, 11, "**"), { text: "hello **world**", start: 8, end: 13 });
+  assert.deepEqual(wrapSelection("hi ", 3, 3, "*"), { text: "hi *text*", start: 4, end: 8 });
+  assert.deepEqual(toggleLinePrefix("one\ntwo\nthree", 1, 6, "- "), { text: "- one\n- two\nthree", start: 0, end: 11 });
+  assert.equal(toggleLinePrefix("- one\n- two", 0, 11, "- ").text, "one\ntwo"); // all prefixed, so removed
+  assert.equal(toggleLinePrefix("a\nb", 2, 2, "## ").text, "a\n## b");
+  assert.deepEqual(insertCodeBlock("before x after", 7, 8), { text: "before \n```\nx\n```\n after", start: 12, end: 13 });
+  const link = insertLink("see docs", 4, 8);
+  assert.equal(link.text, "see [docs](https://)");
+  assert.equal(link.text.slice(link.start, link.end), "https://");
+});
+test("docs permissions and schemas", () => {
+  assert.equal(can("doc:read", { role: "MEMBER", projectLevel: "READ" }), true);
+  assert.equal(can("doc:write", { role: "MEMBER", projectLevel: "READ" }), false);
+  assert.equal(can("doc:write", { role: "MEMBER", projectLevel: "WRITE" }), true);
+  assert.equal(can("doc:read", { role: "ADMIN", projectLevel: null }), false); // admins still need project access
+  assert.deepEqual(docCreateSchema.parse({ title: "  Spec " }), { title: "Spec", content: "" });
+  assert.equal(docCreateSchema.safeParse({ title: "Spec", projectId: "p1" }).success, false);
+  assert.equal(docUpdateSchema.safeParse({ version: 1 }).success, false); // nothing to update
+  assert.equal(docUpdateSchema.safeParse({ title: "x" }).success, false); // needs the version it started from
+  assert.equal(docUpdateSchema.safeParse({ version: 2, parentId: null }).success, true);
+});
+
+test("page tree: nests pages under parents and finds every page below one", () => {
+  const page = (id: string, parentId: string | null) => ({ id, parentId, title: id, position: 0, lastEditedAt: "2026-11-13T00:00:00.000Z", lastEditedBy: null });
+  const docs = [page("brief", null), page("spec", "brief"), page("api", "spec"), page("retro", null), page("orphan", "deleted")];
+  const tree = buildTree(docs);
+  assert.deepEqual(tree.map(node => node.id), ["brief", "retro", "orphan"]); // a missing parent shows at the top level
+  assert.deepEqual(tree[0].children.map(node => node.id), ["spec"]);
+  assert.deepEqual(tree[0].children[0].children.map(node => node.id), ["api"]);
+  assert.deepEqual([...descendantsOf(docs, "brief")].sort(), ["api", "brief", "spec"]);
+  assert.deepEqual([...descendantsOf(docs, "retro")], ["retro"]);
 });

@@ -4,8 +4,8 @@ import { rateLimit } from "./rate-limit";
 
 // Every issue-tracking write goes through the same gate: a valid session,
 // a same-origin request (CSRF), a per-user rate limit, then a size-capped JSON body.
-export async function readWrite(request: Request) {
-  return { user: await authorizeWrite(request), body: await readJson(request) };
+export async function readWrite(request: Request, maxBytes?: number) {
+  return { user: await authorizeWrite(request), body: await readJson(request, maxBytes) };
 }
 
 // The same gate for writes that carry no body, such as DELETE.

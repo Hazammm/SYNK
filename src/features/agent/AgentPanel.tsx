@@ -5,15 +5,21 @@ import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, History, Plus, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/Primitives";
 import type { WorkspaceSummary } from "@/lib/chat-types";
-import { TICKETS_CHANGED, type AgentMessage, type ChatTurn, type ConversationDetail, type ConversationSummary } from "@/lib/agent-types";
+import { TICKETS_CHANGED, type AgentMessage, type AgentTarget, type ChatTurn, type ConversationDetail, type ConversationSummary } from "@/lib/agent-types";
 import { HttpError, messageOf, request } from "@/lib/client-http";
 import { trackerHref } from "../tickets/ui";
 import styles from "./Agent.module.css";
 
-const SUGGESTIONS = ["What is assigned to me?", "Create a high priority ticket called ", "Move a ticket to Done: "];
+const SUGGESTIONS = ["What is assigned to me?", "Create a high priority ticket called ", "Find everything about ", "Create a page called "];
 const ticketKeys = /\b([A-Z][A-Z0-9]{1,9}-[1-9]\d*)\b/;
 const remembered = (workspaceId: string) => `synk-agent-conversation:${workspaceId}`;
-const changedTickets = (messages: AgentMessage[]) => messages.some(message => message.actions.some(action => action.ok && action.tool !== "find_tickets"));
+const READ_ONLY_TOOLS = ["find_tickets", "search_workspace"];
+const changedTickets = (messages: AgentMessage[]) => messages.some(message => message.actions.some(action => action.ok && !READ_ONLY_TOOLS.includes(action.tool) && action.target?.type !== "doc"));
+function targetLink(target: AgentTarget, workspaceId: string) {
+  return target.type === "doc"
+    ? { href: `/docs?${new URLSearchParams({ workspaceId, projectId: target.projectId, doc: target.id })}`, label: "Open page" }
+    : { href: trackerHref("board", { workspaceId, projectId: target.projectId, boardId: target.boardId, ticket: target.id }), label: `Open ${target.key}` };
+}
 
 // The assistant is available on every screen: a launcher button opens this side panel.
 export default function AgentPanel() {
@@ -150,7 +156,7 @@ function Conversation({ workspaceId }: { workspaceId: string }) {
       <div ref={log} className={styles.log} role="log" aria-live="polite" aria-label="Conversation">
         {loading && <p role="status" className={styles.note}>Loading…</p>}
         {!loading && !conversation && !sending && <div className={styles.welcome}>
-          <p>Ask me to create or update tickets, or to find them. I can only do what you are allowed to do, and I ask before changing an existing ticket.</p>
+          <p>Ask me to create or update tickets, write pages, or find anything in this workspace. I can only do what you are allowed to do, and I ask before changing an existing ticket.</p>
           <ul>{SUGGESTIONS.map(text => <li key={text}><button type="button" onClick={() => { setDraft(text); field.current?.focus(); }}>{text}</button></li>)}</ul>
         </div>}
         {conversation?.messages.map(message => <Message key={message.id} message={message} workspaceId={workspaceId} busy={busy} onDecide={decide} />)}
@@ -185,12 +191,12 @@ function Message({ message, workspaceId, busy, onDecide }: { message: AgentMessa
       <ul>{message.actions.map((action, index) => <li key={index} data-ok={action.ok}>
         {action.ok ? <Check size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}
         <span><span className={styles.srOnly}>{action.ok ? "Done: " : "Not done: "}</span>{action.summary}
-          {action.target && <> <Link href={trackerHref("board", { workspaceId, projectId: action.target.projectId, boardId: action.target.boardId, ticket: action.target.id })}>Open {action.target.key}</Link></>}</span>
+          {action.target && (({ href, label }) => <> <Link href={href}>{label}</Link></>)(targetLink(action.target, workspaceId))}</span>
       </li>)}</ul>
     </section>}
     {pending && <section className={styles.pending} aria-label="Change waiting for your confirmation" data-status={pending.status}>
       <h3>{pending.status === "PENDING" ? "Confirm this change" : pending.status === "APPROVED" ? "Change approved" : "Change cancelled"}</h3>
-      {pending.target && <p className={styles.target}>{pending.target.key} · {pending.target.title}</p>}
+      {pending.target && <p className={styles.target}>{pending.target.type === "ticket" ? `${pending.target.key} · ` : ""}{pending.target.title}</p>}
       {pending.changes.length ? <dl>{pending.changes.map((change, index) => <div key={index}>
         <dt>{change.field}</dt><dd><s>{change.from}</s> <span aria-hidden="true">→</span><span className={styles.srOnly}> becomes </span> <strong>{change.to}</strong></dd>
       </div>)}</dl> : <p>{pending.summary}</p>}

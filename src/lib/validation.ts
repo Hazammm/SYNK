@@ -128,3 +128,13 @@ export const passwordChangeSchema = z.object({
   currentPassword: z.string().min(1, "Enter your current password.").max(72),
   newPassword: passwordField,
 }).strict();
+
+// Docs schemas
+const docTitle = z.string().trim().min(1, "Give the page a title.").max(150, "Titles can contain up to 150 characters.");
+const docContent = z.string().max(100_000, "Pages can contain up to 100,000 characters.");
+export const docCreateSchema = z.object({ title: docTitle, content: docContent.default(""), parentId: idSchema.nullable().optional() }).strict();
+export const docUpdateSchema = z.object({
+  title: docTitle.optional(), content: docContent.optional(), parentId: idSchema.nullable().optional(),
+  version: z.number().int().min(1),
+}).strict().refine(update => update.title !== undefined || update.content !== undefined || update.parentId !== undefined, "Nothing to update.");
+export const docSearchSchema = z.object({ query: z.string().trim().min(2, "Search for at least 2 characters.").max(200) }).strict();

@@ -33,7 +33,7 @@ def test_create_ticket_runs_without_confirmation_and_reports_the_action():
     assert result == {"reply": "Created SYN-13.", "actions": [{"tool": "create_ticket", "ok": True, "summary": created["summary"], "target": created["target"]}], "pending": None}
     # Arguments the model left empty are not sent, and the call carries the user's token.
     assert synk.calls == [{"tool": "create_ticket", "args": {"title": "Login bug", "priority": "high"}, "dry_run": False, "token": "token-1"}]
-    assert model.bound == ["create_ticket", "update_ticket", "find_tickets"]
+    assert model.bound == ["create_ticket", "update_ticket", "find_tickets", "create_doc", "search_workspace"]
     system, question = model.seen[0]
     assert isinstance(system, SystemMessage) and "Synk FYP" in system.content and "2026-11-12" in system.content
     assert isinstance(question, HumanMessage)

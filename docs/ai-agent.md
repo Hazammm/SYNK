@@ -1,13 +1,13 @@
 # AI agent
 
-This covers PRD section 6.6 and the first half of the agent work in the delivery plan (Sprint 5): the agent graph, the `create_ticket` and `update_ticket` tools, permission enforcement and the confirmation flow. `create_doc` and `search_workspace` belong to Sprint 6 and are not built yet.
+This covers PRD section 6.6: the agent graph, all four tools in the PRD (`create_ticket`, `update_ticket`, `create_doc`, `search_workspace`), permission enforcement and the confirmation flow. See [docs-module.md](docs-module.md) for the docs feature behind `create_doc`.
 
 ## Requirement coverage
 
 | Requirement | Implementation |
 | --- | --- |
 | FR-AI1 | An **Ask Synk AI** button on every screen opens a side panel. The panel returns to your last conversation in each workspace. |
-| FR-AI2 | `create_ticket` and `update_ticket` are implemented, plus `find_tickets`, a read-only lookup the model uses to turn "the login ticket" into a key. `create_doc`, `search_workspace` and the 30-prompt accuracy set are not done. |
+| FR-AI2 | All four PRD tools are implemented, plus `find_tickets`, a read-only lookup the model uses to turn "the login ticket" into a key. The 30-prompt accuracy set is not done. |
 | FR-AI3 | Every tool runs on the Next.js server as the signed-in person, through the same services and `can()` check as their own requests. A denial is returned to the model, which explains it. |
 | FR-AI4 | An unclear project, person, status or sprint name is returned as `ambiguous` with the candidates, and the model asks which one. Names are never guessed. |
 | FR-AI5 | `update_ticket` is previewed first. The person sees each field's old and new value and must confirm before anything is saved. |
@@ -61,6 +61,8 @@ Conversation memory for the model is kept by a LangGraph checkpointer in a SQLit
 | `create_ticket` | Yes | No | Project, status, assignee and sprint are given by name. "me" assigns to the caller. |
 | `update_ticket` | Yes | Yes | Takes a ticket key. "none" clears the assignee, sprint or due date. |
 | `find_tickets` | No | No | Searches titles and descriptions in projects the caller can open; at most 10 results. |
+| `create_doc` | Yes | No | Creates a page, optionally under a parent page given by title. |
+| `search_workspace` | No | No | Searches tickets, pages and messages from channels the caller has joined. |
 
 ### Adding a tool
 
@@ -102,7 +104,6 @@ A live run against Gemini was done by hand: creating a ticket, updating one with
 
 ## Not done yet
 
-- `create_doc` and `search_workspace` (Sprint 6, after the docs module).
 - The 30-prompt accuracy test set from the PRD.
 - Streaming replies; the panel waits for the whole answer.
 - Free model tiers have tight limits. When the quota runs out the assistant says so and the conversation can continue later.

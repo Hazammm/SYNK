@@ -66,6 +66,17 @@ class FindTicketsArgs(BaseModel):
     status: str | None = Field(None, description="Board column name, for example In Progress.")
 
 
+class CreateDocArgs(BaseModel):
+    title: str = Field(description="Title of the new page.")
+    content: str | None = Field(None, description="Page content in Markdown: # headings, - lists, - [ ] checklists, **bold**, `code`, [links](https://...).")
+    project: str | None = Field(None, description="Project name or key. Leave out when the workspace has one project.")
+    parent: str | None = Field(None, description="Title of an existing page to put the new page under.")
+
+
+class SearchWorkspaceArgs(BaseModel):
+    query: str = Field(description="Words to search for in tickets, pages and chat messages.")
+
+
 TOOL_SPECS: list[ToolSpec] = [
     ToolSpec(
         name="create_ticket",
@@ -85,6 +96,16 @@ TOOL_SPECS: list[ToolSpec] = [
         name="find_tickets",
         description="Look up tickets the user can see. Use it to find a ticket's key before updating it, or to answer questions about tickets.",
         args=FindTicketsArgs,
+    ),
+    ToolSpec(
+        name="create_doc",
+        description="Create a new page in a project's docs, optionally under an existing page. Use when the user asks to write, draft or save notes, a spec, a retro or any document.",
+        args=CreateDocArgs,
+    ),
+    ToolSpec(
+        name="search_workspace",
+        description="Search tickets, pages and chat messages the user can see. Use for questions like 'find everything about authentication' or 'where did we discuss the login bug'.",
+        args=SearchWorkspaceArgs,
     ),
 ]
 

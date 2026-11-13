@@ -6,6 +6,8 @@ import { requireWorkspace } from "../../lib/permissions";
 import { rateLimit } from "../../lib/rate-limit";
 import { getProject, listProjects } from "../projects/service";
 import { createTicket, findTicketByKey, getTicket, updateTicket } from "../tickets/service";
+import { createDoc } from "../docs/service";
+import { searchWorkspace } from "../search/service";
 import { isNone, isSelf, matchByName, ticketKeyPattern } from "./resolve";
 import type { AgentChange, AgentFailureCode, AgentTarget, AgentToolFailure, AgentToolResult, AgentToolSuccess } from "../../lib/agent-types";
 import type { BoardSummary, Priority, ProjectDetail, ProjectSummary, TicketDetail } from "../../lib/ticket-types";
@@ -194,10 +196,50 @@ const findTicketsTool = defineTool({
   },
 });
 
+// ── create_doc ───────────────────────────────────────────────────────────────
+
+const createDocTool = defineTool({
+  mutates: true,
+  schema: z.object({
+    title: text(150), content: optional(z.string().max(100_000)),
+    project: optional(text(80)),
+    // The title of an existing page to put the new one under.
+    parent: optional(text(150)),
+  }).strict(),
+  async run(context, args, dryRun) {
+    const project = pickProject(await accessibleProjects(context), args.project);
+    if (project.level !== "WRITE") throw new ToolFailure("forbidden", `You have view-only access to ${project.name}, so I can't add pages to it. Ask a workspace admin for edit access.`);
+    const parent = args.parent ? pickNamed(await db.doc.findMany({ where: { projectId: project.id }, select: { id: true, title: true } }).then(pages => pages.map(page => ({ ...page, name: page.title }))), args.parent, "page", `in ${project.name}`) : null;
+    const where = parent ? `under “${parent.title}” in ${project.name}` : `in ${project.name}`;
+    if (dryRun) return { ok: true, summary: `Ready to create the page “${args.title}” ${where}.` };
+    const doc = await createDoc(context.userId, project.id, { title: args.title, content: args.content ?? "", parentId: parent?.id ?? null });
+    return { ok: true, summary: `Created the page “${doc.title}” ${where}.`, target: { type: "doc", id: doc.id, title: doc.title, projectId: doc.projectId } };
+  },
+});
+
+// ── search_workspace ─────────────────────────────────────────────────────────
+
+const searchWorkspaceTool = defineTool({
+  mutates: false,
+  schema: z.object({ query: text(200) }).strict(),
+  async run({ userId, workspaceId }, args) {
+    const results = await searchWorkspace(userId, workspaceId, { query: args.query });
+    const counts = (["ticket", "doc", "message"] as const).map(type => [type, results.filter(result => result.type === type).length] as const);
+    const label = { ticket: ["ticket", "tickets"], doc: ["page", "pages"], message: ["message", "messages"] };
+    const found = counts.filter(([, count]) => count).map(([type, count]) => `${count} ${label[type][count === 1 ? 0 : 1]}`);
+    return {
+      ok: true, summary: found.length ? `Found ${found.join(", ")} matching “${args.query}”.` : `Nothing matched “${args.query}”.`,
+      data: { results: results.map(({ score, ...result }) => ({ ...result, score: Math.round(score * 100) / 100 })) },
+    };
+  },
+});
+
 export const agentTools: Record<string, AgentTool> = {
   create_ticket: createTicketTool,
   update_ticket: updateTicketTool,
   find_tickets: findTicketsTool,
+  create_doc: createDocTool,
+  search_workspace: searchWorkspaceTool,
 };
 
 // ── Running a tool for the agent ─────────────────────────────────────────────
@@ -230,7 +272,7 @@ export async function runAgentTool(context: ToolContext, name: string, input: un
   await db.actionLog.create({
     data: {
       userId: context.userId, workspaceId: context.workspaceId, conversationId: context.conversationId ?? null, tool: name, dryRun, ok: result.ok,
-      target: result.ok ? result.target?.key ?? null : null, parameters: args as Prisma.InputJsonObject,
+      target: !result.ok || !result.target ? null : result.target.type === "ticket" ? result.target.key : `doc:${result.target.id}`, parameters: args as Prisma.InputJsonObject,
       result: result.ok ? { summary: result.summary } : { code: result.code, message: result.message },
     },
   });

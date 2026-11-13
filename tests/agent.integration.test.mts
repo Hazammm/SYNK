@@ -15,6 +15,8 @@ const { createSprint, getTicket } = await import("../src/features/tickets/servic
 const { runAgentTool } = await import("../src/features/agent/tools");
 const { buildAgentContext } = await import("../src/features/agent/context");
 const { getConversation, listConversations, sendAgentTurn } = await import("../src/features/agent/service");
+const { createDoc } = await import("../src/features/docs/service");
+const { createChannel, sendMessage } = await import("../src/features/chat/service");
 const { mintAgentToken, verifyAgentToken } = await import("../src/lib/agent-token");
 const { POST: toolRoute } = await import("../src/app/api/agent-tools/[name]/route");
 
@@ -187,7 +189,7 @@ test("context: describes only what the caller can see", async () => {
   assert.deepEqual([context.today, context.user.name, context.workspace.name, context.workspace.role], ["2026-11-12", "Reader Person", "Agent workspace", "member"]);
   assert.deepEqual(context.projects, [{
     key: "AGT", name: "Agent Tracker", access: "view", boards: [{ name: "Main board", statuses: ["To Do", "In Progress", "Review", "Done"] }],
-    members: ["Admin Person", "Reader Person", "Sarah Ali", "Sarah Khan"], sprints: [{ name: "Sprint 5", state: "planned" }],
+    members: ["Admin Person", "Reader Person", "Sarah Ali", "Sarah Khan"], sprints: [{ name: "Sprint 5", state: "planned" }], pages: [],
   }]);
   assert.equal((await buildAgentContext(admin, workspaceId)).projects[0].access, "edit");
   assert.deepEqual((await buildAgentContext(bystander, workspaceId)).projects, []);
@@ -258,4 +260,47 @@ test("conversations: when the agent fails, the unanswered question is removed an
   await rejects(sendAgentTurn(reader, { conversationId: turn.conversation.id, decision: "approve" }, down), 503);
   const history = await getConversation(reader, turn.conversation.id);
   assert.deepEqual(history.messages.map(message => message.pending?.status ?? null), [null, "PENDING"]); // still answerable
+});
+
+test("create_doc: writes a page as the caller, under a parent found by title", async () => {
+  const brief = succeeded(await run(admin, "create_doc", { title: "Project brief", content: "# Goals" }));
+  assert.match(brief.summary, /^Created the page “Project brief” in Agent Tracker\.$/);
+  assert.equal(brief.target?.type, "doc");
+  const retro = succeeded(await run(khan, "create_doc", { title: "Sprint 5 retro", content: "- [ ] follow up", parent: "project brief", project: "AGT" }));
+  assert.match(retro.summary, /under “Project brief”/);
+  const page = await db.doc.findUniqueOrThrow({ where: { id: retro.target!.id } });
+  assert.deepEqual([page.parentId, page.createdById, page.content], [brief.target!.id, khan, "- [ ] follow up"]);
+  assert.equal((await db.actionLog.findFirstOrThrow({ where: { tool: "create_doc", userId: khan } })).target, `doc:${page.id}`);
+
+  succeeded(await run(admin, "create_doc", { title: "Project budget" }));
+  assert.deepEqual(failed(await run(admin, "create_doc", { title: "x", parent: "project" }), "ambiguous").candidates?.sort(), ["Project brief", "Project budget"]);
+  failed(await run(admin, "create_doc", { title: "x", parent: "Nonexistent" }), "not_found");
+  assert.match(failed(await run(reader, "create_doc", { title: "Read only" }), "forbidden").message, /view-only/);
+  failed(await run(bystander, "create_doc", { title: "No project" }), "forbidden");
+  assert.equal(await db.doc.count({ where: { title: { in: ["x", "Read only", "No project"] } } }), 0);
+  assert.deepEqual((await buildAgentContext(admin, workspaceId)).projects[0].pages.sort(), ["Project brief", "Project budget", "Sprint 5 retro"]);
+});
+
+test("search_workspace: finds tickets, pages and messages the caller can see, and nothing else", async () => {
+  await createDoc(admin, projectId, { title: "Login design", content: "The login flow uses NextAuth." });
+  const general = (await db.channel.findFirstOrThrow({ where: { workspaceId, name: "general" } })).id;
+  await sendMessage(admin, general, { body: "The login bug is fixed now", clientMessageId: randomUUID() });
+  const secret = await createChannel(admin, workspaceId, { name: "leadership", isPrivate: true });
+  await sendMessage(admin, secret.id, { body: "Private login discussion", clientMessageId: randomUUID() });
+
+  const search = async (userId: string, query: string) => succeeded(await run(userId, "search_workspace", { query }));
+  const results = (result: AgentToolResult) => ((result as { data: { results: { type: string; title: string }[] } }).data.results);
+  const forAdmin = await search(admin, "login");
+  assert.deepEqual(results(forAdmin).map(result => result.type).sort(), ["doc", "message", "message", "ticket"]);
+  assert.match(forAdmin.summary, /^Found 1 ticket, 1 page, 2 messages matching “login”\.$/);
+
+  // Sarah Khan can open the project but has not joined the private channel.
+  const forKhan = results(await search(khan, "login"));
+  assert.deepEqual(forKhan.map(result => result.type).sort(), ["doc", "ticket"]);
+  assert.equal(forKhan.some(result => /Private/.test(JSON.stringify(result))), false);
+  // The bystander has no project access and has not joined general, so nothing matches for them.
+  assert.deepEqual(results(await search(bystander, "login")), []);
+  assert.match((await search(admin, "zebra unicorn")).summary, /^Nothing matched/);
+  failed(await run(admin, "search_workspace", { query: "x" }), "invalid");
+  failed(await run(outsider, "search_workspace", { query: "login" }), "forbidden");
 });

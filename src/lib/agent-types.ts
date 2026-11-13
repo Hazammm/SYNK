@@ -1,5 +1,7 @@
 // Shapes shared by the AI agent API, the tool endpoints the agent calls, and the chat panel.
-export type AgentTarget = { type: "ticket"; id: string; key: string; title: string; projectId: string; boardId: string };
+export type AgentTarget =
+  | { type: "ticket"; id: string; key: string; title: string; projectId: string; boardId: string }
+  | { type: "doc"; id: string; title: string; projectId: string };
 export type AgentChange = { field: string; from: string; to: string };
 export type AgentFailureCode = "forbidden" | "not_found" | "ambiguous" | "invalid" | "rate_limited";
 
@@ -14,7 +16,7 @@ export type AgentPending = { tool: string; summary: string; target?: AgentTarget
 export type AgentReply = { reply: string; actions: AgentAction[]; pending: AgentPending | null };
 
 // Everything the agent is told about the person and workspace it is working for.
-export type AgentProjectContext = { key: string; name: string; access: "edit" | "view"; boards: { name: string; statuses: string[] }[]; members: string[]; sprints: { name: string; state: "planned" | "active" }[] };
+export type AgentProjectContext = { key: string; name: string; access: "edit" | "view"; boards: { name: string; statuses: string[] }[]; members: string[]; sprints: { name: string; state: "planned" | "active" }[]; pages: string[] };
 export type AgentContext = { today: string; user: { name: string }; workspace: { name: string; role: "admin" | "member" }; projects: AgentProjectContext[] };
 export type AgentRequest = { threadId: string; userToken: string; context: AgentContext; message?: string; decision?: "approve" | "reject" };
 
