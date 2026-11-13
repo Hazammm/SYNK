@@ -42,3 +42,8 @@ People can delete only their own entries. Deleting a ticket deletes the time log
 - `tests/unit.test.ts`: week boundaries, durations, totals and schemas.
 - `tests/time.integration.test.mts`: timers, concurrent starts, the 24-hour limit, manual entry rules, access, listing and deletion.
 - `tests/e2e/time.spec.ts`: a timer from a ticket, a manual entry, the week view, CSV export and deleting an entry.
+
+## Not done yet
+
+- Editing an entry after it is saved; delete it and add it again instead.
+- Approval of timesheets and billing rates.
