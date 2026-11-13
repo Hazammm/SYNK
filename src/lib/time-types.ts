@@ -8,3 +8,5 @@ export type TimeEntry = { id: string; startedAt: string; endedAt: string | null;
 export type TimerStart = { entry: TimeEntry; stopped: TimeEntry | null };
 // Entries longer than this are refused, and running timers stop counting at this point.
 export const MAX_ENTRY_HOURS = 24;
+// Window event fired when a timer starts or stops outside the Time page, so it can refresh.
+export const TIMER_CHANGED = "synk-timer-changed";
