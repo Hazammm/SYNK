@@ -68,3 +68,9 @@ test("timers: two starts at the same moment leave exactly one running", async ()
   assert.equal(await db.timeEntry.count({ where: { userId: admin, endedAt: null } }), 1);
   await stopTimer(admin, at("2026-11-11T09:00:00.000Z"));
 });
+
+test("timers: a timer left running stops counting at 24 hours", async () => {
+  await startTimer(admin, { ticketId: ticketB }, at("2026-11-12T08:00:00.000Z"));
+  const stopped = await stopTimer(admin, at("2026-11-14T08:00:00.000Z"));
+  assert.equal(stopped.endedAt, "2026-11-13T08:00:00.000Z");
+});
