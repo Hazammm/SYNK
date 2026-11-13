@@ -31,6 +31,7 @@ def _project_lines(project: dict[str, Any]) -> list[str]:
     lines.append(f"  People with access: {', '.join(members) or 'none'}")
     sprints = [f"{sprint.get('name')} ({sprint.get('state')})" for sprint in project.get("sprints") or []]
     lines.append(f"  Open sprints: {', '.join(sprints) or 'none'}")
+    lines.append(f"  Pages: {', '.join(project.get('pages') or []) or 'none'}")
     return lines
 
 
