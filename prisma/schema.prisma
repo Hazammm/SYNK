@@ -73,6 +73,8 @@ model User {
   sentNotifications   Notification[]       @relation("NotificationActor")
   conversations       Conversation[]
   actionLogs          ActionLog[]
+  createdDocs         Doc[]                @relation("DocCreator")
+  editedDocs          Doc[]                @relation("DocEditor")
 }
 
 model Account {
@@ -219,6 +221,7 @@ model Project {
   boards           Board[]
   sprints          Sprint[]
   tickets          Ticket[]
+  docs             Doc[]
 
   @@unique([workspaceId, key])
   @@index([workspaceId])
@@ -398,4 +401,29 @@ model ActionLog {
 
   @@index([userId, createdAt])
   @@index([workspaceId, createdAt])
+}
+
+// Docs (PRD 6.5): nested pages inside a project, written in Markdown.
+// The composite parent key keeps a page and its parent in the same project.
+// `version` increases on every save, so two people editing at once cannot overwrite each other.
+model Doc {
+  id             String   @id @default(cuid())
+  projectId      String
+  parentId       String?
+  title          String
+  content        String   @default("") @db.Text
+  position       Int      @default(0)
+  version        Int      @default(1)
+  createdById    String?
+  lastEditedById String?
+  lastEditedAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent         Doc?     @relation("DocTree", fields: [parentId, projectId], references: [id, projectId], onDelete: Cascade)
+  children       Doc[]    @relation("DocTree")
+  createdBy      User?    @relation("DocCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  lastEditedBy   User?    @relation("DocEditor", fields: [lastEditedById], references: [id], onDelete: SetNull)
+
+  @@unique([id, projectId])
+  @@index([projectId, parentId, position])
 }
