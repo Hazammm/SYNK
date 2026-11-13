@@ -61,3 +61,10 @@ test("timers: starting one stops the running one, and stopping records the time"
   assert.equal(await getActiveTimer(writer), null);
   await rejects(stopTimer(writer), 409); // nothing running
 });
+
+test("timers: two starts at the same moment leave exactly one running", async () => {
+  const results = await Promise.allSettled([1, 2, 3].map(() => startTimer(admin, { ticketId: ticketA }, at("2026-11-11T08:00:00.000Z"))));
+  assert.equal(results.filter(result => result.status === "fulfilled").length, 3);
+  assert.equal(await db.timeEntry.count({ where: { userId: admin, endedAt: null } }), 1);
+  await stopTimer(admin, at("2026-11-11T09:00:00.000Z"));
+});
