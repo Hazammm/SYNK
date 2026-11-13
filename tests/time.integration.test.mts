@@ -108,3 +108,15 @@ test("listing: filters by range and person, newest first", async () => {
   await rejects(listTimeEntries(admin, { projectId, from: week.to, to: week.from }), 400);
   await rejects(listTimeEntries(admin, { projectId, from: "2026-01-01T00:00:00Z", to: "2026-12-01T00:00:00Z" }), 400); // over three months
 });
+
+test("deleting: only your own entries, and deleting a ticket removes its time", async () => {
+  const [mine] = await listTimeEntries(writer, { projectId, ...week, userId: writer });
+  await rejects(deleteTimeEntry(admin, mine.id), 404); // someone else's
+  assert.deepEqual(await deleteTimeEntry(writer, mine.id), { deleted: true });
+  await rejects(deleteTimeEntry(writer, mine.id), 404);
+
+  const before = await db.timeEntry.count({ where: { ticketId: ticketB } });
+  assert.ok(before > 0);
+  await deleteTicket(admin, ticketB);
+  assert.equal(await db.timeEntry.count({ where: { ticketId: ticketB } }), 0);
+});
