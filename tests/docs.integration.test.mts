@@ -112,3 +112,24 @@ test("docs: deleting a page removes its subpages and reports how many", async ()
   await rejects(deleteDoc(writer, top.id), 404);
   assert.equal((await getDoc(admin, keep.id)).title, "Keep me");
 });
+
+test("search: title matches rank first, partial words match, and hidden projects never appear", async () => {
+  await createDoc(writer, projectId, { title: "Authentication overview", content: "How people sign in to Synk." });
+  await createDoc(writer, projectId, { title: "Release checklist", content: "Check the authentication flow before release." });
+  await createDoc(admin, otherProjectId, { title: "Authentication secrets", content: "Hidden from most people." });
+
+  const forWriter = await searchDocs(writer, workspaceId, { query: "authentication" });
+  assert.deepEqual(forWriter.map(result => result.title), ["Authentication overview", "Release checklist"]);
+  assert.ok(forWriter[0].score > forWriter[1].score);
+  assert.match(forWriter[1].snippet, /authentication flow/);
+  assert.equal(forWriter[0].projectName, "Docs project");
+
+  assert.deepEqual((await searchDocs(writer, workspaceId, { query: "authent" })).map(result => result.title).sort(), ["Authentication overview", "Release checklist"]); // partial
+  assert.deepEqual((await searchDocs(writer, workspaceId, { query: "people sign" })).map(result => result.title), ["Authentication overview"]); // stemmed words
+  assert.equal((await searchDocs(admin, workspaceId, { query: "authentication" })).length, 3); // the admin can open both projects
+  assert.deepEqual(await searchDocs(bystander, workspaceId, { query: "authentication" }), []);
+  await rejects(searchDocs(outsider, workspaceId, { query: "authentication" }), 403);
+  // LIKE wildcards are matched literally, so "%" does not match every page.
+  assert.deepEqual(await searchDocs(writer, workspaceId, { query: "%%" }), []);
+  await assert.rejects(searchDocs(writer, workspaceId, { query: "a" }));
+});
