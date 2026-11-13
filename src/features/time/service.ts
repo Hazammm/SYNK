@@ -86,3 +86,16 @@ export async function deleteTimeEntry(userId: string, entryId: string) {
   if (!count) throw new AppError(404, "Time entry not found.");
   return { deleted: true };
 }
+
+// Entries that started in [from, to) in one project, for everyone who can open the project.
+export async function listTimeEntries(userId: string, input: unknown): Promise<TimeEntry[]> {
+  const { projectId, from, to, userId: person } = timeListSchema.parse(input);
+  if (to <= from) throw new AppError(400, "The end of the range must be after its start.");
+  if (to.getTime() - from.getTime() > 93 * 24 * HOUR_MS) throw new AppError(400, "Choose a range of at most three months.");
+  await requireProject(userId, projectId, "time:read");
+  const rows = await db.timeEntry.findMany({
+    where: { projectId, startedAt: { gte: from, lt: to }, ...(person && { userId: person }) },
+    include, orderBy: [{ startedAt: "desc" }, { id: "asc" }], take: MAX_LISTED,
+  });
+  return rows.map(row => serialize(row, userId));
+}
