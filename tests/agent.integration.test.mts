@@ -261,3 +261,22 @@ test("conversations: when the agent fails, the unanswered question is removed an
   const history = await getConversation(reader, turn.conversation.id);
   assert.deepEqual(history.messages.map(message => message.pending?.status ?? null), [null, "PENDING"]); // still answerable
 });
+
+test("create_doc: writes a page as the caller, under a parent found by title", async () => {
+  const brief = succeeded(await run(admin, "create_doc", { title: "Project brief", content: "# Goals" }));
+  assert.match(brief.summary, /^Created the page “Project brief” in Agent Tracker\.$/);
+  assert.equal(brief.target?.type, "doc");
+  const retro = succeeded(await run(khan, "create_doc", { title: "Sprint 5 retro", content: "- [ ] follow up", parent: "project brief", project: "AGT" }));
+  assert.match(retro.summary, /under “Project brief”/);
+  const page = await db.doc.findUniqueOrThrow({ where: { id: retro.target!.id } });
+  assert.deepEqual([page.parentId, page.createdById, page.content], [brief.target!.id, khan, "- [ ] follow up"]);
+  assert.equal((await db.actionLog.findFirstOrThrow({ where: { tool: "create_doc", userId: khan } })).target, `doc:${page.id}`);
+
+  succeeded(await run(admin, "create_doc", { title: "Project budget" }));
+  assert.deepEqual(failed(await run(admin, "create_doc", { title: "x", parent: "project" }), "ambiguous").candidates?.sort(), ["Project brief", "Project budget"]);
+  failed(await run(admin, "create_doc", { title: "x", parent: "Nonexistent" }), "not_found");
+  assert.match(failed(await run(reader, "create_doc", { title: "Read only" }), "forbidden").message, /view-only/);
+  failed(await run(bystander, "create_doc", { title: "No project" }), "forbidden");
+  assert.equal(await db.doc.count({ where: { title: { in: ["x", "Read only", "No project"] } } }), 0);
+  assert.deepEqual((await buildAgentContext(admin, workspaceId)).projects[0].pages.sort(), ["Project brief", "Project budget", "Sprint 5 retro"]);
+});
