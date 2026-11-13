@@ -7,6 +7,7 @@ import { rateLimit } from "../../lib/rate-limit";
 import { getProject, listProjects } from "../projects/service";
 import { createTicket, findTicketByKey, getTicket, updateTicket } from "../tickets/service";
 import { createDoc } from "../docs/service";
+import { searchWorkspace } from "../search/service";
 import { isNone, isSelf, matchByName, ticketKeyPattern } from "./resolve";
 import type { AgentChange, AgentFailureCode, AgentTarget, AgentToolFailure, AgentToolResult, AgentToolSuccess } from "../../lib/agent-types";
 import type { BoardSummary, Priority, ProjectDetail, ProjectSummary, TicketDetail } from "../../lib/ticket-types";
@@ -216,11 +217,29 @@ const createDocTool = defineTool({
   },
 });
 
+// ── search_workspace ─────────────────────────────────────────────────────────
+
+const searchWorkspaceTool = defineTool({
+  mutates: false,
+  schema: z.object({ query: text(200) }).strict(),
+  async run({ userId, workspaceId }, args) {
+    const results = await searchWorkspace(userId, workspaceId, { query: args.query });
+    const counts = (["ticket", "doc", "message"] as const).map(type => [type, results.filter(result => result.type === type).length] as const);
+    const label = { ticket: ["ticket", "tickets"], doc: ["page", "pages"], message: ["message", "messages"] };
+    const found = counts.filter(([, count]) => count).map(([type, count]) => `${count} ${label[type][count === 1 ? 0 : 1]}`);
+    return {
+      ok: true, summary: found.length ? `Found ${found.join(", ")} matching “${args.query}”.` : `Nothing matched “${args.query}”.`,
+      data: { results: results.map(({ score, ...result }) => ({ ...result, score: Math.round(score * 100) / 100 })) },
+    };
+  },
+});
+
 export const agentTools: Record<string, AgentTool> = {
   create_ticket: createTicketTool,
   update_ticket: updateTicketTool,
   find_tickets: findTicketsTool,
   create_doc: createDocTool,
+  search_workspace: searchWorkspaceTool,
 };
 
 // ── Running a tool for the agent ─────────────────────────────────────────────
