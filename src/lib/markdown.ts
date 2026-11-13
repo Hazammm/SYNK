@@ -111,3 +111,16 @@ export function parseMarkdown(source: string): Block[] {
   }
   return blocks;
 }
+
+// The words of a page without formatting, for search snippets and the AI assistant.
+export function plainText(source: string): string {
+  const inline = (parts: Inline[]) => parts.map(part => part.text).join("");
+  return parseMarkdown(source).map(block => {
+    switch (block.type) {
+      case "heading": case "paragraph": case "quote": return inline(block.inline);
+      case "list": return block.items.map(item => inline(item.inline)).join(" ");
+      case "code": return block.text;
+      case "rule": return "";
+    }
+  }).filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+}
