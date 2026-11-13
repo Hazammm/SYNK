@@ -1,0 +1,10 @@
+/* Docs: page tree, editor and rendered pages. Colours come from the theme variables in globals.css. */
+.page { min-width: 0; width: 100%; }
+.page select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--structure); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; }
+.page button:focus-visible, .page select:focus-visible, .page input:focus-visible, .page textarea:focus-visible, .page a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 24px 28px 18px; }
+.bar h1 { margin: 3px 0 0; font-size: 24px; letter-spacing: -.04em; }
+.bar .picker { margin-left: auto; }
+.eyebrow { color: var(--muted); font-size: 11px; letter-spacing: .12em; }
+.picker { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.picker select { min-width: 170px; max-width: 260px; }
