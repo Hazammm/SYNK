@@ -70,3 +70,13 @@ input.title:hover, input.title:focus { border-bottom-color: var(--structure); ou
 .notice { color: var(--muted); font-size: 12px; }
 .pushRight { margin-left: auto; }
 .danger { color: var(--high); }
+
+/* Rendered pages */
+.content { color: var(--text); font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; }
+.content > :first-child { margin-top: 0; }
+.content h2 { margin: 28px 0 8px; font-size: 22px; letter-spacing: -.02em; }
+.content h3 { margin: 22px 0 6px; font-size: 18px; }
+.content h4 { margin: 18px 0 4px; font-size: 15px; }
+.content p { margin: 0 0 12px; }
+.content a { color: var(--link); font-weight: 600; }
+.content code { padding: 1px 5px; border-radius: 4px; background: var(--structure); font-size: 13px; }
