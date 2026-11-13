@@ -28,3 +28,12 @@ Pages follow project access, through the same `can()` check as tickets:
 - **No lost edits.** Every save sends the version the editor started from. If someone else saved in the meantime, the save is refused with their name, instead of silently overwriting their work.
 - **Deleting is recursive.** Deleting a page deletes its subpages, and the confirmation says how many.
 - **Search without extra infrastructure.** PostgreSQL's built-in full-text search ranks results, with a title weight and a substring fallback for partial words. There is no search index yet, which is fine at FYP scale; a GIN index can be added later if pages grow into the thousands.
+
+## Agent tools
+
+| Tool | Changes data | Notes |
+| --- | --- | --- |
+| `create_doc` | Yes, no confirmation | Creates new data only. The parent page is given by title, and unclear titles get a clarifying question. |
+| `search_workspace` | No | Returns tickets in projects the person can open, pages in those projects, and messages from channels they have joined. |
+
+The assistant also receives each project's recent page titles, so it can file a new page under the right parent.
