@@ -106,3 +106,16 @@ export async function deleteDoc(userId: string, docId: string) {
     return { deleted: Number(count) };
   });
 }
+
+const escapeLike = (value: string) => value.replace(/[\\%_]/g, match => `\\${match}`);
+
+// A short excerpt around the first matching word, from the page's text without formatting.
+export function snippetOf(content: string, query: string) {
+  const text = plainText(content);
+  const words = query.toLowerCase().split(/\s+/).filter(word => word.length > 1);
+  const at = Math.max(0, Math.min(...words.map(word => text.toLowerCase().indexOf(word)).filter(index => index >= 0), Infinity) - 40);
+  if (!Number.isFinite(at)) return text.slice(0, SNIPPET_LENGTH) + (text.length > SNIPPET_LENGTH ? "…" : "");
+  const start = text.lastIndexOf(" ", at) + 1;
+  const excerpt = text.slice(start, start + SNIPPET_LENGTH);
+  return `${start > 0 ? "…" : ""}${excerpt}${start + SNIPPET_LENGTH < text.length ? "…" : ""}`;
+}
