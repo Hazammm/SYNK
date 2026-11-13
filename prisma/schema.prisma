@@ -75,6 +75,7 @@ model User {
   actionLogs          ActionLog[]
   createdDocs         Doc[]                @relation("DocCreator")
   editedDocs          Doc[]                @relation("DocEditor")
+  timeEntries         TimeEntry[]
 }
 
 model Account {
@@ -222,6 +223,7 @@ model Project {
   sprints          Sprint[]
   tickets          Ticket[]
   docs             Doc[]
+  timeEntries      TimeEntry[]
 
   @@unique([workspaceId, key])
   @@index([workspaceId])
@@ -313,6 +315,7 @@ model Ticket {
   reporter      User?          @relation("TicketReporter", fields: [reporterId], references: [id], onDelete: SetNull)
   comments      Comment[]
   notifications Notification[]
+  timeEntries   TimeEntry[]
 
   @@unique([projectId, key])
   @@index([boardId, columnId, position])
@@ -426,4 +429,23 @@ model Doc {
 
   @@unique([id, projectId])
   @@index([projectId, parentId, position])
+}
+
+// Time tracking (PRD 6.8). A running timer is an entry without an end. The service keeps
+// each person to one running timer. `projectId` is copied from the ticket for fast reports.
+model TimeEntry {
+  id        String    @id @default(cuid())
+  userId    String
+  projectId String
+  ticketId  String
+  startedAt DateTime
+  endedAt   DateTime?
+  note      String    @default("")
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, startedAt])
+  @@index([userId, endedAt])
 }
