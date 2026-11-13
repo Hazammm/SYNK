@@ -60,7 +60,7 @@ GOOGLE_API_KEY=""
 npm run agent:up
 ```
 
-Without these settings the rest of Synk works normally and the panel says the assistant is not set up. `npm run agent:test` runs the agent's own tests.
+Without these settings the rest of Synk works normally and the panel says the assistant is not set up. `npm run agent:test` runs the agent's own tests, and `npm run agent:eval` runs the 30-prompt accuracy evaluation against the real model (see [the evaluation notes](docs/ai-agent-eval.md)).
 
 ### Optional demo records
 
