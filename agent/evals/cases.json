@@ -28,5 +28,16 @@
   {"id": "doc-with-notes", "category": "happy", "prompt": "Create a page called Sprint 5 Retro with these notes: we shipped the AI agent and we need more tests",
    "expect": {"calls": [{"tool": "create_doc", "args": {"title": "sprint 5 retro", "content": "agent"}}]}},
   {"id": "doc-under-parent", "category": "happy", "prompt": "Write a doc called API conventions under the Project brief page",
-   "expect": {"calls": [{"tool": "create_doc", "args": {"title": "api conventions", "parent": "project brief"}}]}}
+   "expect": {"calls": [{"tool": "create_doc", "args": {"title": "api conventions", "parent": "project brief"}}]}},
+
+  {"id": "ambiguous-assignee-update", "category": "ambiguity", "prompt": "Assign SYN-12 to Sarah",
+   "expect": {"no_mutation": true, "asks": true, "reply_all": ["sarah khan", "sarah ali"]}},
+  {"id": "ambiguous-assignee-create", "category": "ambiguity", "prompt": "Create a ticket for the logout button bug and assign it to Sarah",
+   "expect": {"no_mutation": true, "asks": true, "reply_all": ["sarah khan", "sarah ali"]}},
+  {"id": "ambiguous-surname", "category": "ambiguity", "prompt": "Assign SYN-14 to Khan",
+   "expect": {"no_mutation": true, "asks": true, "reply_all": ["asra khan", "sarah khan"]}},
+  {"id": "ambiguous-ticket", "category": "ambiguity", "prompt": "Move the login ticket to Done",
+   "expect": {"no_mutation": true, "asks": true, "reply_all": ["syn-12", "syn-21"]}},
+  {"id": "ambiguous-parent", "category": "ambiguity", "prompt": "Add a page called Retro notes under the brief",
+   "expect": {"no_mutation": true, "asks": true, "reply_all": ["project brief", "design brief"]}}
 ]
