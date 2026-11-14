@@ -97,8 +97,9 @@ export default function SynkShell({
           <Link href={`${base}/alerts`} className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
             <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
           </Link>
-          <ProfileMenu userName={userName} />
-          <SettingsLink className={`${styles.settingsLink} ${pathname.endsWith("/settings") ? styles.settingsActive : ""}`} />
+          <ProfileMenu userName={userName} settingsHref={`${base}/settings`} />
+          <SettingsLink href={`${base}/settings`} className={`${styles.settingsLink} ${pathname.endsWith("/settings") ? styles.settingsActive : ""}`} />
+          <button type="button" className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
         </header>
         <main>{children}</main>
         <div className={styles.liveTheme}><ThemeBar /></div>
@@ -136,13 +137,6 @@ export default function SynkShell({
               <Link href="/create-workspace" className={styles.workspaceMenuItem} onClick={() => setWsDropdownOpen(false)}>
                 + New workspace
               </Link>
-              <button
-                type="button"
-                className={styles.workspaceMenuItem}
-                onClick={() => void signOut({ callbackUrl: "/login" })}
-              >
-                Sign out
-              </button>
             </div>
           )}
         </div>
@@ -164,8 +158,9 @@ export default function SynkShell({
         <Link href={`${base}/alerts`} className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
           <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
         </Link>
-        <ProfileMenu userName={userName} />
-        <SettingsLink className={`${styles.settingsLink} ${pathname.endsWith("/settings") ? styles.settingsActive : ""}`} />
+        <ProfileMenu userName={userName} settingsHref={`${base}/settings`} />
+        <SettingsLink href={`${base}/settings`} className={`${styles.settingsLink} ${pathname.endsWith("/settings") ? styles.settingsActive : ""}`} />
+          <button type="button" className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
         <button className={styles.mobileToggle} onClick={() => setMobilePanel(!mobilePanel)} type="button" aria-label="Toggle project menu">
           <ChevronDown size={18} />
         </button>
