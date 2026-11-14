@@ -11,5 +11,5 @@ export type Account = {
   otherSessions: number;
   workspaces: AccountWorkspace[];
 };
-export const SETTINGS_SECTIONS = ["profile", "notifications", "appearance", "security", "workspaces", "assistant"] as const;
+export const SETTINGS_SECTIONS = ["profile", "notifications", "appearance", "security", "workspaces", "members", "assistant"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];

@@ -1,10 +1,8 @@
 import { Suspense } from "react";
-import SynkScreen from "@/components/SynkScreen";
+import SynkScreen, { type ScreenName } from "@/components/SynkScreen";
 import { listWorkspaces } from "@/features/workspaces/service";
 import type { Selection } from "@/features/tickets/ui";
 import { requireWorkspaceUser } from "@/lib/workspace-context";
-
-type ScreenName = "overview" | "alerts" | "board" | "backlog" | "reports" | "docs" | "time";
 
 export default function WorkspaceScreenPage({
   params,
@@ -39,8 +37,6 @@ async function WorkspaceScreenContent({
       workspaceId={workspaceId}
       userId={user.id}
       userName={user.name ?? "Member"}
-      userEmail={user.email ?? ""}
-      role={user.role}
       initialWorkspaces={await listWorkspaces(user.id)}
       initialSelection={await searchParams ?? {}}
     />

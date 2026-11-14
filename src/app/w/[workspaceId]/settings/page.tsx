@@ -1,4 +1,4 @@
-import SynkScreen from "@/components/SynkScreen";
+import SettingsView from "@/features/account/SettingsView";
 import { requireWorkspaceUser } from "@/lib/workspace-context";
 
 export const instant = false;
@@ -13,18 +13,10 @@ export default async function WorkspaceSettingsPage({
   const { workspaceId } = await params;
   const user = await requireWorkspaceUser(workspaceId);
   const search = await searchParams;
-
-  return (
-    <SynkScreen
-      screen="settings"
-      workspaceId={workspaceId}
-      role={user.role}
-      userId={user.id}
-      userName={user.name ?? ""}
-      userEmail={user.email ?? ""}
-      initialSettingsSection={search.section}
-      inviteDeliveryFailed={search.inviteDelivery === "failed"}
-      welcomeEmailFailed={search.welcomeEmail === "failed"}
-    />
-  );
+  return <SettingsView
+    initialSection={search.section}
+    workspace={{ id: workspaceId, role: user.role, userId: user.id }}
+    inviteDeliveryFailed={search.inviteDelivery === "failed"}
+    welcomeEmailFailed={search.welcomeEmail === "failed"}
+  />;
 }
