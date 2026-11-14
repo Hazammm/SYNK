@@ -6,8 +6,8 @@ export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 export const passwordField = z.string().min(10, "Use at least 10 characters.").max(72)
   .refine(value => new TextEncoder().encode(value).length <= 72, "Password must be at most 72 UTF-8 bytes.");
 export const credentialsSchema = z.object({ email: emailSchema, password: z.string().min(1).max(72) });
-export const passwordSchema = z.string().min(8, "Use at least 8 characters.").max(72)
-  .refine(value => new TextEncoder().encode(value).length <= 72, "Password must be at most 72 UTF-8 bytes.");
+// One password rule for sign-up, invites, resets and changes.
+export const passwordSchema = passwordField;
 const inviteEmailListSchema = z.array(emailSchema).max(50).transform(emails => [...new Set(emails)]);
 export const createWorkspaceSchema = z.object({
   adminName: z.string().trim().min(1).max(80),
@@ -33,11 +33,6 @@ export const createWorkspaceGoogleSchema = z.object({
 }).strict();
 export const inviteEmailsSchema = z.object({
   emails: inviteEmailListSchema.refine(emails => emails.length > 0, "Add at least one teammate email."),
-}).strict();
-export const registerSchema = z.object({
-  name: z.string().trim().min(1).max(80),
-  email: emailSchema,
-  password: passwordField,
 }).strict();
 export const acceptInviteSchema = z.object({
   name: z.string().trim().min(1).max(80),
