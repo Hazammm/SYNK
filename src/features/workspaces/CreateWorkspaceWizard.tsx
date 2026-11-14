@@ -16,7 +16,7 @@ const steps = ["Admin account", "Workspace", "Invite teammates"];
 function passwordStrength(password: string) {
   if (!password) return 0;
   return [
-    password.length >= 8,
+    password.length >= 10,
     /[a-z]/.test(password) && /[A-Z]/.test(password),
     /\d/.test(password),
     /[^A-Za-z0-9]/.test(password),
@@ -28,12 +28,15 @@ interface Props {
   googleMode?: boolean;
   googleName?: string;
   googleEmail?: string;
+  /** Set when a signed-in user is adding another workspace: the account step is skipped. */
+  signedIn?: boolean;
 }
 
-export default function CreateWorkspaceWizard({ googleMode, googleName = "", googleEmail = "" }: Props) {
+export default function CreateWorkspaceWizard({ googleMode, googleName = "", googleEmail = "", signedIn = false }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const [step, setStep] = useState(0);
+  const firstStep = signedIn ? 1 : 0;
+  const [step, setStep] = useState(firstStep);
   const [adminName, setAdminName] = useState(googleName);
   const [email, setEmail] = useState(googleEmail);
   const [password, setPassword] = useState("");
@@ -80,7 +83,7 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
     setError("");
     try {
       // Google mode: no password — the server reads the Google profile from the httpOnly cookie.
-      const body = googleMode
+      const body = googleMode || signedIn
         ? { workspaceName, projectName, inviteEmails: skipInvites ? [] : inviteEmails }
         : { adminName, email, password, workspaceName, projectName, inviteEmails: skipInvites ? [] : inviteEmails };
 
@@ -109,10 +112,12 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
         return;
       }
 
-      const login = await signIn("credentials", { email, password, redirect: false });
-      if (!login?.ok || login.error) {
-        routerToLogin();
-        return;
+      if (!signedIn) {
+        const login = await signIn("credentials", { email, password, redirect: false });
+        if (!login?.ok || login.error) {
+          routerToLogin();
+          return;
+        }
       }
       const failures = new URLSearchParams();
       if (failedInviteEmails.length) {
@@ -170,7 +175,7 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
             : <label className={styles.field}><span>Work email</span><div className={styles.inputWrap}><Mail size={17} /><Input type="email" autoComplete="email" placeholder="you@company.com" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /></div></label>
           }
           {!googleMode && <>
-            <label className={styles.field}><span>Password</span><div className={styles.inputWrap}><Input type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="At least 8 characters" required minLength={8} maxLength={72} value={password} onChange={event => setPassword(event.target.value)} /><button className={styles.eye} onClick={() => setShowPassword(value => !value)} type="button" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+            <label className={styles.field}><span>Password</span><div className={styles.inputWrap}><Input type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="At least 10 characters" required minLength={10} maxLength={72} value={password} onChange={event => setPassword(event.target.value)} /><button className={styles.eye} onClick={() => setShowPassword(value => !value)} type="button" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
             <div className={styles.strength} aria-label={`Password strength: ${strength} of 4`}>
               <span>Password strength</span><div className={styles.meter}>{[0, 1, 2, 3].map(index => <i className={index < strength ? styles.filled : ""} key={index} />)}</div>
             </div>
@@ -192,13 +197,13 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
         </div>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <div className={styles.wizardActions}>
-          {step === 0 ? <Link className={styles.backLink} href="/login">Back to sign in</Link> : <Button type="button" onClick={() => { setError(""); setStep(current => current - 1); }}>Back</Button>}
+          {step === firstStep ? <Link className={styles.backLink} href={signedIn ? "/" : "/login"}>{signedIn ? "Back to Synk" : "Back to sign in"}</Link> : <Button type="button" onClick={() => { setError(""); setStep(current => current - 1); }}>Back</Button>}
           {step < 2
             ? <Button variant="primary" type="button" className={styles.wizardPrimary} onClick={continueStep}>Continue</Button>
             : <><Button type="button" formNoValidate disabled={busy} onClick={() => void createWorkspace(true)}>Skip for now</Button><Button variant="primary" type="submit" formNoValidate className={styles.wizardPrimary} disabled={busy}>{busy ? "Creating…" : "Create workspace"}</Button></>}
         </div>
       </form>
-      <p className={styles.switch}>Already have an account? <Link href="/login">Sign in</Link></p>
+      {!signedIn && <p className={styles.switch}>Already have an account? <Link href="/login">Sign in</Link></p>}
     </section>
     <ThemeBar />
   </main>;

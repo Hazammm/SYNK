@@ -1,5 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { readGoogleProfileCookie } from "@/lib/google-profile-cookie";
 import CreateWorkspaceWizard from "@/features/workspaces/CreateWorkspaceWizard";
 
@@ -29,5 +32,7 @@ async function CreateWorkspaceContent({ searchParams }: {
     return <CreateWorkspaceWizard googleMode googleName={profile.name} googleEmail={profile.email} />;
   }
 
-  return <CreateWorkspaceWizard />;
+  await connection(); // the session check needs the live request
+  const session = await getServerSession(authOptions);
+  return <CreateWorkspaceWizard signedIn={Boolean(session?.user.id)} />;
 }
