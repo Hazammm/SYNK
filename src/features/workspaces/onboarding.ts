@@ -32,224 +32,128 @@ async function settleOnboardingMail(
   };
 }
 
+// Same rule as the board suggests: initials for several words ("My first project" is MFP), else the first three letters.
 function projectKeyFor(name: string) {
-  const cleaned = name.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 10);
-  if (!cleaned) return "PRJ";
-  if (!/^[A-Z]/.test(cleaned)) return `P${cleaned}`.slice(0, 10);
-  return cleaned.length === 1 ? `${cleaned}1` : cleaned;
+  const words = name.toUpperCase().replace(/[^A-Z0-9 ]/g, "").split(" ").filter(Boolean);
+  const key = words.length > 1 ? words.map(word => word[0]).join("").slice(0, 10) : (words[0] ?? "").slice(0, 3);
+  if (!/^[A-Z]/.test(key)) return "PRJ";
+  return key.length === 1 ? `${key}1` : key;
+}
+
+type SetupInput = { workspaceName: string; projectName: string; inviteEmails: string[] };
+type Owner = { id: string; name: string | null; email: string | null };
+
+// Creates the workspace with its owner, first project, board, #general channel and pending invites.
+async function seedWorkspace(tx: Prisma.TransactionClient, owner: Owner, data: SetupInput) {
+  const workspace = await tx.workspace.create({
+    data: { name: data.workspaceName, createdById: owner.id },
+    select: { id: true, name: true },
+  });
+  await tx.user.update({ where: { id: owner.id }, data: { lastActiveWorkspaceId: workspace.id } });
+  await tx.membership.create({ data: { workspaceId: workspace.id, userId: owner.id, role: "ADMIN" } });
+  const project = await tx.project.create({
+    data: { workspaceId: workspace.id, name: data.projectName, key: projectKeyFor(data.projectName) },
+    select: { id: true },
+  });
+  await tx.projectAccess.create({ data: { projectId: project.id, userId: owner.id, level: "WRITE" } });
+  await createBoardRecord(tx, project.id, "Main board");
+  const channel = await tx.channel.create({
+    data: { workspaceId: workspace.id, createdById: owner.id, name: "general", description: "Updates and conversations for everyone." },
+    select: { id: true },
+  });
+  await tx.channelMember.create({ data: { channelId: channel.id, workspaceId: workspace.id, userId: owner.id } });
+  const invites = await Promise.all(data.inviteEmails.map(async email => {
+    const token = createInviteToken();
+    await tx.invite.create({
+      data: {
+        workspaceId: workspace.id,
+        email,
+        tokenHash: hashInviteToken(token),
+        expiresAt: new Date(Date.now() + inviteLifetimeMs),
+        invitedById: owner.id,
+      },
+    });
+    return { email, token };
+  }));
+  return { workspace, invites };
+}
+
+async function finishOnboarding(
+  created: { user: Owner; workspace: { id: string; name: string }; invites: Array<{ email: string; token: string }> },
+  fallbackName: string,
+  welcome: boolean,
+) {
+  const ownerName = created.user.name ?? fallbackName;
+  const mail = await settleOnboardingMail(
+    async () => {
+      if (!welcome) return;
+      if (!created.user.email) throw new Error("New workspace owner has no email address.");
+      return sendWelcomeEmail({ email: created.user.email, name: ownerName, workspaceId: created.workspace.id, workspaceName: created.workspace.name });
+    },
+    created.invites.map(invite => ({
+      email: invite.email,
+      send: () => sendWorkspaceInvite({ adminName: ownerName, workspaceName: created.workspace.name, ...invite }),
+    })),
+  );
+  return { user: created.user, workspace: created.workspace, ...mail };
+}
+
+function duplicateEmail(error: unknown, message: string): never {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new AppError(409, message);
+  throw error;
 }
 
 export async function createWorkspaceForAdmin(input: unknown) {
   const data = createWorkspaceSchema.parse(input);
   if (data.inviteEmails.length) assertMailerConfigured();
   const passwordHash = await hash(data.password, 12);
-
-  let created: {
-    user: { id: string; name: string | null; email: string | null };
-    workspace: { id: string; name: string };
-    invites: Array<{ email: string; token: string }>;
-  };
-  try {
-    created = await db.$transaction(async tx => {
-      const existingUser = await tx.user.findFirst({
-        where: { email: { equals: data.email, mode: "insensitive" } },
-        select: { id: true },
-      });
-      if (existingUser) throw new AppError(409, "Unable to create the workspace. Check the details or sign in.");
-      const user = await tx.user.create({
-        data: { name: data.adminName, email: data.email, passwordHash },
-        select: { id: true, name: true, email: true },
-      });
-      const workspace = await tx.workspace.create({
-        data: { name: data.workspaceName, createdById: user.id },
-        select: { id: true, name: true },
-      });
-      await tx.user.update({
-        where: { id: user.id },
-        data: { lastActiveWorkspaceId: workspace.id },
-      });
-      await tx.membership.create({ data: { workspaceId: workspace.id, userId: user.id, role: "ADMIN" } });
-      const project = await tx.project.create({
-        data: { workspaceId: workspace.id, name: data.projectName, key: projectKeyFor(data.projectName) },
-        select: { id: true },
-      });
-      await tx.projectAccess.create({ data: { projectId: project.id, userId: user.id, level: "WRITE" } });
-      await createBoardRecord(tx, project.id, "Main board");
-      const channel = await tx.channel.create({
-        data: {
-          workspaceId: workspace.id,
-          createdById: user.id,
-          name: "general",
-          description: "Updates and conversations for everyone.",
-        },
-        select: { id: true },
-      });
-      await tx.channelMember.create({ data: { channelId: channel.id, workspaceId: workspace.id, userId: user.id } });
-
-      const invites = await Promise.all(data.inviteEmails.map(async email => {
-        const token = createInviteToken();
-        await tx.invite.create({
-          data: {
-            workspaceId: workspace.id,
-            email,
-            tokenHash: hashInviteToken(token),
-            expiresAt: new Date(Date.now() + inviteLifetimeMs),
-            invitedById: user.id,
-          },
-        });
-        return { email, token };
-      }));
-      return { user, workspace, invites };
+  const message = "Unable to create the workspace. Check the details or sign in.";
+  const created = await db.$transaction(async tx => {
+    const existingUser = await tx.user.findFirst({ where: { email: { equals: data.email, mode: "insensitive" } }, select: { id: true } });
+    if (existingUser) throw new AppError(409, message);
+    const user = await tx.user.create({
+      data: { name: data.adminName, email: data.email, passwordHash },
+      select: { id: true, name: true, email: true },
     });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      throw new AppError(409, "Unable to create the workspace. Check the details or sign in.");
-    }
-    throw error;
-  }
-
-  const mail = await settleOnboardingMail(
-    () => {
-      if (!created.user.email) throw new Error("New workspace owner has no email address.");
-      return sendWelcomeEmail({
-        email: created.user.email,
-        name: created.user.name ?? data.adminName,
-        workspaceId: created.workspace.id,
-        workspaceName: created.workspace.name,
-      });
-    },
-    created.invites.map(invite => ({
-      email: invite.email,
-      send: () => sendWorkspaceInvite({
-        adminName: created.user.name ?? data.adminName,
-        workspaceName: created.workspace.name,
-        ...invite,
-      }),
-    })),
-  );
-  return { user: created.user, workspace: created.workspace, ...mail };
+    return { user, ...await seedWorkspace(tx, user, data) };
+  }).catch(error => duplicateEmail(error, message));
+  return finishOnboarding(created, data.adminName, true);
 }
 
 /**
  * Create a workspace for a user who signed up via Google OAuth.
  * The Google profile comes from the short-lived encrypted cookie; it has already
  * been verified by the signIn checkpoint (email_verified === true).
- *
- * Everything runs in ONE transaction:
- *   User (emailVerified) → Account (google) → Workspace → Membership → Project → Channel
  */
 export async function createWorkspaceForGoogleUser(googleProfile: GoogleProfile, input: unknown) {
   const data = createWorkspaceGoogleSchema.parse(input);
   if (data.inviteEmails.length) assertMailerConfigured();
-
-  let created: {
-    user: { id: string; name: string | null; email: string | null };
-    workspace: { id: string; name: string };
-    invites: Array<{ email: string; token: string }>;
-  };
-
-  try {
-    created = await db.$transaction(async tx => {
-      // Guard: reject if the email is already registered (race condition / double-submit).
-      const existingUser = await tx.user.findFirst({
-        where: { email: { equals: googleProfile.email, mode: "insensitive" } },
-        select: { id: true },
-      });
-      if (existingUser) throw new AppError(409, "An account with this email already exists. Please sign in.");
-
-      // Create user with emailVerified set (Google has already verified it).
-      const user = await tx.user.create({
-        data: {
-          name: googleProfile.name,
-          email: googleProfile.email,
-          emailVerified: new Date(),
-          image: googleProfile.image ?? null,
-        },
-        select: { id: true, name: true, email: true },
-      });
-
-      // Create the Google Account link (what PrismaAdapter would do, but we do it manually
-      // because we bypassed the adapter for unknown emails).
-      await tx.account.create({
-        data: {
-          userId: user.id,
-          type: "oauth",
-          provider: "google",
-          providerAccountId: googleProfile.providerAccountId,
-        },
-      });
-
-      const workspace = await tx.workspace.create({
-        data: { name: data.workspaceName, createdById: user.id },
-        select: { id: true, name: true },
-      });
-
-      await tx.user.update({
-        where: { id: user.id },
-        data: { lastActiveWorkspaceId: workspace.id },
-      });
-
-      await tx.membership.create({ data: { workspaceId: workspace.id, userId: user.id, role: "ADMIN" } });
-
-      const project = await tx.project.create({
-        data: { workspaceId: workspace.id, name: data.projectName, key: projectKeyFor(data.projectName) },
-        select: { id: true },
-      });
-      await tx.projectAccess.create({ data: { projectId: project.id, userId: user.id, level: "WRITE" } });
-      await createBoardRecord(tx, project.id, "Main board");
-
-      const channel = await tx.channel.create({
-        data: {
-          workspaceId: workspace.id,
-          createdById: user.id,
-          name: "general",
-          description: "Updates and conversations for everyone.",
-        },
-        select: { id: true },
-      });
-      await tx.channelMember.create({ data: { channelId: channel.id, workspaceId: workspace.id, userId: user.id } });
-
-      const invites = await Promise.all(data.inviteEmails.map(async email => {
-        const token = createInviteToken();
-        await tx.invite.create({
-          data: {
-            workspaceId: workspace.id,
-            email,
-            tokenHash: hashInviteToken(token),
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            invitedById: user.id,
-          },
-        });
-        return { email, token };
-      }));
-
-      return { user, workspace, invites };
+  const message = "An account with this email already exists. Please sign in.";
+  const created = await db.$transaction(async tx => {
+    // Guard against a double submit for the same Google email.
+    const existingUser = await tx.user.findFirst({ where: { email: { equals: googleProfile.email, mode: "insensitive" } }, select: { id: true } });
+    if (existingUser) throw new AppError(409, message);
+    const user = await tx.user.create({
+      data: { name: googleProfile.name, email: googleProfile.email, emailVerified: new Date(), image: googleProfile.image ?? null },
+      select: { id: true, name: true, email: true },
     });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      throw new AppError(409, "An account with this email already exists. Please sign in.");
-    }
-    throw error;
-  }
+    // Link the Google account ourselves, because the adapter was bypassed for unknown emails.
+    await tx.account.create({
+      data: { userId: user.id, type: "oauth", provider: "google", providerAccountId: googleProfile.providerAccountId },
+    });
+    return { user, ...await seedWorkspace(tx, user, data) };
+  }).catch(error => duplicateEmail(error, message));
+  return finishOnboarding(created, googleProfile.name, true);
+}
 
-  const mail = await settleOnboardingMail(
-    () => {
-      if (!created.user.email) throw new Error("New workspace owner has no email address.");
-      return sendWelcomeEmail({
-        email: created.user.email,
-        name: created.user.name ?? googleProfile.name,
-        workspaceId: created.workspace.id,
-        workspaceName: created.workspace.name,
-      });
-    },
-    created.invites.map(invite => ({
-      email: invite.email,
-      send: () => sendWorkspaceInvite({
-        adminName: created.user.name ?? googleProfile.name,
-        workspaceName: created.workspace.name,
-        ...invite,
-      }),
-    })),
-  );
-  return { user: created.user, workspace: created.workspace, ...mail };
+// A signed-in user creating another workspace: same setup, no new account and no welcome email.
+export async function createWorkspaceForUser(userId: string, input: unknown) {
+  const data = createWorkspaceGoogleSchema.parse(input);
+  if (data.inviteEmails.length) assertMailerConfigured();
+  const created = await db.$transaction(async tx => {
+    const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { id: true, name: true, email: true } });
+    const invites = data.inviteEmails.filter(email => email !== user.email?.toLowerCase());
+    return { user, ...await seedWorkspace(tx, user, { ...data, inviteEmails: invites }) };
+  });
+  return finishOnboarding(created, "A teammate", false);
 }
