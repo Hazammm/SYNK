@@ -10,7 +10,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { decryptGoogleProfile, googleProfileCookieHeader, GOOGLE_PROFILE_COOKIE } from "@/lib/google-profile-cookie";
+import { decryptGoogleProfile, googleProfileCookieHeader } from "@/lib/google-profile-cookie";
 import { rateLimit } from "@/lib/rate-limit";
 
 const ALLOWED_NEXT = ["/create-workspace", "/join/pending"];
