@@ -65,7 +65,7 @@ function Panel({ onClose }: { onClose: () => void }) {
     </header>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {!workspaces && !error && <p role="status" className={styles.note}>Loading…</p>}
-    {workspaces && !workspaceId && <p className={styles.note}>Create or join a workspace in <Link href="/chat">chat</Link> first. The assistant works inside a workspace.</p>}
+    {workspaces && !workspaceId && <p className={styles.note}><Link href="/create-workspace">Create a workspace</Link> or accept an invite first. The assistant works inside a workspace.</p>}
     {/* Remounting per workspace keeps one workspace's conversation out of another. */}
     {workspaceId && <Conversation key={workspaceId} workspaceId={workspaceId} />}
   </aside>;

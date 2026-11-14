@@ -48,7 +48,7 @@ export default function AuthPage({
       if (inviteToken) {
         await request(`/api/invites/${encodeURIComponent(inviteToken)}/accept-existing`, { method: "POST", body: "{}" });
       }
-      router.replace("/overview");
+      router.replace("/");
       router.refresh();
     } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
   }
@@ -57,7 +57,7 @@ export default function AuthPage({
     if (busy) return;
     setBusy(true);
     try {
-      await signIn("google", { callbackUrl: "/overview" });
+      await signIn("google", { callbackUrl: "/" });
     } catch {
       setBusy(false);
     }
