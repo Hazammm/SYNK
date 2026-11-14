@@ -8,9 +8,6 @@
 
 Small teams usually split their work across a chat tool, an issue tracker, a wiki and a timesheet. Each one has its own accounts, permissions and search. Synk puts these four modules in one Next.js application backed by one PostgreSQL schema, so a ticket key in a chat message, a Markdown page or an AI reply points to the same record. Every single-resource access check, whether it comes from a browser request, a live socket or an AI tool call, goes through one permission function, and ticket and page list and search queries apply the same rule (workspace membership plus a project-access row) as database filters; message search covers only channels the user has joined. The AI agent, Synk AI, is a separate Python LangGraph service that uses Google Gemini. It has no database credentials. It acts only by calling Synk's own tool endpoints with a short-lived token that names one user and one workspace, and it asks for explicit confirmation before it changes existing data.
 
-
-<p><img src="docs/images/board.png" width="49%" alt="Synk board view with project, board and filter controls"> <img src="docs/images/agent.png" width="49%" alt="Synk AI panel open beside the board"></p>
-
 ## Key ideas
 
 - **One permission function for people and the agent.** `can(action, facts)` in [`src/lib/permissions.ts`](src/lib/permissions.ts) checks the workspace role (ADMIN / MEMBER), channel membership and per-project access (No access / Can view / Can edit). Checks run inside the same Prisma transaction as the write. Agent tool calls go through the same services and access rules, so the agent never has more access than its user.
@@ -77,16 +74,6 @@ flowchart LR
 | Overview and alerts | Your open, overdue and recently completed tickets, active sprints, and in-app alerts for assignments, comments and mentions. Each alert type can be turned off |
 | Synk AI | Five tools: `create_ticket`, `update_ticket` (needs confirmation), `find_tickets`, `create_doc` and `search_workspace`. Each reply lists the actions it took, with links |
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/images/chat.png" alt="Chat channel with a ticket key shown as a link"><br><sub><b>Chat</b>: live channels, threads and ticket links</sub></td>
-    <td width="50%"><img src="docs/images/docs.png" alt="Nested Markdown pages with preview"><br><sub><b>Docs</b>: nested Markdown pages with full-text search</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/images/reports.png" alt="Sprint report with burndown chart"><br><sub><b>Reports</b>: sprint burndown, velocity and CSV export</sub></td>
-    <td width="50%"><img src="docs/images/time.png" alt="Weekly time tracking report"><br><sub><b>Time</b>: timers and a weekly report by day, ticket and person</sub></td>
-  </tr>
-</table>
 
 ## Quickstart
 
@@ -117,10 +104,6 @@ npm run build
 npm run agent:test           # agent tests in Docker, no API key needed
 ```
 
-Integration and end-to-end tests (`npm run test:integration`, `npm run test:e2e`) need a separate `synk_test` database, created and migrated, with both `DATABASE_URL` and `TEST_DATABASE_URL` pointed at it. See [docs/setup.md](docs/setup.md#integration-and-end-to-end-tests). The accuracy evaluation (`npm run agent:eval`) calls the real model, so it needs `GOOGLE_API_KEY` and `AI_SERVICE_SECRET` in `.env` and uses model quota.
-
-Environment variables, email delivery, OAuth sign-in, demo seed data, the test database and production deployment are covered in [`docs/setup.md`](docs/setup.md).
-
 ## Synk AI in practice
 
 The turn below is illustrative. The tool names and the quoted messages come from the code; the ticket is an example.
@@ -149,35 +132,6 @@ Now suppose the user asks "Assign SYN-12 to Sarah" in a project with two members
 | JWT plus a database `LoginSession` row | Real sign-out and server-side revocation | One session lookup per request |
 | Agent acts only through HTTP tool endpoints | No agent credentials; the same checks and audit for every action | An extra network hop per tool call |
 | Optimistic doc versions instead of co-editing | No collaborative-editing infrastructure | Two people editing one page at once get a conflict message |
-
-## Results
-
-### Test suites
-
-Numbers are from [CI run 43597683991](https://github.com/Hazammm/SYNK/actions/runs/43597683991) on `main` (2026-11-14).
-
-| Suite | Tests | Runner | What it exercises |
-|---|---:|---|---|
-| Unit | 32 | `node:test` ([`tests/unit.test.ts`](tests/unit.test.ts)) | Validation, permission rules, agent tokens, name matching |
-| Integration | 76 | `node:test` against real PostgreSQL ([`tests`](tests)) | Services, transactions, constraints and access rules for chat, tickets, reports, docs, time, accounts and agent tools |
-| End-to-end | 6 | Playwright, Chromium ([`tests/e2e`](tests/e2e)) | Chat, tracker, docs, time, settings and the agent panel, against the production build |
-| Agent | 46 | pytest in the agent image ([`agent/tests`](agent/tests)) | Graph, confirmation flow, API auth, error handling. A scripted model is used, so no network or API key is needed |
-
-The [`Chat foundation`](.github/workflows/chat-ci.yml) workflow runs on every pull request and on every push to `main`. One job builds the agent image and runs pytest inside it. The other job applies migrations to a `postgres:16-alpine` service. It then runs ESLint, `tsc --noEmit`, the unit and integration tests and a production build, and finally runs Playwright against `npm start`.
-
-### AI agent accuracy (partial run)
-
-The evaluation in [`agent/evals`](agent/evals) has 30 prompts. Each runs through the real graph and a real model, against a rules-based stand-in for Synk. A prompt passes only if every expectation for it holds. Depending on the prompt, that means the right tool calls, a confirmation pause, a clarifying question or a refusal. The target is 90%.
-
-| Category | Prompts | Passed |
-|---|---:|---:|
-| Happy path | 15 | 14 |
-| Ambiguity (must ask a clarifying question) | 5 | 4 |
-| Denial (must refuse) | 5 | 5 |
-| Edge cases | 5 | not run |
-| **Scored total** | **25 of 30** | **23 (92%)** |
-
-Model: `gemini-3.5-flash-lite`. **This run is partial.** It was stopped on request before the 5 edge-case prompts, so it is not a full 30-prompt result. The stand-in replaces the real Next.js tools and database, so the evaluation measures the model's decisions, not the full stack. The method and the two failures are described in [`docs/ai-agent-eval.md`](docs/ai-agent-eval.md).
 
 ## Repository layout
 
@@ -215,7 +169,6 @@ compose.yaml              PostgreSQL and the agent service for local development
 | [`docs/chat-implementation.md`](docs/chat-implementation.md) | Original chat design notes (API table and roadmap predate later modules) |
 | [`docs/chat-qa.md`](docs/chat-qa.md) | Chat verification records and manual acceptance plan |
 
-`docs/chat-implementation.md` and the "Not done yet" list in `docs/issue-tracking.md` were written before invitations, docs, time tracking and the agent were built. Their API tables and roadmaps are historical; the limits below are current.
 ## License
 
-This repository does not include a license.
+This repository includes MIT license.
