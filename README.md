@@ -1,138 +1,243 @@
-# SYNK
+# Synk
 
-AI-powered team workspace. It implements the PRD's **critical-path chat module**, **issue tracking with sprint reports**, **docs**, **time tracking**, the **AI agent**, and the authentication, membership and database foundation they require.
+**A team workspace that combines chat, issue tracking, docs and time tracking in one data model, with an AI agent that can only do what the signed-in user is allowed to do.**
 
-## What is functional
+[![Chat foundation](https://github.com/Hazammm/SYNK/actions/workflows/chat-ci.yml/badge.svg?branch=main)](https://github.com/Hazammm/SYNK/actions/workflows/chat-ci.yml)
 
-- Invite-only email/password authentication with NextAuth v4 JWT sessions in HTTP-only cookies and revocable login records. There is no public sign-up endpoint.
-- Workspace creation establishes the creator as ADMIN, along with a starter project and general channel, in one database transaction.
-- Workspace admins can send seven-day, single-use, hashed-token invitations through Mailtrap. Existing accounts sign in to accept; new invitees create an account when joining.
-- Settings > Members shows workspace roles and pending invites. Only admins can invite, resend, revoke, or remove members.
-- Public and private channels, joining, member management, persistent messages and one-level threads.
-- REST history with cursor pagination and Socket.IO live delivery. Reconnect reloads the newest page; older history remains available through pagination.
-- Shared access checks. Workspace membership is required, and channel membership is separately required for reading, writing and subscribing. Admins do not bypass channel membership.
-- Retry-safe message creation using a client UUID, plus UI deduplication of REST and socket responses.
-- Ticket-key links such as `SYN-101` in chat open the ticket on its board, if the reader has access to its project.
-- Projects with read or edit access per person, boards with configurable columns, and tickets with drag and drop, filters, comments, @mentions and deletion.
-- Sprints with progress, and a Reports view with a burndown, velocity, breakdowns and CSV export.
-- An overview of your open tickets and active sprints, and in-app alerts for assignments, comments and mentions.
-- A profile menu and **Settings**: display name, which alerts you get, theme, password changes, signing out other devices, leaving a workspace and deleting your AI conversations.
-- **Docs**: nested pages per project written in Markdown, with a formatting toolbar, preview, checklists, edit-conflict protection and full-text search.
-- **Time tracking**: timers started from the Time page or a ticket, time added by hand, and a weekly report by day, ticket and person with CSV export.
-- **Synk AI**, an assistant on every screen that creates, finds and updates tickets, writes pages and searches the workspace in plain language. It can only do what you are allowed to do, asks which one you mean when a name is unclear, and waits for your confirmation before changing an existing ticket.
+## Abstract
 
-See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated, [docs notes](docs/docs-module.md) for how pages work, [time tracking notes](docs/time-tracking.md) for timers and reports, and [AI agent notes](docs/ai-agent.md) for how the agent works and how to add a tool.
+Small teams usually split their work across a chat tool, an issue tracker, a wiki and a timesheet. Each one has its own accounts, permissions and search. Synk puts these four modules in one Next.js application backed by one PostgreSQL schema, so a ticket key in a chat message, a Markdown page or an AI reply points to the same record. Every single-resource access check, whether it comes from a browser request, a live socket or an AI tool call, goes through one permission function, and ticket and page list and search queries apply the same rule (workspace membership plus a project-access row) as database filters; message search covers only channels the user has joined. The AI agent, Synk AI, is a separate Python LangGraph service that uses Google Gemini. It has no database credentials. It acts only by calling Synk's own tool endpoints with a short-lived token that names one user and one workspace, and it asks for explicit confirmation before it changes existing data.
 
-## Local setup
+Synk was built as a Final Year Project. It runs locally and in CI. There is no public deployment.
 
-Requirements: Node.js 22.12+ (Node 24 also supported), npm, and PostgreSQL. Docker Compose is optional for a local database.
+<p><img src="docs/images/board.png" width="49%" alt="Synk board view with project, board and filter controls"> <img src="docs/images/agent.png" width="49%" alt="Synk AI panel open beside the board"></p>
+
+## Key ideas
+
+- **One permission function for people and the agent.** `can(action, facts)` in [`src/lib/permissions.ts`](src/lib/permissions.ts) checks the workspace role (ADMIN / MEMBER), channel membership and per-project access (No access / Can view / Can edit). Checks run inside the same Prisma transaction as the write. Agent tool calls go through the same services and access rules, so the agent never has more access than its user.
+- **The agent has no credentials of its own.** It never receives `DATABASE_URL` or `NEXTAUTH_SECRET`. Each turn, Next.js signs a 5-minute HMAC token for one user, workspace and conversation, and the agent sends it back with every tool call. Every call that reaches a Synk tool, including dry-run previews and denials, is written to an `ActionLog` table.
+- **Confirmation before changing existing data.** `update_ticket` first runs as a dry run. The graph then pauses with LangGraph `interrupt()` and shows each field's old and new value until the user clicks Confirm or Cancel. If a name matches more than one record, the tool returns `ambiguous` with the candidates and the agent asks which one the user means.
+- **Non-disclosure.** If you cannot access a ticket, page or project, Synk gives the same not-found answer it gives for one that does not exist. This holds for the agent's replies too.
+- **Live delivery re-checks every recipient.** Chat messages are saved over REST and then published over Socket.IO. Each recipient's session and channel membership are checked again at publish time, so a revoked user stops receiving messages. A client UUID makes retries safe.
+- **Security.** Sessions are revocable: NextAuth JWTs are backed by `LoginSession` rows, sign-out ends the current session, a password change ends every other session, and a password reset ends them all, dropping the matching live sockets. Removing someone from a workspace removes their live channel subscriptions. Invite and reset tokens are single-use and stored only as hashes. Browser writes need an exact Origin match (the Google invite-acceptance route relies on a SameSite=Lax, HttpOnly profile cookie instead), and rate limits are applied per user and per IP.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    B["Browser"]
+    subgraph NODE["Node.js process: server.ts"]
+        N["Next.js App Router: pages and route handlers"]
+        S["Socket.IO: live chat"]
+        G["Gate: session, same-origin check, rate limit, size-capped JSON"]
+        F["Feature services: zod validation and transactions"]
+        R["Permissions: can() in src/lib/permissions.ts"]
+        T["Agent tool endpoints: /api/agent-tools/:name"]
+    end
+    P[("PostgreSQL")]
+    subgraph AG["AI agent: Python, Docker"]
+        A["FastAPI and LangGraph loop: model, tools, model"]
+        C[("SQLite checkpointer")]
+    end
+    M["Gemini via LangChain"]
+
+    B -- "HTTP" --> N
+    B -- "WebSocket" --> S
+    N --> G --> F
+    F --> R
+    F -- "Prisma transactions" --> P
+    S -- "re-check session and channel membership" --> R
+    N -- "POST /chat with service secret and user token" --> A
+    A -- "tool calls with user token" --> T
+    T --> F
+    A --> C
+    A --> M
+```
+
+| Component | Stack |
+|---|---|
+| Web app and API | Next.js 16.4.1 (App Router), React 19.3, NextAuth 4.24 (JWT strategy), zod 4.6, Node.js 22.12 or later |
+| Realtime | Socket.IO 4.8.4 on the same `node:http` server ([`server.ts`](server.ts)) |
+| Data | PostgreSQL 16, Prisma 6.19.3 (25 models, 9 migrations) |
+| Agent | Python 3.13, FastAPI, LangGraph 1.2, langchain-google-genai 4.5, run in Docker as a non-root user |
+| Email | Mailtrap (API or SMTP) for invites, welcome mail and password reset |
+
+- **Request path.** A route handler calls the shared gate, then a feature service (`src/features/*/service.ts`). The service validates input with zod and checks access inside the transaction that does the write. Errors are mapped to JSON responses in one place ([`src/lib/errors.ts`](src/lib/errors.ts)).
+- **Agent path.** Next.js calls the agent's `POST /chat` with a shared service secret, the user token and a context limited to what the caller can already see. The agent calls back `POST /api/agent-tools/:name` with that token. Model memory is kept in a SQLite checkpointer. The readable transcript is stored in PostgreSQL.
+
+## What Synk does
+
+| Module | Capabilities |
+|---|---|
+| Workspaces | 3-step "Create your workspace" wizard. Joining an existing workspace is invite-only, through emailed links that expire after 7 days and work once. ADMIN / MEMBER roles. Email and password sign-in, plus Google, GitHub and Bitbucket when configured |
+| Chat | Public and private channels, one-level threads, live delivery with a Live / Reconnecting indicator, cursor-paged history, retry-safe sends, ticket keys shown as links |
+| Issue tracking | Per-project access, several boards per project with editable columns, drag and drop with mouse, touch or keyboard, four filters, comments with @mentions, sprints with one active per project |
+| Reports | Burndown with an ideal line, velocity over the last 6 completed sprints, status and assignee breakdowns, CSV export |
+| Docs | Nested Markdown pages per project, formatting toolbar and preview, clickable checklists, edit-conflict protection, PostgreSQL full-text search |
+| Time | One running timer per person (server clock, 24-hour cap), manual entries, a weekly report by day, ticket and person, CSV export |
+| Overview and alerts | Your open, overdue and recently completed tickets, active sprints, and in-app alerts for assignments, comments and mentions. Each alert type can be turned off |
+| Synk AI | Five tools: `create_ticket`, `update_ticket` (needs confirmation), `find_tickets`, `create_doc` and `search_workspace`. Each reply lists the actions it took, with links |
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/chat.png" alt="Chat channel with a ticket key shown as a link"><br><sub><b>Chat</b>: live channels, threads and ticket links</sub></td>
+    <td width="50%"><img src="docs/images/docs.png" alt="Nested Markdown pages with preview"><br><sub><b>Docs</b>: nested Markdown pages with full-text search</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/reports.png" alt="Sprint report with burndown chart"><br><sub><b>Reports</b>: sprint burndown, velocity and CSV export</sub></td>
+    <td width="50%"><img src="docs/images/time.png" alt="Weekly time tracking report"><br><sub><b>Time</b>: timers and a weekly report by day, ticket and person</sub></td>
+  </tr>
+</table>
+
+## Quickstart
+
+Requirements: Node.js 22.12 or later, npm, and Docker (for PostgreSQL and the optional agent).
 
 ```bash
 npm ci
-cp .env.example .env
-# Windows PowerShell: Copy-Item .env.example .env
+cp .env.example .env            # PowerShell: Copy-Item .env.example .env
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-# Paste the generated value into NEXTAUTH_SECRET in .env.
-docker compose up -d postgres
+# Paste the output into NEXTAUTH_SECRET in .env (at least 32 characters).
+docker compose up -d --wait postgres
 npm run db:generate
 npm run db:migrate
 npm run dev
 ```
 
-Open http://localhost:3000 and choose **New to Synk? Create a workspace**. The creator becomes the workspace admin. To email invitations, configure the Mailtrap variables in `.env`; invitees join from the link and can then sign in and join public channels. Admins can manage invitations and members under **Settings → Members**.
+Open http://localhost:3000 and choose **New to Synk? Create a workspace**. Use `npm run dev` or `npm start`, not `next start`: the custom server hosts Socket.IO.
 
-The Compose database binds to IPv4, so use `127.0.0.1` in `DATABASE_URL`; on Windows, `localhost` may attempt IPv6 first and exceed Prisma transaction startup timeouts. This database address is separate from the browser origin, which remains `http://localhost:3000`.
+**Optional AI agent.** In `.env`, set `AI_SERVICE_URL=http://127.0.0.1:8000`, `AI_SERVICE_SECRET` (at least 32 characters) and `GOOGLE_API_KEY`, then run `npm run agent:up`. Without these settings the rest of Synk works normally, and the panel says the assistant is not set up.
 
-Use your own PostgreSQL `DATABASE_URL` if not using Compose. The Compose password is a local-development value only. `NEXTAUTH_URL` must match the browser's origin exactly, including its port. Do not alternate between `localhost` and `127.0.0.1`.
-
-### Mailtrap email
-
-For live delivery, set `MAILTRAP_API_TOKEN` and `MAIL_FROM` in `.env`. Use a Mailtrap Email Sending API token and a sender address/domain verified in Mailtrap; API-token delivery takes precedence when both API and SMTP settings are present. Alternatively, configure `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM` to use SMTP. In development, password-reset links are printed to the server console when Mailtrap is not configured; account creation still succeeds if a welcome email cannot be delivered. A Mailtrap Email Testing inbox captures messages for inspection but does not deliver them to the recipient's real mailbox. Invitation tokens are stored only as SHA-256 hashes and expire after seven days.
-
-### Optional AI agent
-
-The assistant runs as a separate Python (LangGraph) service in Docker. Create a free key in [Google AI Studio](https://aistudio.google.com/apikey), then add these to `.env`:
-
-```bash
-AI_SERVICE_URL="http://127.0.0.1:8000"
-AI_SERVICE_SECRET=""   # generate like NEXTAUTH_SECRET
-GOOGLE_API_KEY=""
-```
-
-```bash
-npm run agent:up
-```
-
-Without these settings the rest of Synk works normally and the panel says the assistant is not set up. `npm run agent:test` runs the agent's own tests, and `npm run agent:eval` runs the 30-prompt accuracy evaluation against the real model (see [the evaluation notes](docs/ai-agent-eval.md)).
-
-### Optional demo records
-
-Set `SEED_DEMO_PASSWORD` in `.env` (at least 10 characters and at most 72 UTF-8 bytes), then run:
-
-```bash
-npm run db:seed
-```
-
-Accounts: `admin@synk.test`, `member@synk.test`, `outsider@synk.test`. The first two share a workspace and project; the third belongs to a different workspace. `SYN-101` is a real seeded ticket, and a running `Sprint 4` with finished and open tickets gives the reports and overview something to show. Seeding is opt-in, idempotent, does not overwrite existing passwords and refuses production mode.
-
-### Google sign-in (optional)
-
-Google sign-in is enabled when both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set in `.env`. To configure local development:
-
-1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create or select a project and configure the OAuth consent screen. Add your Google account as a test user if the app is in testing mode.
-2. Create an OAuth client ID with application type **Web application**.
-3. Add `http://localhost:3000` as an authorized JavaScript origin and `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI.
-4. Put the client ID and secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, then restart the dev server.
-
-The Google button appears on `/login` after both values are configured. New Google users can create a workspace or accept an invitation sent to their verified Google email. Existing accounts with the same verified email can sign in with Google. For production, add the production origin and callback URL to the OAuth client and configure the same environment variables on the server. Keep the client secret private and never commit `.env`.
-
-Email/password login works without Google credentials.
-
-### GitHub and Bitbucket sign-in (optional)
-
-Set `GITHUB_ID` and `GITHUB_SECRET` (a GitHub OAuth app) or `BITBUCKET_ID` and `BITBUCKET_SECRET` (a Bitbucket OAuth consumer with the `account` and `email` scopes) in `.env`. The callback URLs are `http://localhost:3000/api/auth/callback/github` and `http://localhost:3000/api/auth/callback/bitbucket`. Each button appears on `/login` once its pair is set. Someone new who signs in this way is taken to the workspace setup form.
-
-## Verification
+**Checks.**
 
 ```bash
 npm run lint
 npm run typecheck
-npm test
+npm test                     # unit tests
 npm run build
+npm run agent:test           # agent tests in Docker, no API key needed
 ```
 
-Integration tests need a **disposable, migrated PostgreSQL database**. They create isolated test fixtures and clean up their own records; do not use a production database.
+Integration and end-to-end tests (`npm run test:integration`, `npm run test:e2e`) need a separate `synk_test` database, created and migrated, with both `DATABASE_URL` and `TEST_DATABASE_URL` pointed at it. See [docs/setup.md](docs/setup.md#integration-and-end-to-end-tests). The accuracy evaluation (`npm run agent:eval`) calls the real model, so it needs `GOOGLE_API_KEY` and `AI_SERVICE_SECRET` in `.env` and uses model quota.
 
-```bash
-# macOS/Linux: set both variables to the disposable database
-export DATABASE_URL='postgresql://synk:synk_local_only@127.0.0.1:5432/synk_test'
-export TEST_DATABASE_URL="$DATABASE_URL"
-npm run db:migrate
-npm run test:integration
-npx playwright install chromium
-npm run test:e2e
+Environment variables, email delivery, OAuth sign-in, demo seed data, the test database and production deployment are covered in [`docs/setup.md`](docs/setup.md).
+
+## Synk AI in practice
+
+The turn below is illustrative. The tool names and the quoted messages come from the code; the ticket is an example.
+
+```text
+User:   Move the dark mode ticket to Review
+Model:  find_tickets(query="dark mode")                  -> SYN-14, status In Progress
+Model:  update_ticket(ticket="SYN-14", status="Review")   dry run: Status In Progress -> Review
+Graph:  interrupt(); the panel shows "Confirm this change" with Confirm and Cancel
+Synk:   "Please confirm this change before I make it."
+User:   clicks Confirm; Next.js signs a new token and the graph resumes
+Graph:  the tools step re-runs from the top, repeating the dry run, then makes the change
+Model:  update_ticket(ticket="SYN-14", status="Review")   "Updated SYN-14: status In Progress → Review."
+Panel:  Actions taken, with a link to SYN-14; open boards reload
+Audit:  4 ActionLog rows: find_tickets, update_ticket (dry run), update_ticket (dry run, repeated on resume), update_ticket
 ```
 
-PowerShell environment variables use `$env:DATABASE_URL = '...'` and `$env:TEST_DATABASE_URL = $env:DATABASE_URL`. Browser tests start the development server automatically unless an existing local server is available. For production browser checks, run `npm run build` first and set `E2E_SERVER_COMMAND="npm start"` (PowerShell: `$env:E2E_SERVER_COMMAND = "npm start"`) before `npm run test:e2e`; CI uses this mode. `npm start` also requires the Mailtrap environment variables; placeholder values are fine here because the browser tests do not require successful email delivery. Keep `DATABASE_URL` pointed at the disposable test database for the server as well as the tests. They create accounts/workspaces in that database. See [the QA plan](docs/chat-qa.md) for test cases and [implementation notes](docs/chat-implementation.md) for scope and API contracts.
+Now suppose the user asks "Assign SYN-12 to Sarah" in a project with two members named Sarah. The dry run returns `ambiguous` with both names, the graph does not pause, and the agent asks which Sarah the user means.
 
-## Production runtime
+## Trade-offs
 
-```bash
-npm ci
-npm run db:generate
-npm run db:migrate
-npm run build
-npm start
+| Decision | What it buys | What it costs |
+|---|---|---|
+| Next.js and Socket.IO in one custom process | One origin, one Prisma client, the same permission code for HTTP and sockets | No `next start`, no serverless hosting, a single instance only |
+| Database is authoritative; publish after commit | A failed live delivery never turns a saved write into an error | Delivery is at-least-once; clients reload history after reconnecting |
+| JWT plus a database `LoginSession` row | Real sign-out and server-side revocation | One session lookup per request |
+| Agent acts only through HTTP tool endpoints | No agent credentials; the same checks and audit for every action | An extra network hop per tool call |
+| Optimistic doc versions instead of co-editing | No collaborative-editing infrastructure | Two people editing one page at once get a conflict message |
+
+## Results
+
+### Test suites
+
+Numbers are from [CI run 43597683991](https://github.com/Hazammm/SYNK/actions/runs/43597683991) on `main` (2026-11-14).
+
+| Suite | Tests | Runner | What it exercises |
+|---|---:|---|---|
+| Unit | 32 | `node:test` ([`tests/unit.test.ts`](tests/unit.test.ts)) | Validation, permission rules, agent tokens, name matching |
+| Integration | 76 | `node:test` against real PostgreSQL ([`tests`](tests)) | Services, transactions, constraints and access rules for chat, tickets, reports, docs, time, accounts and agent tools |
+| End-to-end | 6 | Playwright, Chromium ([`tests/e2e`](tests/e2e)) | Chat, tracker, docs, time, settings and the agent panel, against the production build |
+| Agent | 46 | pytest in the agent image ([`agent/tests`](agent/tests)) | Graph, confirmation flow, API auth, error handling. A scripted model is used, so no network or API key is needed |
+
+The [`Chat foundation`](.github/workflows/chat-ci.yml) workflow runs on every pull request and on every push to `main`. One job builds the agent image and runs pytest inside it. The other job applies migrations to a `postgres:16-alpine` service. It then runs ESLint, `tsc --noEmit`, the unit and integration tests and a production build, and finally runs Playwright against `npm start`.
+
+### AI agent accuracy (partial run)
+
+The evaluation in [`agent/evals`](agent/evals) has 30 prompts. Each runs through the real graph and a real model, against a rules-based stand-in for Synk. A prompt passes only if every expectation for it holds. Depending on the prompt, that means the right tool calls, a confirmation pause, a clarifying question or a refusal. The target is 90%.
+
+| Category | Prompts | Passed |
+|---|---:|---:|
+| Happy path | 15 | 14 |
+| Ambiguity (must ask a clarifying question) | 5 | 4 |
+| Denial (must refuse) | 5 | 5 |
+| Edge cases | 5 | not run |
+| **Scored total** | **25 of 30** | **23 (92%)** |
+
+Model: `gemini-3.5-flash-lite`. **This run is partial.** It was stopped on request before the 5 edge-case prompts, so it is not a full 30-prompt result. The stand-in replaces the real Next.js tools and database, so the evaluation measures the model's decisions, not the full stack. The method and the two failures are described in [`docs/ai-agent-eval.md`](docs/ai-agent-eval.md).
+
+## Repository layout
+
+```text
+server.ts                 Custom Node server: Next.js and Socket.IO on one port
+src/
+  app/                    App Router pages (/w/[workspaceId]/...) and API route handlers
+  components/             App shell, sign-in page, profile menu
+  features/               Domain services and UI: chat, projects, tickets, reports, docs, time,
+                          workspaces, notifications, overview, search, account, agent
+  lib/                    Permissions, auth, sessions, validation, rate limits, tokens
+  server/socket.ts        Socket.IO authentication, rooms and per-recipient re-checks
+  proxy.ts                Next.js 16 proxy: sign-in redirects for pages
+prisma/                   Schema, migrations and an opt-in demo seed
+agent/
+  synk_agent/             FastAPI app, LangGraph graph, tool specs, prompt
+  tests/                  pytest suite with a scripted model and a fake Synk API
+  evals/                  30-prompt accuracy evaluation and scorer
+tests/                    Unit, integration and Playwright end-to-end tests
+docs/                     Setup guide, module design notes, the evaluation report and screenshots
+.github/workflows/        CI: agent pytest job and the web verify job
+compose.yaml              PostgreSQL and the agent service for local development
 ```
 
-Run the **custom Node server**, not `next start`. It hosts Next.js and Socket.IO in the same process and shares the authenticated permission layer. Use a persistent Node host with PostgreSQL and HTTPS, with the reverse proxy forwarding WebSocket upgrades. Set `TRUSTED_PROXY_IPS` to the exact addresses of your proxies so rate limits apply per client; each proxy must append to `X-Forwarded-For`, which is ignored on connections from any other address. A serverless-only deployment cannot run this custom socket server.
+## Documentation
 
-This version supports one Node instance. Before scaling to multiple instances, add a Socket.IO adapter, shared rate limiting and cross-instance revocation. Message persistence is authoritative; if the process fails after a commit but before publication, reconnect/history recovers the message. Delivery is not an exactly-once transport guarantee.
+| Document | Contents |
+|---|---|
+| [`docs/setup.md`](docs/setup.md) | Environment variables, email, OAuth sign-in, seed data, testing, production runtime |
+| [`docs/ai-agent.md`](docs/ai-agent.md) | Agent design, security model, tools, how to add a tool |
+| [`docs/ai-agent-eval.md`](docs/ai-agent-eval.md) | Evaluation method, how to run it, results and limits |
+| [`docs/issue-tracking.md`](docs/issue-tracking.md) | Projects, boards, sprints, the access model and how reports are calculated |
+| [`docs/docs-module.md`](docs/docs-module.md) | Markdown pages, rendering, conflict handling, search |
+| [`docs/time-tracking.md`](docs/time-tracking.md) | Timers, manual entries, weekly reports |
+| [`docs/chat-implementation.md`](docs/chat-implementation.md) | Original chat design notes (API table and roadmap predate later modules) |
+| [`docs/chat-qa.md`](docs/chat-qa.md) | Chat verification records and manual acceptance plan |
 
-Secrets belong only in environment variables. NextAuth JWT cookies use secure flags when `NEXTAUTH_URL` is HTTPS. Login records provide a seven-day absolute session lifetime and revocation on sign-out. Remove expired `LoginSession` rows periodically as routine database maintenance. Account deletion is not implemented.
+`docs/chat-implementation.md` and the "Not done yet" list in `docs/issue-tracking.md` were written before invitations, docs, time tracking and the agent were built. Their API tables and roadmaps are historical; the limits below are current.
 
-### Password reset
+## Limitations and possible next steps
 
-**Forgot password?** on the login page requests a single-use link that expires after 15 minutes. Each account receives at most one email every 5 minutes, and earlier links keep working until they expire or a reset succeeds. Only a SHA-256 hash of the token is stored. A successful reset changes the password, invalidates every reset link and signs the user out everywhere, including live chat sockets. The response is identical whether or not the email exists, and the account is processed after the response is sent. Accounts that only use OAuth do not receive links.
+Current limitations:
 
-Production requires either `MAILTRAP_API_TOKEN` and `MAIL_FROM`, or the Mailtrap SMTP settings and `MAIL_FROM`: `npm start` refuses to run without email delivery configuration. In development, leaving Mailtrap unset prints password-reset links to the server console; welcome-email failures are reported after signup without rolling back the new account.
+- **Single instance.** Rate limits, Socket.IO rooms, session revocation and the agent's one-turn-at-a-time lock live in process memory, and agent memory is a local SQLite file. Synk needs a persistent Node host behind a reverse proxy that supports WebSockets. Serverless-only hosting cannot run the custom socket server.
+- **No public deployment** and no live demo.
+- **Sign-in only.** GitHub, Bitbucket and Google are sign-in options. There is no code-host repository integration.
+- **Live updates cover chat only.** A change someone else makes to a board appears after a reload.
+- **Accounts and roles.** There is no account deletion, and an admin cannot change a member's role.
+- **Agent.** Replies are not streamed, and there are five tools. `ActionLog` is written but not yet shown in the UI. The accuracy evaluation has not yet completed a full 30-prompt run.
+- **Security headers.** No Content-Security-Policy or Strict-Transport-Security header is set yet.
+
+Possible next steps, each tied to a limitation above:
+
+1. A full 30-prompt accuracy run, including the edge cases.
+2. Shared state (a Socket.IO adapter, a shared rate-limit store and revocation across instances) to support more than one instance.
+3. Live board and notification updates over the existing Socket.IO connection.
+4. Code-host integration, such as linking pull requests to tickets.
+5. Role management and account deletion.
+
+## License
+
+This repository does not include a license.
