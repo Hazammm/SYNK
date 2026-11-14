@@ -46,27 +46,13 @@ const providers: NextAuthOptions["providers"] = [Credentials({
     limitLogin(parsed.data.email, request?.headers?.["x-synk-client-ip"] ?? "unknown");
     const user = await db.user.findFirst({
       where: { email: { equals: parsed.data.email, mode: "insensitive" } },
-      select: { id: true, name: true, email: true, image: true, passwordHash: true, lastActiveWorkspaceId: true },
+      select: { id: true, name: true, email: true, image: true, passwordHash: true },
     });
     // Use the same bcrypt cost for unknown accounts to avoid an easy timing oracle.
     const fallback = "$2b$12$C6UzMDM.H6dfI/f/IKcEe.5MR.PmTuYkSY7jLRPx3QIkggY7UjN0i";
     const valid = await compare(parsed.data.password, user?.passwordHash ?? fallback);
     // Reject if password invalid OR if user has no password (Google-only account).
     if (!valid || !user?.passwordHash || !user.email) return null;
-    let membership = user.lastActiveWorkspaceId
-      ? await db.membership.findUnique({
-          where: { workspaceId_userId: { workspaceId: user.lastActiveWorkspaceId, userId: user.id } },
-          select: { workspaceId: true },
-        })
-      : null;
-    if (!membership) {
-      membership = await db.membership.findFirst({
-        where: { userId: user.id },
-        orderBy: { createdAt: "asc" },
-        select: { workspaceId: true },
-      });
-    }
-    if (!membership) return null;
     const loginSessionId = await createPasswordLogin(user.id, user.passwordHash);
     if (!loginSessionId) return null;
     return { id: user.id, name: user.name, email: user.email, image: user.image, loginSessionId };
