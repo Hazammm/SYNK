@@ -32,7 +32,7 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await admin.getByRole("button", { name: "Continue", exact: true }).click();
     await admin.getByLabel("Teammate email").fill("invalid-email");
     await admin.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(admin.getByRole("alert")).toContainText("valid teammate email");
+    await expect(admin.getByRole("alert").filter({ hasText: "valid teammate email" })).toBeVisible();
     await admin.getByLabel("Teammate email").fill("");
     await admin.getByRole("button", { name: "Skip for now", exact: true }).click();
     await expect(admin).toHaveURL(/\/w\/[^/]+\/(?:overview|settings)/, { timeout: 60_000 });
