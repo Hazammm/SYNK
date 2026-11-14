@@ -17,7 +17,8 @@ export const localToday = () => new Date().toLocaleDateString("en-CA"); // en-CA
 
 export function trackerHref(view: TrackerView, selection: Selection) {
   const query = new URLSearchParams(Object.entries(selection).filter((entry): entry is [string, string] => Boolean(entry[1])));
-  return `${VIEW_PATHS[view]}${query.size ? `?${query}` : ""}`;
+  const base = selection.workspaceId ? `/w/${selection.workspaceId}` : "";
+  return `${base}${VIEW_PATHS[view]}${query.size ? `?${query}` : ""}`;
 }
 
 // Keeps the address bar shareable without triggering a navigation.

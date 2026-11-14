@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FolderKanban, Plus, ShieldCheck } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
@@ -17,12 +18,13 @@ const VIEW_TITLES: Record<TrackerView, string> = { board: "Board", sprints: "Spr
 type Props = { view: TrackerView; userId: string; initialWorkspaces: WorkspaceSummary[]; initial: Selection };
 
 export default function Tracker({ view, userId, initialWorkspaces, initial }: Props) {
-  const [workspaceId, setWorkspaceId] = useState(initialWorkspaces.find(item => item.id === initial.workspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
+  const router = useRouter();
+  const [workspaceId] = useState(initialWorkspaces.find(item => item.id === initial.workspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
   const workspace = initialWorkspaces.find(item => item.id === workspaceId);
   return <div className={styles.tracker}>
     <div className={styles.bar}>
       <div><span className={styles.eyebrow}>ISSUE TRACKING</span><h1>{VIEW_TITLES[view]}</h1></div>
-      <label className={styles.picker}>Workspace<select value={workspaceId} onChange={event => setWorkspaceId(event.target.value)} disabled={!initialWorkspaces.length}>
+      <label className={styles.picker}>Workspace<select value={workspaceId} onChange={event => router.push(trackerHref(view, { workspaceId: event.target.value }))} disabled={!initialWorkspaces.length}>
         {!initialWorkspaces.length && <option value="">No workspaces yet</option>}
         {initialWorkspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>

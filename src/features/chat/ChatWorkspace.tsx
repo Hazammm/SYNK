@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Hash, LockKeyhole, MessageCircle, Plus, Send, X } from "lucide-react";
 import { Button, Input, Avatar } from "@/components/Primitives";
@@ -12,6 +13,7 @@ type Member = { role: "ADMIN" | "MEMBER"; user: { id: string; name: string | nul
 const initials = (name: string | null) => (name ?? "Member").split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
 export default function ChatWorkspace({ initialWorkspaces, initialWorkspaceId }: { initialWorkspaces: WorkspaceSummary[]; initialWorkspaceId?: string }) {
+  const router = useRouter();
   const [workspaces, setWorkspaces] = useState(initialWorkspaces);
   const [selected, setSelected] = useState(initialWorkspaces.find(item => item.id === initialWorkspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
   const [creating, setCreating] = useState(!initialWorkspaces.length);
@@ -24,13 +26,21 @@ export default function ChatWorkspace({ initialWorkspaces, initialWorkspaceId }:
     event.preventDefault(); setBusy(true); setError("");
     try {
       const result = await request<{ workspace: WorkspaceSummary }>("/api/workspaces", { method: "POST", body: JSON.stringify({ name }) });
-      setWorkspaces(current => [...current, result.workspace]); setSelected(result.workspace.id); setCreating(false); setName("");
+      setWorkspaces(current => [...current, result.workspace]);
+      setSelected(result.workspace.id);
+      setCreating(false);
+      setName("");
+      router.push(`/w/${result.workspace.id}/chat`);
     } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
   }
   return <div className={styles.workspace}>
     <div className={styles.workspaceBar}>
       <div><span className={styles.eyebrow}>TEAM WORKSPACE</span><h1>Conversations</h1></div>
-      <label className={styles.selector}>Workspace<select aria-label="Workspace" value={selected} onChange={event => setSelected(event.target.value)} disabled={!workspaces.length}>
+      <label className={styles.selector}>Workspace<select aria-label="Workspace" value={selected} onChange={event => {
+        const nextId = event.target.value;
+        setSelected(nextId);
+        if (nextId) router.push(`/w/${nextId}/chat`);
+      }} disabled={!workspaces.length}>
         {!workspaces.length && <option value="">No workspaces yet</option>}
         {workspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
@@ -38,7 +48,7 @@ export default function ChatWorkspace({ initialWorkspaces, initialWorkspaceId }:
     </div>
     {creating && <form onSubmit={create} className={styles.setup}>
       <h2>{workspaces.length ? "Create a workspace" : "Bring your team together"}</h2>
-      <p>Create a workspace to start chatting, or ask an admin to add your registered email and refresh this page.</p>
+      <p>Create a workspace to start chatting, or ask an admin to invite your email address.</p>
       <label>Workspace name<Input required maxLength={80} value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Synk FYP" /></label>
       <Button variant="primary" disabled={busy}>{busy ? "Creating…" : "Create workspace"}</Button>
       {error && <p role="alert" className={styles.error}>{error}</p>}

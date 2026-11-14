@@ -1,6 +1,7 @@
 import { loadEnvConfig } from "@next/env";
 import { createServer } from "node:http";
 import { parseTrustedProxies, resolveClientIp } from "./src/lib/client-ip";
+import { assertMailerConfigured } from "./src/lib/mailer";
 
 const dev = process.argv.includes("--dev");
 // Set before dynamically importing Next.js or database modules.
@@ -8,10 +9,10 @@ Object.assign(process.env, { NODE_ENV: dev ? "development" : "production" });
 loadEnvConfig(process.cwd(), dev);
 
 async function main() {
-  // Without an email provider, password reset can't work in production.
-  for (const name of ["DATABASE_URL", "NEXTAUTH_SECRET", "NEXTAUTH_URL", ...(dev ? [] : ["RESEND_API_KEY", "EMAIL_FROM"])]) {
+  for (const name of ["DATABASE_URL", "NEXTAUTH_SECRET", "NEXTAUTH_URL"]) {
     if (!process.env[name]) throw new Error(`Set ${name} in .env before starting Synk.`);
   }
+  if (!dev) assertMailerConfigured();
   if (process.env.NEXTAUTH_SECRET!.length < 32) throw new Error("NEXTAUTH_SECRET must contain at least 32 characters.");
   const trustedProxies = parseTrustedProxies(process.env.TRUSTED_PROXY_IPS);
   const { default: next } = await import("next");

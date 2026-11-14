@@ -13,7 +13,7 @@ export const initialsOf = (name: string | null | undefined) =>
   (name?.trim() || "Member").split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
 // The signed-in person's name in the header. It opens a card with their details and shortcuts into settings.
-export default function ProfileMenu({ userName }: { userName: string }) {
+export default function ProfileMenu({ userName, settingsHref = "/settings" }: { userName: string; settingsHref?: string }) {
   const [open, setOpen] = useState(false);
   const [account, setAccount] = useState<Account | null>(null);
   const [error, setError] = useState("");
@@ -60,7 +60,7 @@ export default function ProfileMenu({ userName }: { userName: string }) {
         <div><dt>Member since</dt><dd>{new Date(account.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}</dd></div>
       </dl>}
       <nav aria-label="Settings shortcuts" className={styles.links}>
-        {links.map(({ section, label, icon: Icon }) => <Link key={section} href={`/settings?section=${section}`} onClick={() => setOpen(false)}><Icon size={15} aria-hidden="true" /> {label}</Link>)}
+        {links.map(({ section, label, icon: Icon }) => <Link key={section} href={`${settingsHref}?section=${section}`} onClick={() => setOpen(false)}><Icon size={15} aria-hidden="true" /> {label}</Link>)}
       </nav>
       <button type="button" className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}><LogOut size={15} aria-hidden="true" /> Sign out</button>
     </div>}
@@ -68,6 +68,6 @@ export default function ProfileMenu({ userName }: { userName: string }) {
 }
 
 // The gear next to Sign out.
-export function SettingsLink({ className }: { className?: string }) {
-  return <Link href="/settings" className={className} aria-label="Settings" title="Settings"><Settings size={17} aria-hidden="true" /></Link>;
+export function SettingsLink({ className, href = "/settings" }: { className?: string; href?: string }) {
+  return <Link href={href} className={className} aria-label="Settings" title="Settings"><Settings size={17} aria-hidden="true" /></Link>;
 }

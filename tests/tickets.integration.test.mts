@@ -7,7 +7,7 @@ nextEnv.loadEnvConfig(process.cwd(), true);
 if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a migrated, disposable PostgreSQL database.");
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 const { db } = await import("../src/lib/db");
-const { createWorkspace, addMember, removeMember } = await import("../src/features/workspaces/service");
+const { createWorkspace, removeMember } = await import("../src/features/workspaces/service");
 const { createProject, getProject, listProjects, listProjectAccess, setProjectAccess } = await import("../src/features/projects/service");
 const { addComment, createBoard, createSprint, createTicket, deleteTicket, findTicketByKey, getTicket, listTickets, updateBoard, updateSprint, updateTicket } = await import("../src/features/tickets/service");
 const { listNotifications, markNotificationsRead } = await import("../src/features/notifications/service");
@@ -23,6 +23,11 @@ const status = (code: number) => (error: unknown) => (error as { status?: number
 const rejects = (promise: Promise<unknown>, code: number) => assert.rejects(promise, status(code));
 const ticket = (title: string, extra: object = {}) => ({ boardId, title, ...extra });
 const titlesIn = async (columnId: string) => (await listTickets(admin, { boardId, columnId })).map(row => row.title);
+const addTestMember = (userId: string, workspaceId: string) => db.membership.upsert({
+  where: { workspaceId_userId: { workspaceId, userId } },
+  create: { workspaceId, userId, role: "MEMBER" },
+  update: {},
+});
 
 before(async () => {
   for (const name of ["Admin", "Writer", "Reader", "Bystander", "Outsider"]) {
@@ -31,7 +36,7 @@ before(async () => {
   [admin, writer, reader, bystander, outsider] = users;
   workspaceId = (await createWorkspace(admin, { name: "Tracker workspace" })).id;
   workspaces.push(workspaceId, (await createWorkspace(outsider, { name: "Elsewhere" })).id);
-  for (const id of [writer, reader, bystander]) await addMember(admin, workspaceId, (await db.user.findUniqueOrThrow({ where: { id } })).email);
+  for (const id of [writer, reader, bystander]) await addTestMember(id, workspaceId);
   projectId = (await createProject(admin, workspaceId, { name: "Tracker", key: "trk" })).id;
   await setProjectAccess(admin, projectId, { userId: writer, level: "WRITE" });
   await setProjectAccess(admin, projectId, { userId: reader, level: "READ" });
@@ -202,7 +207,7 @@ test("comments: assignees and mentioned people are notified once, and only if th
 
 test("access removal hides notifications and unassigns tickets", async () => {
   const temp = (await db.user.create({ data: { name: "Temp", email: `synk-tickets-${randomUUID()}@example.test` } })).id; users.push(temp);
-  await addMember(admin, workspaceId, (await db.user.findUniqueOrThrow({ where: { id: temp } })).email);
+  await addTestMember(temp, workspaceId);
   await setProjectAccess(admin, projectId, { userId: temp, level: "WRITE" });
   const first = await createTicket(admin, ticket("Temp's work", { assigneeId: temp }));
   assert.equal((await listNotifications(temp)).notifications.length, 1);

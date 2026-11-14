@@ -48,6 +48,9 @@ before(async () => {
   workspaceId = (await createWorkspace(admin, { name: "Agent workspace" })).id;
   workspaces.push(workspaceId, (await createWorkspace(outsider, { name: "Elsewhere" })).id);
   for (const id of [khan, ali, reader, bystander]) await addMember(admin, workspaceId, (await db.user.findUniqueOrThrow({ where: { id } })).email);
+  // createWorkspace seeds General (GEN). Tools treat a missing project as "the only one you can edit",
+  // so these tests keep a single tracker instead of leaving GEN beside AGT.
+  await db.project.deleteMany({ where: { workspaceId, key: "GEN" } });
   projectId = (await createProject(admin, workspaceId, { name: "Agent Tracker", key: "AGT" })).id;
   for (const id of [khan, ali]) await setProjectAccess(admin, projectId, { userId: id, level: "WRITE" });
   await setProjectAccess(admin, projectId, { userId: reader, level: "READ" });

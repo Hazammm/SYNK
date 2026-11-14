@@ -4,9 +4,10 @@ AI-powered team workspace. It implements the PRD's **critical-path chat module**
 
 ## What is functional
 
-- Real email/password registration and NextAuth JWT sessions in HTTP-only cookies, backed by revocable login records.
-- Optional Google, GitHub and Bitbucket OAuth configuration. No OAuth client secrets are included.
-- Workspace creation and admin-managed addition of **already registered** teammates by email.
+- Invite-only email/password authentication with NextAuth v4 JWT sessions in HTTP-only cookies and revocable login records. There is no public sign-up endpoint.
+- Workspace creation establishes the creator as ADMIN, along with a starter project and general channel, in one database transaction.
+- Workspace admins can send seven-day, single-use, hashed-token invitations through Mailtrap. Existing accounts sign in to accept; new invitees create an account when joining.
+- Settings > Members shows workspace roles and pending invites. Only admins can invite, resend, revoke, or remove members.
 - Public and private channels, joining, member management, persistent messages and one-level threads.
 - REST history with cursor pagination and Socket.IO live delivery. Reconnect reloads the newest page; older history remains available through pagination.
 - Shared access checks. Workspace membership is required, and channel membership is separately required for reading, writing and subscribing. Admins do not bypass channel membership.
@@ -16,13 +17,11 @@ AI-powered team workspace. It implements the PRD's **critical-path chat module**
 - Sprints with progress, and a Reports view with a burndown, velocity, breakdowns and CSV export.
 - An overview of your open tickets and active sprints, and in-app alerts for assignments, comments and mentions.
 - A profile menu and **Settings**: display name, which alerts you get, theme, password changes, signing out other devices, leaving a workspace and deleting your AI conversations.
-
 - **Docs**: nested pages per project written in Markdown, with a formatting toolbar, preview, checklists, edit-conflict protection and full-text search.
 - **Time tracking**: timers started from the Time page or a ticket, time added by hand, and a weekly report by day, ticket and person with CSV export.
 - **Synk AI**, an assistant on every screen that creates, finds and updates tickets, writes pages and searches the workspace in plain language. It can only do what you are allowed to do, asks which one you mean when a name is unclear, and waits for your confirmation before changing an existing ticket.
 
 See [issue tracking notes](docs/issue-tracking.md) for requirement coverage, the access model and how reports are calculated, [docs notes](docs/docs-module.md) for how pages work, [time tracking notes](docs/time-tracking.md) for timers and reports, and [AI agent notes](docs/ai-agent.md) for how the agent works and how to add a tool.
-
 
 ## Local setup
 
@@ -40,11 +39,15 @@ npm run db:migrate
 npm run dev
 ```
 
-Open <http://localhost:3000>, sign up, and create your first workspace. A `general` channel is created atomically with admin membership. Have a teammate sign up separately, then open **Workspace members → Add to workspace**, using their registered email. They can refresh and join public channels. The creator or a joined workspace admin can add existing workspace members to a private channel.
+Open http://localhost:3000 and choose **New to Synk? Create a workspace**. The creator becomes the workspace admin. To email invitations, configure the Mailtrap variables in `.env`; invitees join from the link and can then sign in and join public channels. Admins can manage invitations and members under **Settings → Members**.
 
 The Compose database binds to IPv4, so use `127.0.0.1` in `DATABASE_URL`; on Windows, `localhost` may attempt IPv6 first and exceed Prisma transaction startup timeouts. This database address is separate from the browser origin, which remains `http://localhost:3000`.
 
 Use your own PostgreSQL `DATABASE_URL` if not using Compose. The Compose password is a local-development value only. `NEXTAUTH_URL` must match the browser's origin exactly, including its port. Do not alternate between `localhost` and `127.0.0.1`.
+
+### Mailtrap email
+
+For live delivery, set `MAILTRAP_API_TOKEN` and `MAIL_FROM` in `.env`. Use a Mailtrap Email Sending API token and a sender address/domain verified in Mailtrap; API-token delivery takes precedence when both API and SMTP settings are present. Alternatively, configure `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`, and `MAIL_FROM` to use SMTP. In development, password-reset links are printed to the server console when Mailtrap is not configured; account creation still succeeds if a welcome email cannot be delivered. A Mailtrap Email Testing inbox captures messages for inspection but does not deliver them to the recipient's real mailbox. Invitation tokens are stored only as SHA-256 hashes and expire after seven days.
 
 ### Optional AI agent
 
@@ -64,7 +67,7 @@ Without these settings the rest of Synk works normally and the panel says the as
 
 ### Optional demo records
 
-Set `SEED_DEMO_PASSWORD` in `.env` (at least 10 characters and at most 72 UTF-8 bytes), then:
+Set `SEED_DEMO_PASSWORD` in `.env` (at least 10 characters and at most 72 UTF-8 bytes), then run:
 
 ```bash
 npm run db:seed
@@ -72,17 +75,22 @@ npm run db:seed
 
 Accounts: `admin@synk.test`, `member@synk.test`, `outsider@synk.test`. The first two share a workspace and project; the third belongs to a different workspace. `SYN-101` is a real seeded ticket, and a running `Sprint 4` with finished and open tickets gives the reports and overview something to show. Seeding is opt-in, idempotent, does not overwrite existing passwords and refuses production mode.
 
-### OAuth
+### Google sign-in (optional)
 
-Set both ID and secret for a provider in `.env`. Its button appears automatically. Register these callback URLs with the provider:
+Google sign-in is enabled when both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set in `.env`. To configure local development:
 
-- Google: `http://localhost:3000/api/auth/callback/google`
-- GitHub: `http://localhost:3000/api/auth/callback/github`
-- Bitbucket: `http://localhost:3000/api/auth/callback/bitbucket`
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create or select a project and configure the OAuth consent screen. Add your Google account as a test user if the app is in testing mode.
+2. Create an OAuth client ID with application type **Web application**.
+3. Add `http://localhost:3000` as an authorized JavaScript origin and `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI.
+4. Put the client ID and secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, then restart the dev server.
 
-For Bitbucket, enable **account** and **email** on the OAuth consumer; a confirmed primary email is required. NextAuth v4 uses a custom Bitbucket OAuth provider here. Providers do not automatically link an existing credential account merely because the email matches. Real OAuth callbacks require your configured provider accounts and have not been exercised in this environment.
+The Google button appears on `/login` after both values are configured. New Google users can create a workspace or accept an invitation sent to their verified Google email. Existing accounts with the same verified email can sign in with Google. For production, add the production origin and callback URL to the OAuth client and configure the same environment variables on the server. Keep the client secret private and never commit `.env`.
 
-OAuth setup is optional; email/password login works without it.
+Email/password login works without Google credentials.
+
+### GitHub and Bitbucket sign-in (optional)
+
+Set `GITHUB_ID` and `GITHUB_SECRET` (a GitHub OAuth app) or `BITBUCKET_ID` and `BITBUCKET_SECRET` (a Bitbucket OAuth consumer with the `account` and `email` scopes) in `.env`. The callback URLs are `http://localhost:3000/api/auth/callback/github` and `http://localhost:3000/api/auth/callback/bitbucket`. Each button appears on `/login` once its pair is set. Someone new who signs in this way is taken to the workspace setup form.
 
 ## Verification
 
@@ -105,7 +113,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-PowerShell environment variables use `$env:DATABASE_URL = '...'` and `$env:TEST_DATABASE_URL = $env:DATABASE_URL`. Browser tests start the development server automatically unless an existing local server is available. For production browser checks, run `npm run build` first and set `E2E_SERVER_COMMAND="npm start"` (PowerShell: `$env:E2E_SERVER_COMMAND = "npm start"`) before `npm run test:e2e`; CI uses this mode. `npm start` also requires `RESEND_API_KEY` and `EMAIL_FROM`, and placeholder values are fine here because the browser tests never request a reset email. Keep `DATABASE_URL` pointed at the disposable test database for the server as well as the tests. They create accounts/workspaces in that database. See [the QA plan](docs/chat-qa.md) for test cases and [implementation notes](docs/chat-implementation.md) for scope and API contracts.
+PowerShell environment variables use `$env:DATABASE_URL = '...'` and `$env:TEST_DATABASE_URL = $env:DATABASE_URL`. Browser tests start the development server automatically unless an existing local server is available. For production browser checks, run `npm run build` first and set `E2E_SERVER_COMMAND="npm start"` (PowerShell: `$env:E2E_SERVER_COMMAND = "npm start"`) before `npm run test:e2e`; CI uses this mode. `npm start` also requires the Mailtrap environment variables; placeholder values are fine here because the browser tests do not require successful email delivery. Keep `DATABASE_URL` pointed at the disposable test database for the server as well as the tests. They create accounts/workspaces in that database. See [the QA plan](docs/chat-qa.md) for test cases and [implementation notes](docs/chat-implementation.md) for scope and API contracts.
 
 ## Production runtime
 
@@ -121,10 +129,10 @@ Run the **custom Node server**, not `next start`. It hosts Next.js and Socket.IO
 
 This version supports one Node instance. Before scaling to multiple instances, add a Socket.IO adapter, shared rate limiting and cross-instance revocation. Message persistence is authoritative; if the process fails after a commit but before publication, reconnect/history recovers the message. Delivery is not an exactly-once transport guarantee.
 
-Secrets belong only in environment variables. NextAuth JWT cookies use secure flags when `NEXTAUTH_URL` is HTTPS. Login records provide a seven-day absolute session lifetime and revocation on sign-out. Remove expired `LoginSession` rows periodically as routine database maintenance. No invitation emails, email verification or account deletion are implemented in this slice.
+Secrets belong only in environment variables. NextAuth JWT cookies use secure flags when `NEXTAUTH_URL` is HTTPS. Login records provide a seven-day absolute session lifetime and revocation on sign-out. Remove expired `LoginSession` rows periodically as routine database maintenance. Account deletion is not implemented.
 
 ### Password reset
 
 **Forgot password?** on the login page requests a single-use link that expires after 15 minutes. Each account receives at most one email every 5 minutes, and earlier links keep working until they expire or a reset succeeds. Only a SHA-256 hash of the token is stored. A successful reset changes the password, invalidates every reset link and signs the user out everywhere, including live chat sockets. The response is identical whether or not the email exists, and the account is processed after the response is sent. Accounts that only use OAuth do not receive links.
 
-Production requires `RESEND_API_KEY` and `EMAIL_FROM`: `npm start` refuses to run without them. In development, leaving them unset prints the link to the server console.
+Production requires either `MAILTRAP_API_TOKEN` and `MAIL_FROM`, or the Mailtrap SMTP settings and `MAIL_FROM`: `npm start` refuses to run without email delivery configuration. In development, leaving Mailtrap unset prints password-reset links to the server console; welcome-email failures are reported after signup without rolling back the new account.

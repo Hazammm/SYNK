@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
-import { Bell, Bot, Building2, Palette, Shield, UserRound } from "lucide-react";
+import { Bell, Bot, Building2, Palette, Shield, UserRound, Users } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import { initialsOf } from "@/components/ProfileMenu";
 import { applyTheme, THEMES, useTheme } from "@/lib/theme";
 import { messageOf, request } from "@/lib/client-http";
+import WorkspaceMembers from "@/features/workspaces/WorkspaceMembers";
 import { SETTINGS_SECTIONS, type Account, type NotificationPreferences, type SettingsSection } from "@/lib/account-types";
 import styles from "./Settings.module.css";
 
@@ -18,12 +19,23 @@ const SECTIONS: Record<SettingsSection, { label: string; icon: typeof UserRound 
   appearance: { label: "Appearance", icon: Palette },
   security: { label: "Password and security", icon: Shield },
   workspaces: { label: "Workspaces", icon: Building2 },
+  members: { label: "Members", icon: Users },
   assistant: { label: "AI assistant", icon: Bot },
 };
-const sectionOf = (value?: string): SettingsSection => SETTINGS_SECTIONS.find(section => section === value) ?? "profile";
+const sectionOf = (value?: string): SettingsSection => SETTINGS_SECTIONS.find(section => section === value?.toLowerCase()) ?? "profile";
 
-export default function SettingsView({ initialSection }: { initialSection?: string }) {
-  const [section, setSection] = useState(sectionOf(initialSection));
+// The workspace in the URL, when settings are opened inside one; Members is only shown then.
+type CurrentWorkspace = { id: string; role: "ADMIN" | "MEMBER"; userId: string };
+
+export default function SettingsView({ initialSection, workspace, inviteDeliveryFailed = false, welcomeEmailFailed = false }: {
+  initialSection?: string;
+  workspace?: CurrentWorkspace;
+  inviteDeliveryFailed?: boolean;
+  welcomeEmailFailed?: boolean;
+}) {
+  const sections = SETTINGS_SECTIONS.filter(id => id !== "members" || workspace);
+  const pick = (value?: string) => { const found = sectionOf(value); return sections.includes(found) ? found : "profile"; };
+  const [section, setSection] = useState(pick(initialSection));
   const [account, setAccount] = useState<Account | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -36,7 +48,7 @@ export default function SettingsView({ initialSection }: { initialSection?: stri
   }, [revision]);
   // The profile menu links straight to a section, including when this page is already open.
   const [linkedSection, setLinkedSection] = useState(initialSection);
-  if (linkedSection !== initialSection) { setLinkedSection(initialSection); setSection(sectionOf(initialSection)); }
+  if (linkedSection !== initialSection) { setLinkedSection(initialSection); setSection(pick(initialSection)); }
   function choose(next: SettingsSection) {
     setSection(next);
     const url = new URL(window.location.href);
@@ -49,9 +61,10 @@ export default function SettingsView({ initialSection }: { initialSection?: stri
     <header className={styles.header}><span className={styles.eyebrow}>ACCOUNT</span><h1>Settings</h1></header>
     <div className={styles.layout}>
       <nav className={styles.nav} aria-label="Settings sections">
-        {SETTINGS_SECTIONS.map(id => { const { label, icon: Icon } = SECTIONS[id]; return <button key={id} type="button" aria-current={section === id ? "page" : undefined} onClick={() => choose(id)}><Icon size={16} aria-hidden="true" /> {label}</button>; })}
+        {sections.map(id => { const { label, icon: Icon } = SECTIONS[id]; return <button key={id} type="button" aria-current={section === id ? "page" : undefined} onClick={() => choose(id)}><Icon size={16} aria-hidden="true" /> {label}</button>; })}
       </nav>
       <div className={styles.body}>
+        {welcomeEmailFailed && <p role="alert" className={styles.error}>Your account is ready, but the welcome email could not be sent.</p>}
         {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={reload}>Retry</button></p>}
         {!account && !error && <p role="status" className={styles.muted}>Loading your settings…</p>}
         {account && <>
@@ -60,6 +73,7 @@ export default function SettingsView({ initialSection }: { initialSection?: stri
           {section === "appearance" && <Appearance />}
           {section === "security" && <Security account={account} onChanged={reload} />}
           {section === "workspaces" && <Workspaces account={account} onChanged={reload} />}
+          {section === "members" && workspace && <WorkspaceMembers workspaceId={workspace.id} role={workspace.role} userId={workspace.userId} inviteDeliveryFailed={inviteDeliveryFailed} />}
           {section === "assistant" && <Assistant account={account} />}
         </>}
       </div>
@@ -209,15 +223,15 @@ function Workspaces({ account, onChanged }: { account: Account; onChanged: () =>
       return `You left ${workspace.name}.`;
     });
   };
-  return <Section title="Workspaces" description="The workspaces you belong to. Admins add members from the workspace's chat.">
+  return <Section title="Workspaces" description="The workspaces you belong to. Admins invite people from Members.">
     {account.workspaces.length ? <ul className={styles.workspaces}>{account.workspaces.map(workspace => {
       const onlyAdmin = workspace.role === "ADMIN" && workspace.adminCount <= 1;
       return <li key={workspace.id}>
         <span><strong>{workspace.name}</strong><small>{workspace.role === "ADMIN" ? "Admin" : "Member"} · {workspace.memberCount} {workspace.memberCount === 1 ? "member" : "members"}</small></span>
-        <Link href={`/chat?workspaceId=${workspace.id}`}>Open chat</Link>
+        <Link href={`/w/${workspace.id}/overview`}>Open</Link>
         <Button variant="quiet" disabled={busy || onlyAdmin} title={onlyAdmin ? "You are the only admin, so you can't leave yet." : undefined} onClick={() => leave(workspace)}>Leave</Button>
       </li>;
-    })}</ul> : <p className={styles.notice}>You are not in a workspace yet. <Link href="/chat">Create one in chat</Link>.</p>}
+    })}</ul> : <p className={styles.notice}>You are not in a workspace yet. <Link href="/create-workspace">Create one</Link>.</p>}
     {account.workspaces.some(workspace => workspace.role === "ADMIN" && workspace.adminCount <= 1) && <p className={styles.hint}>You can&apos;t leave a workspace where you are the only admin.</p>}
     {feedback}
   </Section>;

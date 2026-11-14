@@ -239,6 +239,193 @@
   background: var(--action);
 }
 
+.wizardCard {
+  width: min(100%, 520px);
+}
+
+.wizardSteps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.wizardSteps li {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.wizardSteps li > span {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid var(--structure);
+  border-radius: 50%;
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.wizardSteps small {
+  font-size: 9px;
+}
+
+.wizardSteps .stepActive {
+  color: var(--text);
+}
+
+.wizardSteps .stepActive > span,
+.wizardSteps .stepComplete > span {
+  border-color: var(--action);
+  background: var(--action);
+  color: var(--on-action);
+}
+
+.wizardFields {
+  display: grid;
+  gap: 16px;
+}
+
+.emailRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 9px;
+}
+
+.emailChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.emailChip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 5px 7px 5px 10px;
+  border: 1px solid var(--structure);
+  border-radius: 18px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 10px;
+}
+
+.emailChip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emailChip button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.emailChip button:hover {
+  background: var(--structure);
+  color: var(--text);
+}
+
+.inviteHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.wizardActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.wizardPrimary {
+  min-width: 118px;
+}
+
+.backLink {
+  margin-right: auto;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.inviteSignIn {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--structure);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.inviteSignIn:hover {
+  background: var(--bg);
+}
+
+.inputReadOnly {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.inputReadOnly input {
+  cursor: default;
+}
+
+.fieldHint {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.googleButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 43px;
+  padding: 0 16px;
+  border: 1px solid var(--structure);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.googleButton:hover {
+  background: var(--bg);
+}
+
+.googleButton svg {
+  flex: 0 0 18px;
+}
+
 @media (max-width: 520px) {
   .wordmark {
     top: 17px;
@@ -252,5 +439,11 @@
   }
   .authFoot {
     bottom: 14px;
+  }
+  .wizardActions {
+    flex-wrap: wrap;
+  }
+  .wizardSteps small {
+    min-height: 24px;
   }
 }

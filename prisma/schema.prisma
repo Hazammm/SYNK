@@ -17,6 +17,48 @@ enum ProjectLevel {
   WRITE
 }
 
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+model User {
+  id                    String               @id @default(cuid())
+  name                  String?
+  email                 String?              @unique
+  emailVerified         DateTime?
+  image                 String?
+  passwordHash          String?
+  notifyAssigned        Boolean              @default(true)
+  notifyComments        Boolean              @default(true)
+  notifyMentions        Boolean              @default(true)
+  lastActiveWorkspaceId String?
+  createdAt             DateTime             @default(now())
+  accounts              Account[]
+  sessions              Session[]
+  loginSessions         LoginSession[]
+  memberships           Membership[]
+  messages              Message[]
+  projectAccess         ProjectAccess[]
+  createdChannels       Channel[]
+  createdWorkspaces     Workspace[]          @relation("WorkspaceCreator")
+  sentInvites           Invite[]             @relation("InviteSender")
+  passwordResetTokens   PasswordResetToken[]
+  lastActiveWorkspace   Workspace?           @relation("UserLastActiveWorkspace", fields: [lastActiveWorkspaceId], references: [id], onDelete: SetNull)
+  assignedTickets       Ticket[]             @relation("TicketAssignee")
+  reportedTickets       Ticket[]             @relation("TicketReporter")
+  comments              Comment[]
+  notifications         Notification[]       @relation("NotificationRecipient")
+  sentNotifications     Notification[]       @relation("NotificationActor")
+  conversations         Conversation[]
+  actionLogs            ActionLog[]
+  createdDocs           Doc[]                @relation("DocCreator")
+  editedDocs            Doc[]                @relation("DocEditor")
+  timeEntries           TimeEntry[]
+}
+
 enum TicketPriority {
   LOW
   MEDIUM
@@ -44,38 +86,6 @@ enum NotificationType {
   TICKET_ASSIGNED
   TICKET_COMMENT
   TICKET_MENTION
-}
-
-model User {
-  id                  String               @id @default(cuid())
-  name                String?
-  email               String?              @unique
-  emailVerified       DateTime?
-  image               String?
-  passwordHash        String?
-  // In-app notification preferences, all on by default.
-  notifyAssigned      Boolean              @default(true)
-  notifyComments      Boolean              @default(true)
-  notifyMentions      Boolean              @default(true)
-  createdAt           DateTime             @default(now())
-  accounts            Account[]
-  sessions            Session[]
-  loginSessions       LoginSession[]
-  memberships         Membership[]
-  messages            Message[]
-  projectAccess       ProjectAccess[]
-  createdChannels     Channel[]
-  passwordResetTokens PasswordResetToken[]
-  assignedTickets     Ticket[]             @relation("TicketAssignee")
-  reportedTickets     Ticket[]             @relation("TicketReporter")
-  comments            Comment[]
-  notifications       Notification[]       @relation("NotificationRecipient")
-  sentNotifications   Notification[]       @relation("NotificationActor")
-  conversations       Conversation[]
-  actionLogs          ActionLog[]
-  createdDocs         Doc[]                @relation("DocCreator")
-  editedDocs          Doc[]                @relation("DocEditor")
-  timeEntries         TimeEntry[]
 }
 
 model Account {
@@ -139,10 +149,14 @@ model PasswordResetToken {
 model Workspace {
   id            String         @id @default(cuid())
   name          String
+  createdById   String
   createdAt     DateTime       @default(now())
+  createdBy     User           @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: Restrict)
   memberships   Membership[]
   channels      Channel[]
   projects      Project[]
+  invites       Invite[]
+  activeUsers   User[]         @relation("UserLastActiveWorkspace")
   conversations Conversation[]
   actionLogs    ActionLog[]
 }
@@ -158,6 +172,23 @@ model Membership {
 
   @@id([workspaceId, userId])
   @@index([userId])
+}
+
+model Invite {
+  id          String        @id @default(cuid())
+  workspaceId String
+  email       String
+  role        WorkspaceRole @default(MEMBER)
+  tokenHash   String        @unique
+  status      InviteStatus  @default(PENDING)
+  expiresAt   DateTime
+  invitedById String
+  createdAt   DateTime      @default(now())
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User          @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([email])
+  @@index([workspaceId])
 }
 
 model Channel {

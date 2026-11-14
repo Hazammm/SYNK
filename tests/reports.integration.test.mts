@@ -7,7 +7,7 @@ nextEnv.loadEnvConfig(process.cwd(), true);
 if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a migrated, disposable PostgreSQL database.");
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 const { db } = await import("../src/lib/db");
-const { createWorkspace, addMember } = await import("../src/features/workspaces/service");
+const { createWorkspace } = await import("../src/features/workspaces/service");
 const { createProject, getProject, setProjectAccess } = await import("../src/features/projects/service");
 const { createSprint, createTicket, updateSprint } = await import("../src/features/tickets/service");
 const { getProjectReport } = await import("../src/features/reports/service");
@@ -21,6 +21,11 @@ const users: string[] = [];
 const status = (code: number) => (error: unknown) => (error as { status?: number }).status === code;
 const rejects = (promise: Promise<unknown>, code: number) => assert.rejects(promise, status(code));
 const finishedOn = (ticketId: string, day: string) => db.ticket.update({ where: { id: ticketId }, data: { completedAt: new Date(`${day}T10:00:00.000Z`) } });
+const addTestMember = (userId: string, workspaceId: string) => db.membership.upsert({
+  where: { workspaceId_userId: { workspaceId, userId } },
+  create: { workspaceId, userId, role: "MEMBER" },
+  update: {},
+});
 
 before(async () => {
   for (const name of ["Admin", "Reader", "Bystander"]) {
@@ -28,7 +33,7 @@ before(async () => {
   }
   [admin, reader, bystander] = users;
   workspaceId = (await createWorkspace(admin, { name: "Reports workspace" })).id;
-  for (const id of [reader, bystander]) await addMember(admin, workspaceId, (await db.user.findUniqueOrThrow({ where: { id } })).email);
+  for (const id of [reader, bystander]) await addTestMember(id, workspaceId);
   projectId = (await createProject(admin, workspaceId, { name: "Reported", key: "RPT" })).id;
   await setProjectAccess(admin, projectId, { userId: reader, level: "READ" });
   const board = (await getProject(admin, projectId)).boards[0];

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CalendarDays, LayoutDashboard } from "lucide-react";
 import { Badge } from "@/components/Primitives";
@@ -14,7 +15,8 @@ import styles from "../tickets/Tracker.module.css";
 const DAY_MS = 86_400_000;
 
 export default function OverviewView({ userName, initialWorkspaces, initialWorkspaceId }: { userName: string; initialWorkspaces: WorkspaceSummary[]; initialWorkspaceId?: string }) {
-  const [workspaceId, setWorkspaceId] = useState(initialWorkspaces.find(item => item.id === initialWorkspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
+  const router = useRouter();
+  const [workspaceId] = useState(initialWorkspaces.find(item => item.id === initialWorkspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
   const [loaded, setLoaded] = useState<{ workspaceId: string; overview: Overview } | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -33,7 +35,7 @@ export default function OverviewView({ userName, initialWorkspaces, initialWorks
   return <div className={styles.tracker}>
     <div className={styles.bar}>
       <div><span className={styles.eyebrow}>OVERVIEW</span><h1>Welcome back, {userName.split(" ")[0]}</h1></div>
-      <label className={styles.picker}>Workspace<select value={workspaceId} onChange={event => { setWorkspaceId(event.target.value); setError(""); }} disabled={!initialWorkspaces.length}>
+      <label className={styles.picker}>Workspace<select value={workspaceId} onChange={event => router.push(`/w/${event.target.value}/overview`)} disabled={!initialWorkspaces.length}>
         {!initialWorkspaces.length && <option value="">No workspaces yet</option>}
         {initialWorkspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>

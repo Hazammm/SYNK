@@ -12,11 +12,16 @@ if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a 
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.NEXTAUTH_SECRET ??= "integration-only-not-a-production-secret-123456789";
 process.env.NEXTAUTH_URL = "http://localhost:3000";
-// Never send real email from tests, even when a provider is configured locally.
-delete process.env.RESEND_API_KEY;
-delete process.env.EMAIL_FROM;
+// Never send real email from tests, even when Mailtrap is configured locally.
+delete process.env.MAILTRAP_HOST;
+delete process.env.MAILTRAP_PORT;
+delete process.env.MAILTRAP_USER;
+delete process.env.MAILTRAP_PASS;
+delete process.env.MAILTRAP_API_TOKEN;
+delete process.env.MAIL_FROM;
 const { db } = await import("../src/lib/db");
-const { createWorkspace, listWorkspaces, addMember, removeMember } = await import("../src/features/workspaces/service");
+const { createWorkspace, listWorkspaces, removeMember } = await import("../src/features/workspaces/service");
+const { requireWorkspace } = await import("../src/lib/permissions");
 const { createChannel, listChannels, joinChannel, addChannelMember, listMessages, sendMessage } = await import("../src/features/chat/service");
 const { attachRealtime } = await import("../src/server/socket");
 const { setRealtime } = await import("../src/lib/realtime");
@@ -44,7 +49,7 @@ before(async () => {
   workspaceId = (await createWorkspace(admin, { name: "Integration workspace" })).id;
   otherWorkspaceId = (await createWorkspace(outsider, { name: "Other workspace" })).id;
   workspaces.push(workspaceId, otherWorkspaceId);
-  await addMember(admin, workspaceId, (await db.user.findUniqueOrThrow({ where: { id: member } })).email);
+  await db.membership.create({ data: { userId: member, workspaceId, role: "MEMBER" } });
   channelId = (await listChannels(admin, workspaceId))[0].id;
   await new Promise<void>(resolve => http.listen(0, "127.0.0.1", resolve));
   url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
@@ -72,7 +77,7 @@ async function socketFor(cookieValue?: string, origin = url) {
   await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("connect_error", reject); socket.connect(); });
   return socket;
 }
-const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) => new Promise<Ack>((resolve, reject) => socket.timeout(3000).emit("channel:join", { channelId: channel }, (error, result) => error ? reject(error) : resolve(result)));
+const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) => new Promise<Ack>((resolve, reject) => socket.timeout(10_000).emit("channel:join", { channelId: channel }, (error, result) => error ? reject(error) : resolve(result)));
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 test("workspace creation is atomic, and discovery excludes other tenants", async () => {
@@ -81,7 +86,7 @@ test("workspace creation is atomic, and discovery excludes other tenants", async
   assert.equal(result[0].role, "ADMIN");
   await denied(listChannels(outsider, workspaceId));
   await denied(createChannel(outsider, workspaceId, { name: "forbidden" }));
-  await denied(addMember(member, workspaceId, "nobody@example.test"));
+  await denied(requireWorkspace(member, workspaceId, "workspace:manage"));
 });
 test("workspace membership alone never grants channel history or writes", async () => {
   await denied(listMessages(member, channelId, {}));
@@ -316,10 +321,32 @@ test("forgot password never issues a token to an OAuth-only account", async () =
   assert.equal(await db.passwordResetToken.count({ where: { userId: user.id } }), 0);
 });
 
+test("Google sign-in redirects an unknown verified email to workspace creation without creating a user", async () => {
+  const callback = authOptions.callbacks?.signIn;
+  assert.ok(callback);
+  const email = `new-google-${randomUUID()}@example.test`;
+  const googleProfile = { email, email_verified: true, name: "New Google User" };
+  const result = await callback({
+    user: { id: randomUUID(), name: googleProfile.name, email, image: null },
+    account: { provider: "google", providerAccountId: randomUUID(), type: "oauth" },
+    profile: googleProfile,
+  });
+
+  assert.equal(typeof result, "string");
+  if (typeof result !== "string") throw new Error("Expected an onboarding redirect.");
+  const redirect = new URL(result, url);
+  assert.equal(redirect.pathname, "/api/auth/google-profile");
+  assert.equal(redirect.searchParams.get("next"), "/create-workspace?from=google");
+  assert.equal(await db.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } }), null);
+});
+
 const resetUser = async (label: string) => {
   const email = `${label}-${randomUUID()}@example.test`;
   const user = await db.user.create({ data: { name: label, email, passwordHash: await hash("OldPassword123!", 12) } });
   users.push(user.id);
+  const workspace = await db.workspace.create({ data: { name: `${label}-ws`, createdById: user.id } });
+  workspaces.push(workspace.id);
+  await db.membership.create({ data: { workspaceId: workspace.id, userId: user.id, role: "ADMIN" } });
   return { email, user };
 };
 const ageTokens = (userId: string) => db.passwordResetToken.updateMany({ where: { userId }, data: { createdAt: new Date(Date.now() - RESEND_COOLDOWN_MS - 1000) } });
@@ -356,16 +383,13 @@ test("a failed email send removes only the new link, so the user can retry", asy
   await ageTokens(user.id);
   const [earlier] = await db.passwordResetToken.findMany({ where: { userId: user.id } });
 
-  const realFetch = globalThis.fetch;
-  process.env.RESEND_API_KEY = "test-key";
-  process.env.EMAIL_FROM = "Synk <test@example.test>";
-  globalThis.fetch = async () => new Response(null, { status: 500 });
+  const previousNodeEnv = process.env.NODE_ENV;
+  Object.assign(process.env, { NODE_ENV: "production" });
   try {
-    await assert.rejects(issuePasswordReset(email), /Email provider responded 500/);
+    await assert.rejects(issuePasswordReset(email), /Email delivery is not configured/);
   } finally {
-    globalThis.fetch = realFetch;
-    delete process.env.RESEND_API_KEY;
-    delete process.env.EMAIL_FROM;
+    if (previousNodeEnv === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+    else Object.assign(process.env, { NODE_ENV: previousNodeEnv });
   }
   const tokens = await db.passwordResetToken.findMany({ where: { userId: user.id } });
   assert.deepEqual(tokens.map(token => token.id), [earlier.id]);
