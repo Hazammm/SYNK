@@ -44,6 +44,8 @@ test("issue tracking: project, ticket lifecycle, delete, sprint, report export a
   await page.getByLabel("Project name").fill("Browser QA");
   await expect(page.getByLabel("Ticket key")).toHaveValue("BQ");
   await page.getByRole("button", { name: "Create project", exact: true }).click();
+  // The starter project's board is already showing, so wait for the new project to take over.
+  await expect(page.getByRole("combobox", { name: "Project" }).locator("option:checked")).toHaveText("Browser QA (BQ)");
   await expect(page.getByRole("region", { name: "To Do, 0 tickets" })).toBeVisible();
 
   async function createTicket(title: string) {
