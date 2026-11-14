@@ -26,10 +26,12 @@ export default function AuthPage({
   inviteToken,
   authError,
   googleEnabled,
+  codeHosts = [],
 }: {
   inviteToken: string;
   authError: boolean;
   googleEnabled?: boolean;
+  codeHosts?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -53,11 +55,11 @@ export default function AuthPage({
     } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
   }
 
-  async function googleSignIn() {
+  async function oauthSignIn(provider: string) {
     if (busy) return;
     setBusy(true);
     try {
-      await signIn("google", { callbackUrl: "/" });
+      await signIn(provider, { callbackUrl: "/" });
     } catch {
       setBusy(false);
     }
@@ -75,13 +77,14 @@ export default function AuthPage({
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <Button variant="primary" type="submit" disabled={busy} className={styles.submit}>{busy ? "Please wait…" : "Sign in"}</Button>
       </form>
-      {googleEnabled && <>
-        <div className={styles.divider}>or</div>
-        <button className={styles.googleButton} type="button" onClick={googleSignIn} disabled={busy}>
-          <GoogleIcon />
-          Continue with Google
-        </button>
-      </>}
+      {(googleEnabled || codeHosts.length > 0) && <div className={styles.divider}>or</div>}
+      {googleEnabled && <button className={styles.googleButton} type="button" onClick={() => void oauthSignIn("google")} disabled={busy}>
+        <GoogleIcon />
+        Continue with Google
+      </button>}
+      {codeHosts.map(provider => <button key={provider.id} className={styles.googleButton} type="button" onClick={() => void oauthSignIn(provider.id)} disabled={busy}>
+        Continue with {provider.name}
+      </button>)}
       <p className={styles.switch}>New to Synk? <Link href="/create-workspace">Create a workspace</Link></p>
       {inviteToken && <p className={styles.secure}>Sign in with the invited email to join this workspace.</p>}
     </section><ThemeBar />

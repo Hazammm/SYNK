@@ -1,7 +1,9 @@
 import type { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
+import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
+import { Bitbucket } from "./bitbucket-provider";
 import { compare } from "bcryptjs";
 import { db } from "./db";
 import { credentialsSchema } from "./validation";
@@ -73,6 +75,10 @@ if (googleClientId && googleClientSecret) {
     allowDangerousEmailAccountLinking: true,
   }));
 }
+
+// Optional code-host sign-in. A new person who signs in this way lands on the workspace setup form.
+if (process.env.GITHUB_ID && process.env.GITHUB_SECRET) providers.push(GitHub({ clientId: process.env.GITHUB_ID, clientSecret: process.env.GITHUB_SECRET }));
+if (process.env.BITBUCKET_ID && process.env.BITBUCKET_SECRET) providers.push(Bitbucket({ clientId: process.env.BITBUCKET_ID, clientSecret: process.env.BITBUCKET_SECRET }));
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
