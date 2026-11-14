@@ -11,6 +11,7 @@ test("docs: create nested pages, format them, check off a task, search and reloa
     name: "Docs QA",
     email: `docs-${nonce}@example.test`,
     workspaceName: `Docs QA ${nonce}`,
+    projectName: "Handbook",
   });
 
   // The wizard already created a starter project, so docs opens ready for the first page.

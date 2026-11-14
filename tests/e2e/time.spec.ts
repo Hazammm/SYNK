@@ -14,13 +14,11 @@ test("time: start and stop a timer from a ticket, add time by hand, see the week
     name: "Time QA",
     email: `time-${nonce}@example.test`,
     workspaceName: `Time QA ${nonce}`,
+    projectName: "Timesheet",
   });
 
-  // A project with one ticket. The wizard already created a starter project.
+  // The wizard created the Timesheet project (key TIM); give it one ticket.
   await page.goto("/board");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
-  await page.getByLabel("Project name").fill("Timesheet");
-  await page.getByRole("button", { name: "Create project", exact: true }).click();
   await page.getByRole("button", { name: "New ticket", exact: true }).click();
   await page.getByRole("dialog", { name: "New ticket" }).getByLabel("Title", { exact: true }).fill("Build the report");
   await page.getByRole("dialog", { name: "New ticket" }).getByRole("button", { name: "Create ticket" }).click();
