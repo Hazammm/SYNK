@@ -32,3 +32,4 @@ ALTER TABLE "Doc" ADD CONSTRAINT "Doc_createdById_fkey" FOREIGN KEY ("createdByI
 
 -- AddForeignKey
 ALTER TABLE "Doc" ADD CONSTRAINT "Doc_lastEditedById_fkey" FOREIGN KEY ("lastEditedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+

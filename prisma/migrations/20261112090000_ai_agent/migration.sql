@@ -73,3 +73,4 @@ ALTER TABLE "ActionLog" ADD CONSTRAINT "ActionLog_userId_fkey" FOREIGN KEY ("use
 
 -- AddForeignKey
 ALTER TABLE "ActionLog" ADD CONSTRAINT "ActionLog_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

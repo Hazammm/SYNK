@@ -17,17 +17,6 @@ ALTER TABLE "Workspace"
   FOREIGN KEY ("createdById") REFERENCES "User"("id")
   ON DELETE RESTRICT ON UPDATE CASCADE;
 
-ALTER TABLE "Membership" ADD COLUMN "id" TEXT;
-UPDATE "Membership"
-SET "id" = 'legacy_' || md5(random()::text || clock_timestamp()::text);
-ALTER TABLE "Membership" ALTER COLUMN "id" SET NOT NULL;
-CREATE UNIQUE INDEX "Membership_id_key" ON "Membership"("id");
-CREATE UNIQUE INDEX "Membership_userId_workspaceId_key" ON "Membership"("userId", "workspaceId");
-CREATE INDEX "Membership_workspaceId_idx" ON "Membership"("workspaceId");
-
-ALTER TABLE "Project"
-  ADD COLUMN "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
-
 CREATE TABLE "Invite" (
   "id" TEXT NOT NULL,
   "workspaceId" TEXT NOT NULL,
@@ -54,3 +43,10 @@ ALTER TABLE "Invite"
   ADD CONSTRAINT "Invite_invitedById_fkey"
   FOREIGN KEY ("invitedById") REFERENCES "User"("id")
   ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "User" ADD COLUMN "lastActiveWorkspaceId" TEXT;
+
+ALTER TABLE "User"
+  ADD CONSTRAINT "User_lastActiveWorkspaceId_fkey"
+  FOREIGN KEY ("lastActiveWorkspaceId") REFERENCES "Workspace"("id")
+  ON DELETE SET NULL ON UPDATE CASCADE;

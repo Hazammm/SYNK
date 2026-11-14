@@ -8,8 +8,8 @@ CREATE TYPE "SprintState" AS ENUM ('PLANNED', 'ACTIVE', 'COMPLETED');
 CREATE TYPE "NotificationType" AS ENUM ('TICKET_ASSIGNED', 'TICKET_COMMENT', 'TICKET_MENTION');
 
 -- AlterTable: Project. `key` starts nullable so existing rows can be backfilled.
--- `createdAt` is provided by the invite-only migration on asra-dev.
-ALTER TABLE "Project" ADD COLUMN     "key" TEXT,
+ALTER TABLE "Project" ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "key" TEXT,
 ADD COLUMN     "nextTicketNumber" INTEGER NOT NULL DEFAULT 1;
 
 -- Backfill: reuse the prefix of the project's existing ticket keys (SYN in SYN-101).
@@ -222,3 +222,4 @@ ALTER TABLE "Notification" ADD CONSTRAINT "Notification_ticketId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_commentId_fkey" FOREIGN KEY ("commentId") REFERENCES "Comment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

@@ -162,7 +162,6 @@ model Workspace {
 }
 
 model Membership {
-  id             String          @unique @default(cuid())
   workspaceId    String
   userId         String
   role           WorkspaceRole   @default(MEMBER)
@@ -172,9 +171,7 @@ model Membership {
   channelMembers ChannelMember[]
 
   @@id([workspaceId, userId])
-  @@unique([userId, workspaceId])
   @@index([userId])
-  @@index([workspaceId])
 }
 
 model Invite {
