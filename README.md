@@ -88,6 +88,10 @@ The Google button appears on `/login` after both values are configured. New Goog
 
 Email/password login works without Google credentials.
 
+### GitHub and Bitbucket sign-in (optional)
+
+Set `GITHUB_ID` and `GITHUB_SECRET` (a GitHub OAuth app) or `BITBUCKET_ID` and `BITBUCKET_SECRET` (a Bitbucket OAuth consumer with the `account` and `email` scopes) in `.env`. The callback URLs are `http://localhost:3000/api/auth/callback/github` and `http://localhost:3000/api/auth/callback/bitbucket`. Each button appears on `/login` once its pair is set. Someone new who signs in this way is taken to the workspace setup form.
+
 ## Verification
 
 ```bash
