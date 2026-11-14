@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { signOut } from "next-auth/react";
 import {
   Bell, BookOpen, ChevronDown, Clock3, FileText, LayoutDashboard, MessageCircle,
   Search, Settings, KanbanSquare,
@@ -99,7 +98,6 @@ export default function SynkShell({
           </Link>
           <ProfileMenu userName={userName} settingsHref={`${base}/settings`} />
           <SettingsLink href={`${base}/settings`} className={`${styles.settingsLink} ${pathname.endsWith("/settings") ? styles.settingsActive : ""}`} />
-          <button type="button" className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
         </header>
         <main>{children}</main>
         <div className={styles.liveTheme}><ThemeBar /></div>
@@ -160,7 +158,6 @@ export default function SynkShell({
         </Link>
         <ProfileMenu userName={userName} settingsHref={`${base}/settings`} />
         <SettingsLink href={`${base}/settings`} className={`${styles.settingsLink} ${pathname.endsWith("/settings") ? styles.settingsActive : ""}`} />
-          <button type="button" className={styles.signOut} onClick={() => void signOut({ callbackUrl: "/login" })}>Sign out</button>
         <button className={styles.mobileToggle} onClick={() => setMobilePanel(!mobilePanel)} type="button" aria-label="Toggle project menu">
           <ChevronDown size={18} />
         </button>

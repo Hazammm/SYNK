@@ -133,7 +133,8 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     expect(inputBox && themeBox && themeBox.y >= inputBox.y + inputBox.height).toBeTruthy();
     await member.screenshot({ path: "test-results/chat-mobile.png", fullPage: true });
 
-    await member.getByRole("button", { name: "Sign out", exact: true }).click();
+    await member.locator('button[aria-controls="profile-card"]').click(); // sign out lives in the profile menu
+    await member.getByRole("dialog", { name: "Your profile" }).getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(member).toHaveURL(/\/login/);
     expect((await memberContext.request.get("/api/workspaces")).status()).toBe(401);
     await member.getByLabel("Email").fill(memberEmail);
@@ -146,7 +147,8 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await expect(member).toHaveURL(/\/overview/);
     await member.getByRole("link", { name: "Chat", exact: true }).click();
     await expect(member.getByRole("log", { name: "Channel messages" }).getByText(message)).toBeVisible();
-    await member.getByRole("button", { name: "Sign out", exact: true }).click();
+    await member.locator('button[aria-controls="profile-card"]').click(); // sign out lives in the profile menu
+    await member.getByRole("dialog", { name: "Your profile" }).getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(member).toHaveURL(/\/login/);
     expect(errors).toEqual([]);
   } finally {
