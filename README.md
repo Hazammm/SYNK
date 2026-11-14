@@ -8,7 +8,6 @@
 
 Small teams usually split their work across a chat tool, an issue tracker, a wiki and a timesheet. Each one has its own accounts, permissions and search. Synk puts these four modules in one Next.js application backed by one PostgreSQL schema, so a ticket key in a chat message, a Markdown page or an AI reply points to the same record. Every single-resource access check, whether it comes from a browser request, a live socket or an AI tool call, goes through one permission function, and ticket and page list and search queries apply the same rule (workspace membership plus a project-access row) as database filters; message search covers only channels the user has joined. The AI agent, Synk AI, is a separate Python LangGraph service that uses Google Gemini. It has no database credentials. It acts only by calling Synk's own tool endpoints with a short-lived token that names one user and one workspace, and it asks for explicit confirmation before it changes existing data.
 
-Synk was built as a Final Year Project. It runs locally and in CI. There is no public deployment.
 
 <p><img src="docs/images/board.png" width="49%" alt="Synk board view with project, board and filter controls"> <img src="docs/images/agent.png" width="49%" alt="Synk AI panel open beside the board"></p>
 
@@ -217,27 +216,6 @@ compose.yaml              PostgreSQL and the agent service for local development
 | [`docs/chat-qa.md`](docs/chat-qa.md) | Chat verification records and manual acceptance plan |
 
 `docs/chat-implementation.md` and the "Not done yet" list in `docs/issue-tracking.md` were written before invitations, docs, time tracking and the agent were built. Their API tables and roadmaps are historical; the limits below are current.
-
-## Limitations and possible next steps
-
-Current limitations:
-
-- **Single instance.** Rate limits, Socket.IO rooms, session revocation and the agent's one-turn-at-a-time lock live in process memory, and agent memory is a local SQLite file. Synk needs a persistent Node host behind a reverse proxy that supports WebSockets. Serverless-only hosting cannot run the custom socket server.
-- **No public deployment** and no live demo.
-- **Sign-in only.** GitHub, Bitbucket and Google are sign-in options. There is no code-host repository integration.
-- **Live updates cover chat only.** A change someone else makes to a board appears after a reload.
-- **Accounts and roles.** There is no account deletion, and an admin cannot change a member's role.
-- **Agent.** Replies are not streamed, and there are five tools. `ActionLog` is written but not yet shown in the UI. The accuracy evaluation has not yet completed a full 30-prompt run.
-- **Security headers.** No Content-Security-Policy or Strict-Transport-Security header is set yet.
-
-Possible next steps, each tied to a limitation above:
-
-1. A full 30-prompt accuracy run, including the edge cases.
-2. Shared state (a Socket.IO adapter, a shared rate-limit store and revocation across instances) to support more than one instance.
-3. Live board and notification updates over the existing Socket.IO connection.
-4. Code-host integration, such as linking pull requests to tickets.
-5. Role management and account deletion.
-
 ## License
 
 This repository does not include a license.
