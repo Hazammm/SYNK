@@ -63,3 +63,30 @@ The command prints the figures for every file. The least covered file is `src/li
 20. A webhook signed with the wrong secret tries to change pull requests.
 
 Other suites test more denial cases next to the features they protect, for example the socket tests for live chat.
+
+## Performance
+
+`npm run test:load` signs in as the demo admin and sends 200 requests to each read endpoint and 50 to each write endpoint, 10 at a time, against `npm start`.
+
+| Endpoint | p50 (ms) | p95 (ms) | Max (ms) |
+|---|---:|---:|---:|
+| GET /api/me | 85 | 146 | 2178 (first request, server warming up) |
+| GET /api/workspaces | 79 | 96 | 102 |
+| GET /api/workspaces/:id/projects | 102 | 119 | 130 |
+| GET /api/projects/:id | 125 | 169 | 212 |
+| GET /api/tickets?boardId= | 117 | 145 | 175 |
+| GET /api/channels/:id/messages | 99 | 137 | 172 |
+| GET /api/notifications | 93 | 180 | 232 |
+| GET /api/workspaces/:id/overview | 158 | 214 | 265 |
+| POST /api/tickets | 186 | 299 | 318 |
+| POST /api/channels/:id/messages | 139 | 186 | 211 |
+
+No request failed. The script exits with an error if any p95 reaches 500 ms. It creates load-test tickets and messages, so run it against demo data, not real data.
+
+`npm run test:walkthrough` drives a browser through the core flow with the real model: create an account and workspace, ask Synk AI to "Create a high priority ticket called Fix login bug", and find the ticket on the board.
+
+| Step | Seconds since start |
+|---|---:|
+| Account and workspace created | 1.6 |
+| Synk AI created the ticket | 5.0 |
+| Ticket shows on the board | 5.5 |
