@@ -118,3 +118,12 @@ export async function syncRepository(userId: string, repositoryId: string): Prom
   for (const remote of remotes) linked += await record(repository, remote);
   return { scanned: remotes.length, linked };
 }
+
+export async function listPullRequests(userId: string, ticketId: string): Promise<TicketPullRequests> {
+  const ticket = await requireTicket(userId, ticketId, "ticket:read");
+  const [rows, repositories] = await Promise.all([
+    db.pullRequest.findMany({ where: { ticketId: ticket.id }, include: pullRequestInclude, orderBy: [{ updatedAt: "desc" }, { id: "asc" }] }),
+    db.repository.count({ where: { projectId: ticket.projectId } }),
+  ]);
+  return { pullRequests: rows.map(serializePullRequest), linkable: repositories > 0 };
+}
