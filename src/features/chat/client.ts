@@ -54,6 +54,7 @@ export function useMessages(channelId: string, parentId: string | null) {
     let buffer: MessageEvent[] = [];
     const controller = new AbortController();
     const socket: Socket<ServerEvents, ClientEvents> = io({ autoConnect: false, withCredentials: true });
+    socketRef.current = socket;
     const query = parentId ? `?parentId=${parentId}` : "";
 
     function fail(error: unknown) {
@@ -113,8 +114,28 @@ export function useMessages(channelId: string, parentId: string | null) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       generation.current++;
       controller.abort(); socket.removeAllListeners(); socket.disconnect();
+      socketRef.current = null;
     };
   }, [base, channelId, parentId]);
+
+  // Drop typing signals that have run out.
+  const typingCount = Object.keys(typing).length;
+  useEffect(() => {
+    if (!typingCount) return;
+    const timer = setInterval(() => setTyping(current => {
+      const now = Date.now();
+      const live = Object.entries(current).filter(([, entry]) => entry.until > now);
+      return live.length === Object.keys(current).length ? current : Object.fromEntries(live);
+    }), 1000);
+    return () => clearInterval(timer);
+  }, [typingCount]);
+
+  // Tells the others in the channel this person is typing, at most every 2 seconds.
+  function notifyTyping() {
+    if (parentId || !socketRef.current?.connected || Date.now() - lastTypingSent.current < 2000) return;
+    lastTypingSent.current = Date.now();
+    socketRef.current.emit("typing", { channelId });
+  }
 
   async function loadOlder() {
     if (!nextCursor || loadingOlder) return;
