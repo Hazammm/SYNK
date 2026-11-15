@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireWorkspaceUser } from "@/lib/workspace-context";
+import { ArrowLeft } from "lucide-react";
+import styles from "@/components/Status.module.css";
 
 export const instant = false;
 
@@ -35,13 +37,13 @@ export default async function WorkspaceTicketReference({
   if (!tickets.length) notFound();
 
   return (
-    <section style={{ padding: 32 }}>
-      <Link href={`/w/${workspaceId}/chat`}>← Back to chat</Link>
+    <section className={styles.article}>
+      <Link href={`/w/${workspaceId}/chat`} className={styles.back}><ArrowLeft size={15} aria-hidden="true" /> Back to chat</Link>
       {tickets.map(ticket => (
         <article key={ticket.id}>
-          <p>{ticket.project.name} · {ticket.key} · {ticket.column.name}</p>
+          <p className={styles.crumbs}>{ticket.project.name} <code>{ticket.key}</code> <span>{ticket.column.name}</span></p>
           <h1>{ticket.title}</h1>
-          <p style={{ whiteSpace: "pre-wrap" }}>{ticket.description}</p>
+          {ticket.description ? <p className={styles.body}>{ticket.description}</p> : <p className={styles.bodyEmpty}>No description.</p>}
         </article>
       ))}
     </section>
