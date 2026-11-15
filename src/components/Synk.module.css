@@ -216,7 +216,7 @@
 
 .workspace {
   display: grid;
-  grid-template-columns: 228px minmax(0, 1fr) 248px;
+  grid-template-columns: 228px minmax(0, 1fr);
   min-height: calc(100vh - 122px);
 }
 
@@ -330,53 +330,6 @@
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
-}
-
-.contextPanel {
-  padding: 29px 18px 24px;
-  border-left: 1px solid var(--structure);
-}
-
-.contextHeading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0 15px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.contextHeading button {
-  margin-left: auto;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 17px;
-  cursor: pointer;
-}
-
-.contextPanel > .avatar {
-  margin-right: 5px;
-}
-
-.contextRule {
-  height: 1px;
-  margin: 23px 0;
-  background: var(--structure);
-}
-
-.contextDoc {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.contextDoc:hover {
-  color: var(--link);
 }
 
 .themeBar {
@@ -681,9 +634,6 @@
 @media (max-width: 1200px) {
   .workspace {
     grid-template-columns: 210px minmax(0, 1fr);
-  }
-  .contextPanel {
-    display: none;
   }
 }
 
