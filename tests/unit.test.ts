@@ -23,6 +23,8 @@ import { sendPasswordResetEmail } from "../src/lib/mailer";
 import { createHmac } from "node:crypto";
 import { parsePullRequestUrl, ticketKeysIn } from "../src/features/integrations/refs";
 import { fullNameSchema, validSignature } from "../src/features/integrations/providers/shared";
+import { github } from "../src/features/integrations/providers/github";
+import { bitbucket } from "../src/features/integrations/providers/bitbucket";
 
 test("ticket keys are found in pull request titles and branch names", () => {
   assert.deepEqual(ticketKeysIn("SYN-12 fix login", "SYN"), ["SYN-12"]);
@@ -57,6 +59,23 @@ test("webhook signatures must match the repository's secret over the exact body"
   assert.equal(validSignature("secret", body, sign("secret").slice(7)), false); // missing the sha256= prefix
   assert.equal(validSignature("secret", body, "sha256=abc"), false);
   assert.equal(validSignature("secret", body, null), false);
+});
+
+test("GitHub and Bitbucket deliveries map to the same pull request shape", () => {
+  const pull = { number: 4, title: "SYN-1 fix", html_url: "https://github.com/acme/app/pull/4", state: "closed", merged_at: "2026-11-14T10:00:00Z", head: { ref: "fix" }, user: { login: "hazam" }, updated_at: "2026-11-14T10:00:00Z" };
+  const event = (name: string) => new Headers({ "x-github-event": name });
+  const parsed = github.parseWebhook(event("pull_request"), { pull_request: pull, repository: { full_name: "acme/app" } });
+  assert.deepEqual([parsed?.fullName, parsed?.pullRequest.status, parsed?.pullRequest.branch, parsed?.pullRequest.author, parsed?.pullRequest.number], ["acme/app", "MERGED", "fix", "hazam", 4]);
+  const statusOf = (changes: object) => github.parseWebhook(event("pull_request"), { pull_request: { ...pull, ...changes }, repository: { full_name: "acme/app" } })?.pullRequest.status;
+  assert.deepEqual([statusOf({ state: "open", merged_at: null }), statusOf({ merged_at: null }), statusOf({ user: null })], ["OPEN", "DECLINED", "MERGED"]);
+  assert.equal(github.parseWebhook(event("ping"), { zen: "Keep it simple." }), null);
+  assert.equal(github.parseWebhook(event("pull_request"), { pull_request: { number: "4" } }), null); // not the expected shape
+
+  const hosted = { id: 9, title: "SYN-2 report", state: "OPEN", links: { html: { href: "https://bitbucket.org/team/site/pull-requests/9" } }, updated_on: "2026-11-14T11:00:00Z", source: { branch: { name: "report" } }, author: { display_name: "Asra" } };
+  const key = (name: string) => new Headers({ "x-event-key": name });
+  const states = ["OPEN", "MERGED", "DECLINED", "SUPERSEDED"].map(state => bitbucket.parseWebhook(key("pullrequest:updated"), { pullrequest: { ...hosted, state }, repository: { full_name: "team/site" } })?.pullRequest.status);
+  assert.deepEqual(states, ["OPEN", "MERGED", "DECLINED", "DECLINED"]);
+  assert.equal(bitbucket.parseWebhook(key("repo:push"), { pullrequest: hosted, repository: { full_name: "team/site" } }), null);
 });
 
 test("deny by default, including workspace admins outside a channel or project", () => {
