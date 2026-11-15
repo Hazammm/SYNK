@@ -1,4 +1,5 @@
 import type { NextAuthOptions } from "next-auth";
+import type { AdapterAccount } from "next-auth/adapters";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
@@ -80,8 +81,23 @@ if (googleClientId && googleClientSecret) {
 if (process.env.GITHUB_ID && process.env.GITHUB_SECRET) providers.push(GitHub({ clientId: process.env.GITHUB_ID, clientSecret: process.env.GITHUB_SECRET }));
 if (process.env.BITBUCKET_ID && process.env.BITBUCKET_SECRET) providers.push(Bitbucket({ clientId: process.env.BITBUCKET_ID, clientSecret: process.env.BITBUCKET_SECRET }));
 
+// What a code host returns with its token. Only these are columns on Account; Bitbucket also sends extras such as
+// "scopes" that Prisma would reject.
+type OAuthTokens = { access_token?: string; refresh_token?: string; expires_at?: number; scope?: string; scopes?: unknown };
+const storedTokens = (account: OAuthTokens) => ({
+  access_token: account.access_token, refresh_token: account.refresh_token, expires_at: account.expires_at,
+  scope: account.scope ?? (typeof account.scopes === "string" ? account.scopes : undefined),
+});
+const prismaAdapter = PrismaAdapter(db);
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
+  adapter: {
+    ...prismaAdapter,
+    linkAccount(account: AdapterAccount) {
+      const { userId, type, provider, providerAccountId, token_type, id_token, session_state } = account;
+      return prismaAdapter.linkAccount!({ userId, type, provider, providerAccountId, token_type, id_token, session_state, ...storedTokens(account) });
+    },
+  },
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt", maxAge },
   pages: { signIn: "/login", error: "/login" },
