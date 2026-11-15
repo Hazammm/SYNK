@@ -207,3 +207,25 @@ test("Bitbucket: an expired token is refreshed, and its webhook is verified the 
   assert.deepEqual(await receiveWebhook("BITBUCKET", signed, body), { ok: true, updated: 1 });
   assert.ok((await titles(ticket2)).includes("7:DECLINED"));
 });
+
+test("cleanup: deleting a ticket or unlinking a repository removes its pull requests", async () => {
+  assert.ok(await db.pullRequest.count({ where: { ticketId: ticket1 } }) > 0);
+  await deleteTicket(admin, ticket1);
+  assert.equal(await db.pullRequest.count({ where: { ticketId: ticket1 } }), 0);
+
+  await rejects(unlinkRepository(writer, repositoryId), 403);
+  assert.deepEqual(await unlinkRepository(admin, repositoryId), { deleted: true });
+  assert.equal(await db.pullRequest.count({ where: { repositoryId } }), 0);
+  await rejects(syncRepository(admin, repositoryId), 404);
+
+  // If the person who linked a repository leaves, it stays but asks to be linked again.
+  const [remaining] = await listRepositories(admin, projectId);
+  await db.repository.update({ where: { id: remaining.id }, data: { connectedById: null } });
+  await rejects(syncRepository(writer, remaining.id), 409);
+  assert.equal((await listRepositories(admin, projectId))[0].connectedBy, null);
+
+  // A project without repositories has nothing to attach from.
+  const other = await createProject(admin, workspaceId, { name: "Other", key: "OTH" });
+  const lonely = await createTicket(admin, { boardId: (await getProject(admin, other.id)).boards[0].id, title: "No repository" });
+  assert.deepEqual(await listPullRequests(admin, lonely.id), { pullRequests: [], linkable: false });
+});
