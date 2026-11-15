@@ -61,6 +61,10 @@ const scenarios: [string, () => Promise<unknown>][] = [
   ["an outsider posts in a channel", () => sendMessage(outsider, generalId, { body: "hello", clientMessageId: randomUUID() })],
   ["a member joins a private channel they were not added to", () => joinChannel(member, privateId)],
   ["a member reads a private channel's history", () => listMessages(member, privateId, {})],
+  ["a member without project access opens a ticket", () => getTicket(member, ticketId)],
+  ["a viewer edits a ticket", () => updateTicket(viewer, ticketId, { title: "Changed" })],
+  ["a viewer deletes a ticket", () => deleteTicket(viewer, ticketId)],
+  ["a viewer creates a ticket", async () => createTicket(viewer, { boardId: (await getProject(admin, projectId)).boards[0].id, title: "Sneaky" })],
 ];
 
 for (const [scenario, attempt] of scenarios) {
