@@ -20,6 +20,7 @@ import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFi
 import { initials, trackerHref } from "../src/features/tickets/ui";
 import type { ChatMessage } from "../src/lib/chat-types";
 import { sendPasswordResetEmail } from "../src/lib/mailer";
+import { createHmac } from "node:crypto";
 import { parsePullRequestUrl, ticketKeysIn } from "../src/features/integrations/refs";
 import { fullNameSchema, validSignature } from "../src/features/integrations/providers/shared";
 
@@ -45,6 +46,17 @@ test("pull request addresses are read for GitHub and Bitbucket only", () => {
 test("repository names must look like owner/repository", () => {
   for (const name of ["acme/app", "Hazammm/SYNK", "a.b/c_d-e"]) assert.equal(fullNameSchema.safeParse(name).success, true, name);
   for (const name of ["acme", "acme/app/extra", "../etc", "acme/..", "acme/app?x=1", "acme /app", ""]) assert.equal(fullNameSchema.safeParse(name).success, false, name);
+});
+
+test("webhook signatures must match the repository's secret over the exact body", () => {
+  const body = JSON.stringify({ action: "opened" });
+  const sign = (secret: string, text = body) => `sha256=${createHmac("sha256", secret).update(text).digest("hex")}`;
+  assert.equal(validSignature("secret", body, sign("secret")), true);
+  assert.equal(validSignature("secret", body, sign("other")), false);
+  assert.equal(validSignature("secret", `${body} `, sign("secret")), false); // one changed byte
+  assert.equal(validSignature("secret", body, sign("secret").slice(7)), false); // missing the sha256= prefix
+  assert.equal(validSignature("secret", body, "sha256=abc"), false);
+  assert.equal(validSignature("secret", body, null), false);
 });
 
 test("deny by default, including workspace admins outside a channel or project", () => {
