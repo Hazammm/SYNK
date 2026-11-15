@@ -135,3 +135,24 @@ test("sync: pull requests that name a ticket key attach to it, and a second sync
   assert.deepEqual(await titles(ticket1), ["1:MERGED", "3:DECLINED"]);
   assert.equal((await listRepositories(admin, projectId))[0].pullRequestCount, 4);
 });
+
+test("attaching by address: needs a linked repository and edit access", async () => {
+  hosted.pulls.push({ number: 5, title: "Unrelated cleanup", branch: "cleanup", state: "open" });
+  const address = "https://github.com/acme/app/pull/5";
+  await rejects(linkPullRequest(reader, ticket2, { url: address }), 403);
+  await rejects(linkPullRequest(bystander, ticket2, { url: address }), 404);
+  await rejects(linkPullRequest(writer, ticket2, { url: "https://example.com/acme/app/pull/5" }), 400);
+  await rejects(linkPullRequest(writer, ticket2, { url: "https://github.com/acme/other/pull/5" }), 400); // not linked to this project
+  await rejects(linkPullRequest(writer, ticket2, { url: "https://github.com/acme/app/pull/404" }), 404);
+
+  const attached = await linkPullRequest(writer, ticket2, { url: address });
+  assert.deepEqual([attached.number, attached.title, attached.status, attached.branch, attached.author, attached.repository.fullName], [5, "Unrelated cleanup", "OPEN", "cleanup", "hazam", "acme/app"]);
+  assert.equal((await linkPullRequest(writer, ticket2, { url: address })).id, attached.id); // attaching twice keeps one
+  const listed = await listPullRequests(reader, ticket2);
+  assert.equal(listed.linkable, true);
+  assert.ok(listed.pullRequests.some(item => item.id === attached.id));
+
+  await rejects(unlinkPullRequest(reader, attached.id), 403);
+  assert.deepEqual(await unlinkPullRequest(writer, attached.id), { deleted: true });
+  await rejects(unlinkPullRequest(writer, attached.id), 404);
+});
