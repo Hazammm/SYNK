@@ -15,14 +15,10 @@ type Selection = { workspaceId?: string; projectId?: string; doc?: string };
 type Props = { initialWorkspaces: WorkspaceSummary[]; initial: Selection };
 
 export default function DocsView({ initialWorkspaces, initial }: Props) {
-  const [workspaceId, setWorkspaceId] = useState(initialWorkspaces.find(item => item.id === initial.workspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
+  const [workspaceId] = useState(initialWorkspaces.find(item => item.id === initial.workspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
   return <div className={styles.page}>
     <div className={styles.bar}>
-      <div><span className={styles.eyebrow}>DOCS</span><h1>Pages</h1></div>
-      <label className={styles.picker}>Workspace<select value={workspaceId} onChange={event => setWorkspaceId(event.target.value)} disabled={!initialWorkspaces.length}>
-        {!initialWorkspaces.length && <option value="">No workspaces yet</option>}
-        {initialWorkspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select></label>
+      <h1>Pages</h1>
     </div>
     {workspaceId
       ? <Workspace key={workspaceId} workspaceId={workspaceId} initial={workspaceId === initial.workspaceId ? initial : {}} />
@@ -54,7 +50,7 @@ function Workspace({ workspaceId, initial }: { workspaceId: string; initial: Sel
   if (!project) return <div className={styles.empty}><FileText size={32} /><h2>No projects to write in yet</h2><p>Pages belong to a project. Create a project on the board, or ask a workspace admin for access to one.</p><Link href={`/board?workspaceId=${workspaceId}`}>Go to the board</Link></div>;
   return <>
     <div className={styles.subnav}>
-      <label className={styles.picker}>Project<select value={project.id} onChange={event => setProjectId(event.target.value)}>
+      <label className={styles.picker}><span className={styles.srOnly}>Project</span><select value={project.id} onChange={event => setProjectId(event.target.value)}>
         {projects.map(item => <option key={item.id} value={item.id}>{item.name} ({item.key})</option>)}
       </select></label>
       <SearchBox workspaceId={workspaceId} onOpen={(id, owner) => {
