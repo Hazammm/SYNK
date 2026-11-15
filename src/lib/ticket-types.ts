@@ -15,7 +15,7 @@ export type AccessEntry = Person & { email: string | null; role: "ADMIN" | "MEMB
 
 export type TicketSummary = {
   id: string; key: string; projectId: string; boardId: string; columnId: string; sprintId: string | null;
-  title: string; priority: Priority; position: number; dueDate: string | null; completedAt: string | null; assignee: Person | null; commentCount: number;
+  title: string; priority: Priority; position: number; dueDate: string | null; completedAt: string | null; assignee: Person | null; commentCount: number; pullRequestCount: number;
 };
 export type TicketComment = { id: string; body: string; createdAt: string; author: Person };
 export type TicketDetail = TicketSummary & { description: string; reporter: Person | null; createdAt: string; updatedAt: string; comments: TicketComment[] };

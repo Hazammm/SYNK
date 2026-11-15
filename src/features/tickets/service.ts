@@ -14,7 +14,7 @@ type Database = Prisma.TransactionClient;
 const MAX_LISTED_TICKETS = 500;
 const MAX_LISTED_COMMENTS = 200;
 const person = { select: { id: true, name: true } } satisfies Prisma.UserDefaultArgs;
-const summaryInclude = { assignee: person, _count: { select: { comments: true } } } satisfies Prisma.TicketInclude;
+const summaryInclude = { assignee: person, _count: { select: { comments: true, pullRequests: true } } } satisfies Prisma.TicketInclude;
 const detailInclude = {
   ...summaryInclude, reporter: person,
   comments: { include: { author: person }, orderBy: { createdAt: "asc" }, take: MAX_LISTED_COMMENTS },
@@ -28,7 +28,7 @@ function serializeTicket(row: SummaryRecord): TicketSummary {
   return {
     id: row.id, key: row.key, projectId: row.projectId, boardId: row.boardId, columnId: row.columnId, sprintId: row.sprintId,
     title: row.title, priority: row.priority, position: row.position, dueDate: row.dueDate ? isoDate(row.dueDate) : null,
-    completedAt: row.completedAt?.toISOString() ?? null, assignee: row.assignee, commentCount: row._count.comments,
+    completedAt: row.completedAt?.toISOString() ?? null, assignee: row.assignee, commentCount: row._count.comments, pullRequestCount: row._count.pullRequests,
   };
 }
 const serializeComment = (row: CommentRecord): TicketComment => ({ id: row.id, body: row.body, createdAt: row.createdAt.toISOString(), author: row.author });
