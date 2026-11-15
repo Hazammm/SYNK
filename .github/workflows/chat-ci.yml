@@ -44,8 +44,8 @@ jobs:
       - run: npm run db:migrate
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
-      - run: npm run test:integration
+      # Unit and integration tests together, failing if server code coverage drops below 80% of lines.
+      - run: npm run test:coverage
       - run: npm run build
       # The runner image already has Chromium's system libraries; --with-deps only adds extra fonts through apt.
       # If the Ubuntu mirrors are unreachable, give up after four minutes and install just the browser.
