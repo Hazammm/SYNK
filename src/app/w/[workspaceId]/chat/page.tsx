@@ -6,8 +6,10 @@ export const instant = false;
 
 export default async function WorkspaceChatPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
+  searchParams: Promise<{ newChannel?: string }>;
 }) {
   const { workspaceId } = await params;
   const user = await requireWorkspaceUser(workspaceId);
@@ -15,6 +17,7 @@ export default async function WorkspaceChatPage({
     <ChatWorkspace
       initialWorkspaces={await listWorkspaces(user.id)}
       initialWorkspaceId={workspaceId}
+      startNewChannel={(await searchParams).newChannel === "1"}
     />
   );
 }

@@ -12,7 +12,8 @@ import styles from "./Chat.module.css";
 type Member = { role: "ADMIN" | "MEMBER"; user: { id: string; name: string | null; email: string | null } };
 const initials = (name: string | null) => (name ?? "Member").split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
-export default function ChatWorkspace({ initialWorkspaces, initialWorkspaceId }: { initialWorkspaces: WorkspaceSummary[]; initialWorkspaceId?: string }) {
+// `startNewChannel` opens the new-channel form, for the "+" next to Conversations in the sidebar.
+export default function ChatWorkspace({ initialWorkspaces, initialWorkspaceId, startNewChannel = false }: { initialWorkspaces: WorkspaceSummary[]; initialWorkspaceId?: string; startNewChannel?: boolean }) {
   const router = useRouter();
   const [workspaces, setWorkspaces] = useState(initialWorkspaces);
   const [selected, setSelected] = useState(initialWorkspaces.find(item => item.id === initialWorkspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
@@ -53,16 +54,16 @@ export default function ChatWorkspace({ initialWorkspaces, initialWorkspaceId }:
       <Button variant="primary" disabled={busy}>{busy ? "Creating…" : "Create workspace"}</Button>
       {error && <p role="alert" className={styles.error}>{error}</p>}
     </form>}
-    {workspace && <WorkspaceChannels key={workspace.id} workspace={workspace} />}
+    {workspace && <WorkspaceChannels key={workspace.id} workspace={workspace} startCreating={startNewChannel} />}
   </div>;
 }
 
-function WorkspaceChannels({ workspace }: { workspace: WorkspaceSummary }) {
+function WorkspaceChannels({ workspace, startCreating }: { workspace: WorkspaceSummary; startCreating: boolean }) {
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
   const [selected, setSelected] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(startCreating);
   const [showMembers, setShowMembers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
