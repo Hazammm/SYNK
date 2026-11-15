@@ -8,5 +8,8 @@ export type MessagePage = { messages: ChatMessage[]; nextCursor: string | null }
 export type ChannelSummary = { id: string; workspaceId: string; name: string; description: string; isPrivate: boolean; joined: boolean; memberCount: number; canManageMembers: boolean };
 export type WorkspaceSummary = { id: string; name: string; role: "ADMIN" | "MEMBER" };
 export type Ack = { ok: true } | { ok: false; error: string };
-export type ClientEvents = { "channel:join": (data: { channelId: string }, ack: (result: Ack) => void) => void; "channel:leave": (data: { channelId: string }) => void };
-export type ServerEvents = { "message:created": (event: MessageEvent) => void; "access:revoked": () => void };
+export type ClientEvents = { "channel:join": (data: { channelId: string }, ack: (result: Ack) => void) => void; "channel:leave": (data: { channelId: string }) => void; "typing": (data: { channelId: string }) => void };
+// Sent to the other people viewing a channel while someone types in it. Clients expire it after TYPING_TTL_MS.
+export type TypingEvent = { channelId: string; userId: string; name: string };
+export type ServerEvents = { "message:created": (event: MessageEvent) => void; "access:revoked": () => void; "typing": (event: TypingEvent) => void };
+export const TYPING_TTL_MS = 4000;
