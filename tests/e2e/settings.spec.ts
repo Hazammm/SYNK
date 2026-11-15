@@ -40,8 +40,8 @@ test("profile menu and settings: details, rename, notifications, theme and sessi
 
   // Theme choice applies at once.
   await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Appearance" }).click();
-  await page.getByRole("radio", { name: "White" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "white");
+  await page.getByRole("radio", { name: "Dark" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   // The gear in the header always leads back to settings.
   await page.goto("/board");
