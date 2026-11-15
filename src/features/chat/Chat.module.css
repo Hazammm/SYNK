@@ -38,6 +38,7 @@
 .reply, .loadOlder { background: transparent; color: var(--link); border: 0; cursor: pointer; font-size: 11px; padding: 6px 0; }
 .reply { display: inline-flex; gap: 5px; align-items: center; }
 .loadOlder { display: block; margin: 0 auto; }
+.typing { min-height: 18px; margin: 0; padding: 0 24px 4px; color: var(--muted); font-size: 12px; font-style: italic; }
 .composer { padding: 14px 24px 20px; border-top: 1px solid var(--structure); }
 .composer > div { display: flex; gap: 10px; align-items: end; }
 .composer textarea { resize: vertical; flex: 1; width: 100%; min-width: 0; min-height: 66px; max-height: 180px; border: 1px solid var(--structure); border-radius: 8px; padding: 10px 12px; background: var(--bg); }
