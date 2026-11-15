@@ -59,7 +59,8 @@ def score(expect: dict[str, Any], turn: Turn) -> list[str]:
     if expect.get("no_tools") and turn.calls:
         problems.append(f"expected no tool calls, got {[call['tool'] for call in turn.calls]}")
     if expect.get("no_mutation"):
-        changed = [action["tool"] for action in turn.actions if action.get("ok") and action["tool"] in MUTATING]
+        # An update that found the ticket already had those values succeeded without changing anything.
+        changed = [action["tool"] for action in turn.actions if action.get("ok") and action["tool"] in MUTATING and "nothing was changed" not in action.get("summary", "")]
         if changed or turn.pending:
             problems.append(f"expected nothing to change, but {changed or 'a change is pending'}")
     if expect.get("asks") and "?" not in turn.reply:
