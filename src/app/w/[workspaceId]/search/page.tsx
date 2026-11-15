@@ -22,12 +22,11 @@ export default async function WorkspaceSearchPage({ params, searchParams }: {
   ].filter(group => group.items.length);
 
   return <div className={styles.page}>
-    <span className={styles.eyebrow}>SEARCH</span>
     <h1>{query ? `Results for “${query}”` : "Search"}</h1>
     {query.length < 2 && <p className={styles.notice}>Type at least 2 characters in the search box above.</p>}
     {query.length >= 2 && !groups.length && <p className={styles.notice}>Nothing matched. Only tickets and pages in projects you can open, and messages in channels you have joined, are searched.</p>}
     {groups.map(group => <section key={group.title} className={styles.group} aria-label={group.title}>
-      <h2>{group.title} ({group.items.length})</h2>
+      <h2>{group.title} <span>{group.items.length}</span></h2>
       <ul>{group.items.map(item => <li key={item.id}>
         <Link href={item.href}>{item.label}</Link>
         <p>{item.meta}{item.snippet ? ` · ${item.snippet}` : ""}</p>
