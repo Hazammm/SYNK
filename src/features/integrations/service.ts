@@ -74,3 +74,7 @@ async function record(repository: { id: string; projectId: string; project: { ke
   await db.pullRequest.updateMany({ where: { repositoryId: repository.id, number: remote.number }, data });
   return count;
 }
+
+export async function listConnections(userId: string): Promise<HostConnection[]> {
+  return Promise.all(HOSTS.map(async provider => ({ provider, available: hostAvailable(provider), connected: await isConnected(userId, provider) })));
+}
