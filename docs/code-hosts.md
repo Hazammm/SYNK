@@ -61,3 +61,19 @@ The code host must be able to reach the URL, so this does not work with `http://
 | `POST /api/repositories/{id}/sync` | Read recent pull requests and attach or refresh them |
 | `GET`, `POST /api/tickets/{id}/pull-requests` | List a ticket's pull requests; attach one with `{ url }` |
 | `DELETE /api/pull-requests/{id}` | Remove a pull request from a ticket |
+
+## Tests
+
+- `tests/integrations.integration.test.mts`: the rules against PostgreSQL, with the code hosts replaced by canned replies. Covers permissions, key matching, syncing, attaching by address, signed and unsigned webhooks, an expired sign-in and Bitbucket token refresh.
+- `tests/unit.test.ts`: key and address parsing, repository names, signatures, and how each host's statuses map to Open, Merged and Declined.
+- `tests/e2e/pull-requests.spec.mts`: in a browser, a signed webhook puts a pull request on its ticket, and a merge offers "Move to Done".
+
+The sign-in round trip to GitHub or Bitbucket itself is not covered by automated tests, because it needs a real account.
+
+## Limits
+
+- GitHub has no read-only scope for private repositories in OAuth apps, so `repo` also allows writing. Synk only reads.
+- Tokens are stored in the `Account` table as NextAuth stores them, without extra encryption.
+- A sync reads the 100 most recently updated pull requests on GitHub and 50 on Bitbucket. The repository picker lists the 100 most recently active repositories.
+- Webhooks are added by hand on the code host; Synk does not register them.
+- Commits and branches without a pull request are not shown.
