@@ -21,6 +21,7 @@ import { initials, trackerHref } from "../src/features/tickets/ui";
 import type { ChatMessage } from "../src/lib/chat-types";
 import { sendPasswordResetEmail } from "../src/lib/mailer";
 import { parsePullRequestUrl, ticketKeysIn } from "../src/features/integrations/refs";
+import { fullNameSchema, validSignature } from "../src/features/integrations/providers/shared";
 
 test("ticket keys are found in pull request titles and branch names", () => {
   assert.deepEqual(ticketKeysIn("SYN-12 fix login", "SYN"), ["SYN-12"]);
@@ -39,6 +40,11 @@ test("pull request addresses are read for GitHub and Bitbucket only", () => {
     "", "not a url", "http://github.com/acme/app/pull/12", "https://github.com/acme/app/issues/12", "https://github.com/acme/app/pull/abc",
     "https://github.com.evil.test/acme/app/pull/1", "https://bitbucket.org/team/site/pull/3", "https://gitlab.com/acme/app/pull/1",
   ]) assert.equal(parsePullRequestUrl(address), null, address);
+});
+
+test("repository names must look like owner/repository", () => {
+  for (const name of ["acme/app", "Hazammm/SYNK", "a.b/c_d-e"]) assert.equal(fullNameSchema.safeParse(name).success, true, name);
+  for (const name of ["acme", "acme/app/extra", "../etc", "acme/..", "acme/app?x=1", "acme /app", ""]) assert.equal(fullNameSchema.safeParse(name).success, false, name);
 });
 
 test("deny by default, including workspace admins outside a channel or project", () => {
