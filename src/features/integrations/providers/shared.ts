@@ -36,3 +36,10 @@ export async function hostGet<T>(label: string, url: string, token: string, sche
   if (!parsed.success) throw new AppError(502, `${label} sent a reply Synk could not read.`);
   return parsed.data;
 }
+
+export function validSignature(secret: string, rawBody: string, header: string | null): boolean {
+  if (!header?.startsWith("sha256=")) return false;
+  const expected = Buffer.from(createHmac("sha256", secret).update(rawBody).digest("hex"));
+  const given = Buffer.from(header.slice(7));
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
