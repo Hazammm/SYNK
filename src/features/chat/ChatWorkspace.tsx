@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Hash, LockKeyhole, MessageCircle, Plus, Send, X } from "lucide-react";
+import { Hash, LockKeyhole, MessageCircle, Plus, Send, Users, X } from "lucide-react";
 import { Button, Input, Avatar } from "@/components/Primitives";
 import type { ChannelSummary, ChatMessage, WorkspaceSummary } from "@/lib/chat-types";
 import { messageOf, request, useMessages } from "./client";
@@ -36,16 +36,8 @@ export default function ChatWorkspace({ initialWorkspaces, initialWorkspaceId, s
   }
   return <div className={styles.workspace}>
     <div className={styles.workspaceBar}>
-      <div><span className={styles.eyebrow}>TEAM WORKSPACE</span><h1>Conversations</h1></div>
-      <label className={styles.selector}>Workspace<select aria-label="Workspace" value={selected} onChange={event => {
-        const nextId = event.target.value;
-        setSelected(nextId);
-        if (nextId) router.push(`/w/${nextId}/chat`);
-      }} disabled={!workspaces.length}>
-        {!workspaces.length && <option value="">No workspaces yet</option>}
-        {workspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select></label>
-      <Button onClick={() => setCreating(!creating)}><Plus size={15} /> New workspace</Button>
+      <h1>Conversations</h1>{workspace && <span className={styles.workspaceName}>{workspace.name}</span>}
+      <Button variant="quiet" aria-expanded={creating} onClick={() => setCreating(!creating)}><Plus size={15} /> New workspace</Button>
     </div>
     {creating && <form onSubmit={create} className={styles.setup}>
       <h2>{workspaces.length ? "Create a workspace" : "Bring your team together"}</h2>
@@ -98,7 +90,7 @@ function WorkspaceChannels({ workspace, startCreating }: { workspace: WorkspaceS
           {item.isPrivate ? <LockKeyhole size={15} /> : <Hash size={15} />} <span>{item.name}</span>{!item.joined && <small>Join</small>}
         </button>)}
         {!loading && !channels.length && <p>No channels yet. Create your first one.</p>}
-        <Button onClick={() => setShowMembers(!showMembers)}>Workspace members</Button>
+        <Button aria-expanded={showMembers} onClick={() => setShowMembers(!showMembers)}><Users size={15} /> Workspace members</Button>
         <small className={styles.role}>{workspace.role === "ADMIN" ? "Workspace admin" : "Workspace member"}</small>
       </aside>
       <div className={styles.content}>
@@ -150,7 +142,7 @@ function ChannelView({ channel }: { channel: ChannelSummary }) {
   const [thread, setThread] = useState<ChatMessage | null>(null);
   return <div className={`${styles.chat} ${thread ? styles.withThread : ""}`}>
     <section className={styles.mainFeed} aria-label={`Channel ${channel.name}`}>
-      <header className={styles.channelHeader}><div>{channel.isPrivate ? <LockKeyhole size={22} /> : <Hash size={24} />}<div><h2>{channel.name}</h2><p>{channel.description}</p></div></div><small>{channel.memberCount} {channel.memberCount === 1 ? "member" : "members"}</small></header>
+      <header className={styles.channelHeader}><div>{channel.isPrivate ? <LockKeyhole size={18} /> : <Hash size={18} />}<div><h2>{channel.name}</h2><p>{channel.description}</p></div></div><small>{channel.memberCount} {channel.memberCount === 1 ? "member" : "members"}</small></header>
       <Feed channel={channel} parentId={null} onThread={setThread} />
     </section>
     {thread && <section className={styles.thread} aria-label="Thread"><header className={styles.channelHeader}><h2>Thread</h2><button aria-label="Close thread" onClick={() => setThread(null)}><X size={18} /></button></header><div className={styles.threadRoot}><Message message={thread} workspaceId={channel.workspaceId} /></div><Feed key={thread.id} channel={channel} parentId={thread.id} /></section>}
@@ -205,7 +197,7 @@ function Composer({ channelId, parentId, disabled, onSent, onTyping }: { channel
   }
   return <form ref={form} className={styles.composer} onSubmit={send}>
     {error && <p role="alert" className={styles.error}>{error} Your draft is kept; press Send to retry.</p>}
-    <div><textarea aria-label={parentId ? "Reply to thread" : "Message"} placeholder={parentId ? "Reply to thread…" : "Write a message…"} value={draft} onChange={event => { setDraft(event.target.value); if (event.target.value.trim()) onTyping(); }} disabled={disabled || busy} maxLength={4000} rows={2} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); form.current?.requestSubmit(); } }} /><Button aria-label={parentId ? "Send reply" : "Send message"} variant="primary" disabled={disabled || busy || !draft.trim()}><Send size={16} /> {busy ? "Sending…" : "Send"}</Button></div>
+    <div><textarea aria-label={parentId ? "Reply to thread" : "Message"} placeholder={parentId ? "Reply to thread…" : "Write a message…"} value={draft} onChange={event => { setDraft(event.target.value); if (event.target.value.trim()) onTyping(); }} disabled={disabled || busy} maxLength={4000} rows={2} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); form.current?.requestSubmit(); } }} /><Button aria-label={parentId ? "Send reply" : "Send message"} variant="primary" disabled={disabled || busy || !draft.trim()}><Send size={15} /> <span>{busy ? "Sending…" : "Send"}</span></Button></div>
     <small>Enter to send · Shift+Enter for a new line · {draft.length}/4000</small>
   </form>;
 }
