@@ -90,6 +90,10 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await member.getByRole("button", { name: "Join channel", exact: true }).click();
     await expect(member.getByText("Live", { exact: true })).toBeVisible();
     await expect(admin.getByText("Live", { exact: true })).toBeVisible();
+    // Typing in the box shows on the other person's screen until the message is sent.
+    await member.getByLabel("Message", { exact: true }).fill("Typing a reply");
+    await expect(admin.getByText("QA Member is typing…")).toBeVisible();
+    await member.getByLabel("Message", { exact: true }).fill("");
     const message = `Live delivery ${nonce} — check the update`;
     const start = Date.now();
     await admin.getByLabel("Message", { exact: true }).fill(message);

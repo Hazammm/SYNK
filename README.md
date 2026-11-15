@@ -66,7 +66,7 @@ flowchart LR
 | Module | Capabilities |
 |---|---|
 | Workspaces | 3-step "Create your workspace" wizard. Joining an existing workspace is invite-only, through emailed links that expire after 7 days and work once. ADMIN / MEMBER roles. Email and password sign-in, plus Google, GitHub and Bitbucket when configured |
-| Chat | Public and private channels, one-level threads, live delivery with a Live / Reconnecting indicator, cursor-paged history, retry-safe sends, ticket keys shown as links |
+| Chat | Public and private channels, one-level threads, live delivery with a Live / Reconnecting indicator, typing indicators, cursor-paged history, retry-safe sends, ticket keys shown as links |
 | Issue tracking | Per-project access, several boards per project with editable columns, drag and drop with mouse, touch or keyboard, four filters, comments with @mentions, sprints with one active per project |
 | Reports | Burndown with an ideal line, velocity over the last 6 completed sprints, status and assignee breakdowns, CSV export |
 | Docs | Nested Markdown pages per project, formatting toolbar and preview, clickable checklists, edit-conflict protection, PostgreSQL full-text search |
@@ -169,6 +169,7 @@ compose.yaml              PostgreSQL and the agent service for local development
 | [`docs/issue-tracking.md`](docs/issue-tracking.md) | Projects, boards, sprints, the access model and how reports are calculated |
 | [`docs/docs-module.md`](docs/docs-module.md) | Markdown pages, rendering, conflict handling, search |
 | [`docs/time-tracking.md`](docs/time-tracking.md) | Timers, manual entries, weekly reports |
+| [`docs/testing.md`](docs/testing.md) | Results against the PRD quality targets: coverage, the denial suite, response times, the timed walkthrough |
 | [`docs/code-hosts.md`](docs/code-hosts.md) | GitHub and Bitbucket: linking repositories, pull requests on tickets, webhooks |
 | [`docs/chat-implementation.md`](docs/chat-implementation.md) | Original chat design notes (API table and roadmap predate later modules) |
 | [`docs/chat-qa.md`](docs/chat-qa.md) | Chat verification records and manual acceptance plan |

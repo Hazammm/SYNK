@@ -38,7 +38,7 @@ async function identity(request: IncomingMessage) {
 
 export function attachRealtime(http: HttpServer) {
   const origin = new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000").origin;
-  const io = new Server<ClientEvents, ServerEvents, never, { userId: string; sessionId: string; workspaceId: string }>(http, {
+  const io = new Server<ClientEvents, ServerEvents, never, { userId: string; sessionId: string; workspaceId: string; name?: string }>(http, {
     cors: { origin, credentials: true }, maxHttpBufferSize: 20_000,
     allowRequest: (request, callback) => {
       // Browsers omit Origin on same-origin polling GETs. Fetch Metadata plus the
@@ -71,6 +71,20 @@ export function attachRealtime(http: HttpServer) {
         await socket.join(`channel:${channelId}`);
         ack({ ok: true });
       } catch { ack({ ok: false, error: "You cannot subscribe to this channel." }); }
+    });
+    // Only to sockets in the channel's room, which each passed the channel check on join. Typing is not stored.
+    socket.on("typing", async input => {
+      const parsed = idSchema.safeParse(input?.channelId);
+      const room = parsed.success ? `channel:${parsed.data}` : "";
+      if (!room || !socket.rooms.has(room)) return;
+      try { rateLimit(`typing:${socket.data.userId}`, 40); } catch { return; }
+      socket.data.name ??= (await db.user.findUnique({ where: { id: socket.data.userId }, select: { name: true } }))?.name ?? "Someone";
+      const event = { channelId: parsed.data!, userId: socket.data.userId, name: socket.data.name };
+      // Not to the typist's own other tabs.
+      for (const id of io.sockets.adapter.rooms.get(room) ?? []) {
+        const other = io.sockets.sockets.get(id);
+        if (other && other.data.userId !== socket.data.userId) other.emit("typing", event);
+      }
     });
     socket.on("channel:leave", input => {
       const parsed = idSchema.safeParse(input?.channelId);

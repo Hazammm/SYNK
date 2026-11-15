@@ -5,20 +5,16 @@ import { randomUUID } from "node:crypto";
 import { encode } from "next-auth/jwt";
 import { io as connect, type Socket } from "socket.io-client";
 import nextEnv from "@next/env";
-import type { ServerEvents, ClientEvents, MessageEvent, Ack } from "../src/lib/chat-types";
+import type { ServerEvents, ClientEvents, MessageEvent, TypingEvent, Ack } from "../src/lib/chat-types";
 
 nextEnv.loadEnvConfig(process.cwd(), true);
 if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a migrated, disposable PostgreSQL database.");
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.NEXTAUTH_SECRET ??= "integration-only-not-a-production-secret-123456789";
 process.env.NEXTAUTH_URL = "http://localhost:3000";
-// Never send real email from tests, even when Mailtrap is configured locally.
-delete process.env.MAILTRAP_HOST;
-delete process.env.MAILTRAP_PORT;
-delete process.env.MAILTRAP_USER;
-delete process.env.MAILTRAP_PASS;
-delete process.env.MAILTRAP_API_TOKEN;
-delete process.env.MAIL_FROM;
+// Never send real email from tests, even when Mailtrap is configured locally. Empty rather than deleted:
+// Next.js reloads .env when a route module is imported, and that only fills in variables that are unset.
+for (const name of ["MAILTRAP_HOST", "MAILTRAP_PORT", "MAILTRAP_USER", "MAILTRAP_PASS", "MAILTRAP_API_TOKEN", "MAIL_FROM"]) process.env[name] = "";
 const { db } = await import("../src/lib/db");
 const { createWorkspace, listWorkspaces, removeMember } = await import("../src/features/workspaces/service");
 const { requireWorkspace } = await import("../src/lib/permissions");
@@ -162,6 +158,25 @@ test("only authorized sockets receive live events, including after channel acces
   await delay(100);
   assert.equal(received.length, 1);
   await joinChannel(member, channelId);
+});
+test("typing signals reach the other people in the channel, and nobody else", async () => {
+  const typist = await socketFor((await cookie(member)).value);
+  const sameUser = await socketFor((await cookie(member)).value); // the typist's other tab
+  const watcher = await socketFor((await cookie(admin)).value);
+  const outside = await socketFor((await cookie(outsider)).value);
+  for (const socket of [typist, sameUser, watcher]) assert.equal((await subscribe(socket, channelId)).ok, true);
+  assert.equal((await subscribe(outside, channelId)).ok, false);
+  const seen: Record<string, TypingEvent[]> = { sameUser: [], watcher: [], outside: [] };
+  sameUser.on("typing", event => seen.sameUser.push(event));
+  watcher.on("typing", event => seen.watcher.push(event));
+  outside.on("typing", event => seen.outside.push(event));
+
+  typist.emit("typing", { channelId });
+  outside.emit("typing", { channelId }); // not in the channel's room, so ignored
+  typist.emit("typing", { channelId: "not a valid id!" });
+  await delay(150);
+  assert.deepEqual(seen.watcher, [{ channelId, userId: member, name: "Member" }]);
+  assert.deepEqual([seen.sameUser.length, seen.outside.length], [0, 0]);
 });
 test("same-origin polling can authenticate when the browser omits Origin", async () => {
   const auth = await cookie(admin);

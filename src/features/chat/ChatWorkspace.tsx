@@ -172,7 +172,8 @@ function Feed({ channel, parentId, onThread }: { channel: ChannelSummary; parent
       {feed.messages.map(message => <Message key={message.id} message={message} workspaceId={channel.workspaceId} onThread={onThread} />)}
       <div ref={end} />
     </div>
-    <Composer channelId={channel.id} parentId={parentId} disabled={feed.denied || feed.loading} onSent={feed.append} />
+    {!parentId && <p className={styles.typing} role="status" aria-live="polite">{feed.typing}</p>}
+    <Composer channelId={channel.id} parentId={parentId} disabled={feed.denied || feed.loading} onSent={feed.append} onTyping={feed.notifyTyping} />
   </>;
 }
 
@@ -184,7 +185,7 @@ function Message({ message, workspaceId, onThread }: { message: ChatMessage; wor
   </div></article>;
 }
 
-function Composer({ channelId, parentId, disabled, onSent }: { channelId: string; parentId: string | null; disabled: boolean; onSent: (message: ChatMessage) => void }) {
+function Composer({ channelId, parentId, disabled, onSent, onTyping }: { channelId: string; parentId: string | null; disabled: boolean; onSent: (message: ChatMessage) => void; onTyping: () => void }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -204,7 +205,7 @@ function Composer({ channelId, parentId, disabled, onSent }: { channelId: string
   }
   return <form ref={form} className={styles.composer} onSubmit={send}>
     {error && <p role="alert" className={styles.error}>{error} Your draft is kept; press Send to retry.</p>}
-    <div><textarea aria-label={parentId ? "Reply to thread" : "Message"} placeholder={parentId ? "Reply to thread…" : "Write a message…"} value={draft} onChange={event => setDraft(event.target.value)} disabled={disabled || busy} maxLength={4000} rows={2} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); form.current?.requestSubmit(); } }} /><Button aria-label={parentId ? "Send reply" : "Send message"} variant="primary" disabled={disabled || busy || !draft.trim()}><Send size={16} /> {busy ? "Sending…" : "Send"}</Button></div>
+    <div><textarea aria-label={parentId ? "Reply to thread" : "Message"} placeholder={parentId ? "Reply to thread…" : "Write a message…"} value={draft} onChange={event => { setDraft(event.target.value); if (event.target.value.trim()) onTyping(); }} disabled={disabled || busy} maxLength={4000} rows={2} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); form.current?.requestSubmit(); } }} /><Button aria-label={parentId ? "Send reply" : "Send message"} variant="primary" disabled={disabled || busy || !draft.trim()}><Send size={16} /> {busy ? "Sending…" : "Send"}</Button></div>
     <small>Enter to send · Shift+Enter for a new line · {draft.length}/4000</small>
   </form>;
 }

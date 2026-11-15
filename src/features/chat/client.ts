@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
-import type { ChatMessage, ClientEvents, MessageEvent, MessagePage, ServerEvents } from "../../lib/chat-types";
+import { TYPING_TTL_MS, type ChatMessage, type ClientEvents, type MessageEvent, type MessagePage, type ServerEvents } from "../../lib/chat-types";
 
 import { HttpError, messageOf, request } from "../../lib/client-http";
 export { HttpError, messageOf, request };
@@ -14,6 +14,14 @@ export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
     byId.set(message.id, { ...message, replyCount: Math.max(previous?.replyCount ?? 0, message.replyCount) });
   }
   return [...byId.values()].sort((a, b) => a.createdAt === b.createdAt ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : a.createdAt < b.createdAt ? -1 : 1);
+}
+
+// "Asra is typing…", "Asra and Bilal are typing…", then "Several people are typing…".
+export function typingText(names: string[]) {
+  if (!names.length) return "";
+  if (names.length === 1) return `${names[0]} is typing…`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
+  return "Several people are typing…";
 }
 
 function applyEvent(messages: ChatMessage[], event: MessageEvent, parentId: string | null) {
@@ -34,6 +42,10 @@ export function useMessages(channelId: string, parentId: string | null) {
   const [denied, setDenied] = useState(false);
   const generation = useRef(0);
   const refreshRef = useRef<() => void>(() => {});
+  // Who is typing in this channel, by user id, with when their last signal expires.
+  const [typing, setTyping] = useState<Record<string, { name: string; until: number }>>({});
+  const socketRef = useRef<Socket<ServerEvents, ClientEvents> | null>(null);
+  const lastTypingSent = useRef(0);
   const base = `/api/channels/${channelId}/messages`;
 
   useEffect(() => {
@@ -42,6 +54,7 @@ export function useMessages(channelId: string, parentId: string | null) {
     let buffer: MessageEvent[] = [];
     const controller = new AbortController();
     const socket: Socket<ServerEvents, ClientEvents> = io({ autoConnect: false, withCredentials: true });
+    socketRef.current = socket;
     const query = parentId ? `?parentId=${parentId}` : "";
 
     function fail(error: unknown) {
@@ -73,8 +86,14 @@ export function useMessages(channelId: string, parentId: string | null) {
         void refresh();
       });
     });
+    socket.on("typing", event => {
+      if (event.channelId !== channelId || parentId) return;
+      setTyping(current => ({ ...current, [event.userId]: { name: event.name, until: Date.now() + TYPING_TTL_MS } }));
+    });
     socket.on("message:created", event => {
       if (event.message.channelId !== channelId) return;
+      // A sent message ends that person's typing.
+      setTyping(current => Object.fromEntries(Object.entries(current).filter(([userId]) => userId !== event.message.sender.id)));
       if (synchronizing) buffer.push(event);
       setMessages(current => applyEvent(current, event, parentId));
     });
@@ -95,8 +114,28 @@ export function useMessages(channelId: string, parentId: string | null) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       generation.current++;
       controller.abort(); socket.removeAllListeners(); socket.disconnect();
+      socketRef.current = null;
     };
   }, [base, channelId, parentId]);
+
+  // Drop typing signals that have run out.
+  const typingCount = Object.keys(typing).length;
+  useEffect(() => {
+    if (!typingCount) return;
+    const timer = setInterval(() => setTyping(current => {
+      const now = Date.now();
+      const live = Object.entries(current).filter(([, entry]) => entry.until > now);
+      return live.length === Object.keys(current).length ? current : Object.fromEntries(live);
+    }), 1000);
+    return () => clearInterval(timer);
+  }, [typingCount]);
+
+  // Tells the others in the channel this person is typing, at most every 2 seconds.
+  function notifyTyping() {
+    if (parentId || !socketRef.current?.connected || Date.now() - lastTypingSent.current < 2000) return;
+    lastTypingSent.current = Date.now();
+    socketRef.current.emit("typing", { channelId });
+  }
 
   async function loadOlder() {
     if (!nextCursor || loadingOlder) return;
@@ -110,6 +149,7 @@ export function useMessages(channelId: string, parentId: string | null) {
     } catch (error) { if (version === generation.current) setError(messageOf(error)); }
     finally { setLoadingOlder(false); }
   }
-  return { messages, loading, loadingOlder, error, connected, denied, nextCursor, loadOlder,
+  return { messages, loading, loadingOlder, error, connected, denied, nextCursor, loadOlder, notifyTyping,
+    typing: typingText(Object.values(typing).map(entry => entry.name)),
     refresh: () => refreshRef.current(), append: (message: ChatMessage) => setMessages(current => mergeMessages(current, [message])) };
 }
