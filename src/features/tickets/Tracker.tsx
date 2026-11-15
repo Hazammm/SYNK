@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FolderKanban, GitPullRequest, Plus, ShieldCheck } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
@@ -19,25 +18,17 @@ const VIEW_TITLES: Record<TrackerView, string> = { board: "Board", sprints: "Spr
 type Props = { view: TrackerView; userId: string; initialWorkspaces: WorkspaceSummary[]; initial: Selection };
 
 export default function Tracker({ view, userId, initialWorkspaces, initial }: Props) {
-  const router = useRouter();
   const [workspaceId] = useState(initialWorkspaces.find(item => item.id === initial.workspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
   const workspace = initialWorkspaces.find(item => item.id === workspaceId);
   return <div className={styles.tracker}>
-    <div className={styles.bar}>
-      <div><span className={styles.eyebrow}>ISSUE TRACKING</span><h1>{VIEW_TITLES[view]}</h1></div>
-      <label className={styles.picker}>Workspace<select value={workspaceId} onChange={event => router.push(trackerHref(view, { workspaceId: event.target.value }))} disabled={!initialWorkspaces.length}>
-        {!initialWorkspaces.length && <option value="">No workspaces yet</option>}
-        {initialWorkspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select></label>
-    </div>
     {workspace
       // Remounting per workspace resets project state; the initial selection only applies to the workspace it named.
-      ? <Projects key={workspace.id} workspace={workspace} view={view} userId={userId} initial={workspace.id === initial.workspaceId ? initial : {}} />
+      ? <Projects key={workspace.id} workspace={workspace} view={view} title={VIEW_TITLES[view]} userId={userId} initial={workspace.id === initial.workspaceId ? initial : {}} />
       : <div className={styles.empty}><FolderKanban size={32} /><h2>Create a workspace first</h2><p>Boards live inside a workspace. Create one in chat, or ask an admin to add you.</p><Link href="/chat">Go to chat</Link></div>}
   </div>;
 }
 
-function Projects({ workspace, view, userId, initial }: { workspace: WorkspaceSummary; view: TrackerView; userId: string; initial: Selection }) {
+function Projects({ workspace, view, title, userId, initial }: { workspace: WorkspaceSummary; view: TrackerView; title: string; userId: string; initial: Selection }) {
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [projectId, setProjectId] = useState(initial.projectId ?? "");
   const [panel, setPanel] = useState<"create" | "access" | "repos" | null>(initial.repos ? "repos" : null);
@@ -58,19 +49,23 @@ function Projects({ workspace, view, userId, initial }: { workspace: WorkspaceSu
 
   const refresh = () => setRevision(value => value + 1);
   return <>
+    <div className={styles.bar}>
+      <h1>{title}</h1>
+      <label className={styles.picker}><span className={styles.srOnly}>Project</span><select value={projectId} onChange={event => { setProjectId(event.target.value); setPanel(null); }} disabled={!projects?.length}>
+        {!projects?.length && <option value="">{projects ? "No projects yet" : "Loading…"}</option>}
+        {projects?.map(item => <option key={item.id} value={item.id}>{item.name} ({item.key})</option>)}
+      </select></label>
+      <span className={styles.pushRight} />
+      {isAdmin && project && <Button variant="quiet" aria-expanded={panel === "access"} onClick={() => setPanel(panel === "access" ? null : "access")}><ShieldCheck size={15} /> Project access</Button>}
+      {isAdmin && project && <Button variant="quiet" aria-expanded={panel === "repos"} onClick={() => setPanel(panel === "repos" ? null : "repos")}><GitPullRequest size={15} /> Repositories</Button>}
+      {isAdmin && <Button aria-expanded={panel === "create"} onClick={() => setPanel(panel === "create" ? null : "create")}><Plus size={15} /> New project</Button>}
+    </div>
     <div className={styles.subnav}>
       <nav aria-label="Issue tracking views">
         <Link href={trackerHref("board", { workspaceId: workspace.id, projectId })} aria-current={view === "board" ? "page" : undefined}>Board</Link>
         <Link href={trackerHref("sprints", { workspaceId: workspace.id, projectId })} aria-current={view === "sprints" ? "page" : undefined}>Sprints</Link>
         <Link href={trackerHref("reports", { workspaceId: workspace.id, projectId })} aria-current={view === "reports" ? "page" : undefined}>Reports</Link>
       </nav>
-      <label className={styles.picker}>Project<select value={projectId} onChange={event => { setProjectId(event.target.value); setPanel(null); }} disabled={!projects?.length}>
-        {!projects?.length && <option value="">{projects ? "No projects yet" : "Loading…"}</option>}
-        {projects?.map(item => <option key={item.id} value={item.id}>{item.name} ({item.key})</option>)}
-      </select></label>
-      {isAdmin && project && <Button aria-expanded={panel === "access"} onClick={() => setPanel(panel === "access" ? null : "access")}><ShieldCheck size={15} /> Project access</Button>}
-      {isAdmin && project && <Button aria-expanded={panel === "repos"} onClick={() => setPanel(panel === "repos" ? null : "repos")}><GitPullRequest size={15} /> Repositories</Button>}
-      {isAdmin && <Button aria-expanded={panel === "create"} onClick={() => setPanel(panel === "create" ? null : "create")}><Plus size={15} /> New project</Button>}
     </div>
     {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={refresh}>Retry</button></p>}
     {panel === "create" && <CreateProject workspaceId={workspace.id} onCreated={created => { setProjectId(created.id); setPanel(null); refresh(); }} />}

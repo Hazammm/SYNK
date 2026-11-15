@@ -30,11 +30,11 @@ export default function BoardView({ project, userId, initial, onProjectChange }:
   useEffect(() => { syncUrl({ boardId: board?.id }); }, [board?.id]);
 
   const boardPicker = <>
-    <label className={styles.picker}>Board<select value={board?.id ?? ""} onChange={event => setBoardId(event.target.value)}>
+    <label className={styles.picker}><span className={styles.srOnly}>Board</span><select value={board?.id ?? ""} onChange={event => setBoardId(event.target.value)}>
       {project.boards.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
     </select></label>
-    {canWrite && board && <Button onClick={() => setPanel("settings")}><Settings2 size={15} /> Board settings</Button>}
-    {canWrite && <Button onClick={() => setPanel("new")}><Plus size={15} /> New board</Button>}
+    {canWrite && board && <Button variant="quiet" onClick={() => setPanel("settings")}><Settings2 size={15} /> Board settings</Button>}
+    {canWrite && <Button variant="quiet" onClick={() => setPanel("new")}><Plus size={15} /> New board</Button>}
   </>;
   return <>
     {board
