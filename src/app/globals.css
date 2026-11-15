@@ -1,66 +1,158 @@
+/*
+  Synk design tokens.
+  Two themes share one token set. Neutrals lean slightly green so they sit with the jade accent.
+  Primary actions are ink (near-black on light, near-white on dark); jade marks state: active,
+  selected, in sync. Status colours (done, warning, danger, info) are separate from the accent.
+*/
+
 * {
   box-sizing: border-box;
 }
 
 :root,
-[data-theme="black"] {
-  color-scheme: dark;
-  --bg: #0B1220;
-  --surface: #0F1B33;
-  --structure: #1E3A5F;
-  --action: #2563EB;
-  --on-action: #FFFFFF;
-  --link: #60A5FA;
-  --text: #F8FAFC;
-  --muted: #94A3B8;
-  --done: #86EFAC;
-  --medium: #FCD34D;
-  --high: #FDA4AF;
-}
-
-[data-theme="white"] {
+[data-theme="light"] {
   color-scheme: light;
-  --bg: #F8FAFC;
-  --surface: #FFFFFF;
-  --structure: #DBEAFE;
-  --action: #2563EB;
-  --on-action: #FFFFFF;
-  --link: #1D4ED8;
-  --text: #0F172A;
-  --muted: #52647C;
-  --done: #166534;
-  --medium: #854D0E;
-  --high: #B91C1C;
+
+  /* Surfaces */
+  --bg: #f7f9f8;            /* app canvas */
+  --surface: #ffffff;       /* cards, panels, sidebar */
+  --raised: #ffffff;        /* menus, dialogs, popovers */
+  --sunken: #f1f4f2;        /* wells, board columns, code */
+  --fill: #eef1ef;          /* hover and quiet fills */
+  --fill-strong: #e2e7e4;   /* pressed, selected, tracks */
+
+  /* Lines */
+  --border: #e3e7e4;
+  --border-strong: #c7cec9;
+
+  /* Text */
+  --text: #19201d;
+  --muted: #5d6662;
+  --faint: #656e69;
+
+  /* Ink: primary actions */
+  --ink: #19201d;
+  --ink-hover: #2c3531;
+  --on-ink: #ffffff;
+
+  /* Accent: jade */
+  --accent: #17785f;
+  --accent-hover: #126550;
+  --on-accent: #ffffff;
+  --accent-text: #136b55;
+  --accent-soft: #e2f4ed;
+  --accent-border: #a9dcc7;
+
+  /* Status */
+  --done: #18794e;
+  --done-soft: #e4f5ea;
+  --medium: #9a5b00;
+  --medium-soft: #fdf1cf;
+  --high: #c62a2f;
+  --high-soft: #fdebec;
+  --info: #0b68b8;
+  --info-soft: #e5f2fd;
+
+  --focus: #17785f;
+  --overlay: rgb(16 22 19 / .38);
+  --shadow-sm: 0 1px 2px rgb(16 22 19 / .05);
+  --shadow-md: 0 4px 14px -4px rgb(16 22 19 / .12), 0 1px 2px rgb(16 22 19 / .05);
+  --shadow-lg: 0 24px 48px -16px rgb(16 22 19 / .22), 0 2px 6px rgb(16 22 19 / .06);
 }
 
-[data-theme="forest"] {
+[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #091B15;
-  --surface: #102B22;
-  --structure: #24503E;
-  --action: #36A875;
-  --on-action: #091B15;
-  --link: #75DBA6;
-  --text: #F0FDF4;
-  --muted: #A0BDAE;
-  --done: #86EFAC;
-  --medium: #FDE68A;
-  --high: #FDA4AF;
+
+  --bg: #0f1110;
+  --surface: #161918;
+  --raised: #1c201e;
+  --sunken: #121514;
+  --fill: #212523;
+  --fill-strong: #2b302e;
+
+  --border: #262b28;
+  --border-strong: #3c433f;
+
+  --text: #eceeed;
+  --muted: #9ea6a2;
+  --faint: #858e8a;
+
+  --ink: #eceeed;
+  --ink-hover: #ffffff;
+  --on-ink: #0f1110;
+
+  --accent: #2fb891;
+  --accent-hover: #46c8a2;
+  --on-accent: #06120e;
+  --accent-text: #4fcfa9;
+  --accent-soft: #10291f;
+  --accent-border: #1d4f3f;
+
+  --done: #56c68e;
+  --done-soft: #122a1f;
+  --medium: #f0b541;
+  --medium-soft: #2d2109;
+  --high: #ff8f8c;
+  --high-soft: #371418;
+  --info: #72b6fb;
+  --info-soft: #0f2742;
+
+  --focus: #4fcfa9;
+  --overlay: rgb(0 0 0 / .6);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
+  --shadow-md: 0 6px 18px -6px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-lg: 0 28px 56px -18px rgb(0 0 0 / .75), 0 0 0 1px rgb(255 255 255 / .04);
 }
 
-[data-theme="lavender"] {
-  color-scheme: light;
-  --bg: #F3F0FA;
-  --surface: #FCFAFF;
-  --structure: #E1D8F3;
-  --action: #8056C5;
-  --on-action: #FFFFFF;
-  --link: #7043B3;
-  --text: #292039;
-  --muted: #756781;
-  --done: #166534;
-  --medium: #854D0E;
-  --high: #B91C1C;
+:root {
+  /* Names used by the first version of the UI. Kept so older rules keep working. */
+  --structure: var(--border);
+  --action: var(--accent);
+  --on-action: var(--on-accent);
+  --link: var(--accent-text);
+
+  /* Type */
+  --font-ui: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-code: var(--font-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --t-xs: 11px;
+  --t-sm: 12px;
+  --t-base: 13px;
+  --t-md: 14px;
+  --t-lg: 16px;
+  --t-xl: 20px;
+  --t-2xl: 24px;
+  --t-3xl: 32px;
+
+  /* Radius */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* Space (4px grid) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+
+  /* Motion */
+  --d-fast: 100ms;
+  --d-base: 160ms;
+  --d-slow: 240ms;
+  --ease: cubic-bezier(.2, 0, 0, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+
+  /* Layout */
+  --sidebar-w: 248px;
+  --rail-w: 60px;
+  --topbar-h: 52px;
 }
 
 html,
@@ -69,12 +161,29 @@ body {
   margin: 0;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-inter), sans-serif;
-  font-size: 14px;
+  font-family: var(--font-ui);
+  font-size: var(--t-md);
   line-height: 1.5;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 600;
+  letter-spacing: -.012em;
+  text-wrap: balance;
 }
 
 button,
@@ -85,35 +194,179 @@ select {
   font: inherit;
 }
 
-kbd {
-  padding: 1px 5px;
-  border: 1px solid var(--structure);
-  border-radius: 4px;
-  color: var(--muted);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
 button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-[contenteditable="true"]:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
-}
-
 a {
-  color: var(--link);
+  color: var(--accent-text);
   text-decoration: none;
 }
 
-::selection {
-  background: var(--structure);
+/* One focus ring everywhere. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Native selects, restyled once so every picker and filter matches. */
+select {
+  appearance: none;
+  min-height: 34px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237b8480' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
   color: var(--text);
+  font-size: var(--t-base);
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color var(--d-base) var(--ease), background-color var(--d-base) var(--ease);
+}
+
+select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+select:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="date"],
+input[type="time"],
+input[type="number"],
+input[type="url"],
+input:not([type]),
+textarea {
+  transition: border-color var(--d-base) var(--ease), box-shadow var(--d-base) var(--ease);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
+  opacity: 1;
+}
+
+input[type="checkbox"]:not([role="switch"]),
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* Switches (notification settings and similar). */
+input[type="checkbox"][role="switch"] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border-radius: var(--r-pill);
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background var(--d-base) var(--ease);
+}
+
+input[type="checkbox"][role="switch"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .25);
+  transition: transform var(--d-base) var(--ease-out);
+}
+
+input[type="checkbox"][role="switch"]:checked {
+  background: var(--accent);
+}
+
+input[type="checkbox"][role="switch"]:checked::after {
+  transform: translateX(14px);
+}
+
+input[type="checkbox"][role="switch"]:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  background: var(--sunken);
+  color: var(--muted);
+  font-family: var(--font-code);
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+code {
+  font-family: var(--font-code);
+  font-size: .92em;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* Shared motion. Components opt in by name. */
+@keyframes synk-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes synk-rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes synk-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(.98); }
+}
+
+@keyframes synk-slide-in {
+  from { transform: translateX(24px); opacity: 0; }
+}
+
+@keyframes synk-shimmer {
+  to { background-position: -200% 0; }
+}
+
+@keyframes synk-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes synk-pulse {
+  50% { opacity: .35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
