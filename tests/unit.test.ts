@@ -443,3 +443,11 @@ test("the Google sign-up cookie refuses to work without NEXTAUTH_SECRET", async 
     if (saved === undefined) delete process.env.NEXTAUTH_SECRET; else process.env.NEXTAUTH_SECRET = saved;
   }
 });
+
+test("typing indicators name up to two people", async () => {
+  const { typingText } = await import("../src/features/chat/client");
+  assert.equal(typingText([]), "");
+  assert.equal(typingText(["Asra"]), "Asra is typing…");
+  assert.equal(typingText(["Asra", "Bilal"]), "Asra and Bilal are typing…");
+  assert.equal(typingText(["Asra", "Bilal", "Sara"]), "Several people are typing…");
+});
