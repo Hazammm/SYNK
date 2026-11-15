@@ -145,3 +145,12 @@ export async function linkPullRequest(userId: string, ticketId: string, input: u
   });
   return serializePullRequest(row);
 }
+
+export async function unlinkPullRequest(userId: string, pullRequestId: string) {
+  idSchema.parse(pullRequestId);
+  const row = await db.pullRequest.findUnique({ where: { id: pullRequestId }, select: { id: true, ticketId: true } });
+  if (!row) throw new AppError(404, "Pull request not found.");
+  await requireTicket(userId, row.ticketId, "ticket:write");
+  await db.pullRequest.delete({ where: { id: row.id } });
+  return { deleted: true };
+}
