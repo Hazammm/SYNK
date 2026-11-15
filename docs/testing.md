@@ -25,3 +25,41 @@ This page checks Synk against the quality targets in PRD section 15 and says how
 | Agent accuracy (real model) | 30 prompts | `npm run agent:eval` |
 
 CI runs the unit and integration tests together with coverage (`npm run test:coverage`), then the end-to-end tests, on every pull request.
+
+## Coverage
+
+`npm run test:coverage` runs the unit and integration tests with Node's built-in coverage and fails if less than 80% of the lines in server code are run. Server code means every `.ts` file in `src` outside `src/app`: services, permissions, validation, the socket server and libraries. Pages, route files and React components are covered by the end-to-end tests instead, which do not report coverage.
+
+| Scope | Lines | Branches | Functions |
+|---|---:|---:|---:|
+| Permission module (`src/lib/permissions.ts`) | 100% | 97.1% | 100% |
+| All server code | 83.8% | 91.7% | 93.1% |
+
+The command prints the figures for every file. The least covered file is `src/lib/mailer.ts`, because the tests never send real email.
+
+## Permission-denial suite
+
+[`tests/denials.integration.test.mts`](../tests/denials.integration.test.mts) collects the denial cases in one place. Four people take part: an admin, a workspace member with no project access, a member who can only view the project, and someone from another workspace. Every attempt must be refused with "forbidden" or "not found", and a final test checks that nothing changed.
+
+1. An outsider reads a channel's history.
+2. An outsider posts in a channel.
+3. A member joins a private channel they were not added to.
+4. A member reads a private channel's history.
+5. A member without project access opens a ticket.
+6. A viewer edits a ticket.
+7. A viewer deletes a ticket.
+8. A viewer creates a ticket.
+9. A member without project access reads a page.
+10. A viewer edits a page.
+11. A viewer logs time on a ticket.
+12. A member without project access reads the sprint reports.
+13. A member creates a project.
+14. A member gives themselves project access.
+15. A member removes the admin from the workspace.
+16. A member sends workspace invites.
+17. An outsider opens another workspace's overview.
+18. A member links a repository to a project.
+19. The AI agent, acting for each of them, tries to create and change tickets and pages it may not (4 attempts).
+20. A webhook signed with the wrong secret tries to change pull requests.
+
+Other suites test more denial cases next to the features they protect, for example the socket tests for live chat.
