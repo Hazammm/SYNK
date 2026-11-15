@@ -151,6 +151,14 @@ export const authOptions: NextAuthOptions = {
         const dest = invite ? "/join/pending" : "/create-workspace?from=google";
         return `/api/auth/google-profile?token=${encodeURIComponent(token)}&next=${encodeURIComponent(dest)}`;
       }
+      // Signing in again to GitHub or Bitbucket (for example to grant repository access) replaces the stored
+      // token, which the adapter only saves the first time. The repository integration reads it.
+      if (account?.provider === "github" || account?.provider === "bitbucket") {
+        await db.account.updateMany({
+          where: { provider: account.provider, providerAccountId: account.providerAccountId },
+          data: storedTokens(account),
+        });
+      }
       return true;
     },
     async jwt({ token, user }) {
