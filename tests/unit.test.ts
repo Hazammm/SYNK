@@ -20,6 +20,16 @@ import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFi
 import { initials, trackerHref } from "../src/features/tickets/ui";
 import type { ChatMessage } from "../src/lib/chat-types";
 import { sendPasswordResetEmail } from "../src/lib/mailer";
+import { parsePullRequestUrl, ticketKeysIn } from "../src/features/integrations/refs";
+
+test("ticket keys are found in pull request titles and branch names", () => {
+  assert.deepEqual(ticketKeysIn("SYN-12 fix login", "SYN"), ["SYN-12"]);
+  assert.deepEqual(ticketKeysIn("feature/syn-7-timer and Syn-12, SYN-7 again", "SYN"), ["SYN-7", "SYN-12"]); // any case, no repeats
+  assert.deepEqual(ticketKeysIn("[SYN-3] (SYN-004)", "SYN"), ["SYN-3", "SYN-4"]);
+  // Part of a longer word or number is not a key, and other projects' keys are ignored.
+  assert.deepEqual(ticketKeysIn("XSYN-1 SYN-1x SYN-12345678901 OTH-2 SYN- 5 SYN5", "SYN"), []);
+  assert.deepEqual(ticketKeysIn("SYN-1", "SY"), []);
+});
 
 test("deny by default, including workspace admins outside a channel or project", () => {
   for (const action of ["workspace:read", "workspace:manage", "channel:read", "channel:write", "project:read", "project:write"] as Action[]) {
