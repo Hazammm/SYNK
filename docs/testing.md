@@ -90,3 +90,21 @@ No request failed. The script exits with an error if any p95 reaches 500 ms. It 
 | Account and workspace created | 1.6 |
 | Synk AI created the ticket | 5.0 |
 | Ticket shows on the board | 5.5 |
+
+## Running the measurements
+
+The integration tests, coverage and end-to-end tests need a disposable database in `TEST_DATABASE_URL`; see [setup.md](setup.md). The load test and walkthrough need a running server:
+
+```bash
+npm run db:seed
+npm run build
+npm start
+```
+
+Then, in a second terminal, `npm run test:load` (with `SEED_DEMO_PASSWORD` set) or `npm run test:walkthrough` (with the agent running: `npm run agent:up`). If the server is not on port 3000, set `LOAD_BASE_URL`, and start the agent with `NEXTJS_API_URL=http://host.docker.internal:<port>`.
+
+## Limits
+
+- Coverage covers server code only. The interface is tested by the 8 end-to-end tests, which do not measure coverage.
+- The load test runs on one laptop with 10 requests at a time. It shows the code is fast enough, not how a deployed server behaves under many users.
+- On Windows with Docker, 3 concurrency tests (message retries, concurrent ticket keys and ticket moves) can time out waiting for a database connection. They pass in CI.
