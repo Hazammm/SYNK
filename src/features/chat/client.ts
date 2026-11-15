@@ -16,6 +16,14 @@ export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
   return [...byId.values()].sort((a, b) => a.createdAt === b.createdAt ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : a.createdAt < b.createdAt ? -1 : 1);
 }
 
+// "Asra is typing…", "Asra and Bilal are typing…", then "Several people are typing…".
+export function typingText(names: string[]) {
+  if (!names.length) return "";
+  if (names.length === 1) return `${names[0]} is typing…`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
+  return "Several people are typing…";
+}
+
 function applyEvent(messages: ChatMessage[], event: MessageEvent, parentId: string | null) {
   if (event.message.parentId === parentId) return mergeMessages(messages, [event.message]);
   if (parentId === null && event.message.parentId && event.parentReplyCount !== undefined) {
