@@ -90,3 +90,15 @@ export async function listRepositories(userId: string, projectId: string): Promi
   const rows = await db.repository.findMany({ where: { projectId }, include: repositoryInclude, orderBy: [{ fullName: "asc" }, { id: "asc" }] });
   return rows.map(row => serializeRepository(row, role === "ADMIN"));
 }
+
+export async function linkRepository(userId: string, projectId: string, input: unknown): Promise<LinkedRepository> {
+  const { provider, fullName } = linkRepositorySchema.parse(input);
+  await requireProject(userId, projectId, "project:manage");
+  // Asking the host proves this person can read the repository, and gives its exact name and address.
+  const remote = await providers[provider].getRepository(await accessToken(userId, provider), fullName);
+  const row = await db.repository.create({
+    data: { projectId, provider, fullName: remote.fullName, url: remote.url, connectedById: userId, webhookSecret: randomBytes(32).toString("hex") },
+    include: repositoryInclude,
+  });
+  return serializeRepository(row, true);
+}
