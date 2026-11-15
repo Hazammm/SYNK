@@ -1,19 +1,26 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { themeScript } from "@/lib/theme";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const sans = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Synk — your team workspace",
-  description: "Chat, tickets, docs and time. One workspace.",
+  title: "Synk — chat, tickets, docs and time in one workspace",
+  description: "Synk is one workspace for team chat, issue tracking, docs and time tracking, with an AI agent that can only do what you are allowed to do.",
 };
 
-const themeScript = `var t=localStorage.getItem("synk-theme");if(["black","white","forest","lavender"].includes(t))document.documentElement.dataset.theme=t`;
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f9f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1110" },
+  ],
+};
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" data-theme="black" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" data-theme="light" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {children}
