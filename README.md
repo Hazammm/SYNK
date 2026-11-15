@@ -19,11 +19,11 @@ Small teams usually split their work across a chat tool, an issue tracker, a wik
 
 ## Interface
 
-The interface has a light and a dark theme built on one token set, a public landing page, and a shell with a collapsible sidebar. The design system is documented in [`docs/design/design-system.md`](docs/design/design-system.md), and the research behind it in [`docs/design/research-report.md`](docs/design/research-report.md).
+The interface has a light and a dark theme built on one token set, a public landing page, and a shell with a collapsible sidebar. 
 
-| Landing | Board (dark) |
-|---|---|
-| ![Landing page](docs/images/landing.png) | ![Board in the dark theme](docs/images/board-dark.png) |
+| Landing Page| 
+|---|
+| ![Landing page](docs/images/landing.png) | 
 
 ## Architecture
 
