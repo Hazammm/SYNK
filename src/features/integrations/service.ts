@@ -109,3 +109,12 @@ export async function unlinkRepository(userId: string, repositoryId: string) {
   await db.repository.delete({ where: { id: repository.id } });
   return { deleted: true };
 }
+
+// Reads the repository's recent pull requests: attaches the ones that name a ticket key and refreshes the ones already attached.
+export async function syncRepository(userId: string, repositoryId: string): Promise<SyncResult> {
+  const repository = await requireRepository(userId, repositoryId, "project:write");
+  const remotes = await providers[repository.provider].listPullRequests(await repositoryToken(repository), repository.fullName);
+  let linked = 0;
+  for (const remote of remotes) linked += await record(repository, remote);
+  return { scanned: remotes.length, linked };
+}
