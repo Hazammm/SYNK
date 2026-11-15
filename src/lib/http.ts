@@ -5,7 +5,8 @@ export function assertSameOrigin(request: Request) {
   if (request.headers.get("origin") !== allowed) throw new AppError(403, "Request origin is not allowed.");
 }
 
-export async function readJson(request: Request, maxBytes = 20_000) {
+// The body as text, refused once it grows past maxBytes.
+export async function readText(request: Request, maxBytes: number) {
   if (!request.headers.get("content-type")?.includes("application/json")) throw new AppError(415, "Send JSON content.");
   const reader = request.body?.getReader();
   if (!reader) throw new AppError(400, "Request body is required.");
@@ -19,9 +20,11 @@ export async function readJson(request: Request, maxBytes = 20_000) {
       if (length > maxBytes) { await reader.cancel(); throw new AppError(413, "Request is too large."); }
       chunks.push(value);
     }
-    return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
-  } catch (error) {
-    if (error instanceof AppError) throw error;
-    throw new AppError(400, "Invalid JSON body.");
+    return Buffer.concat(chunks).toString("utf8");
   } finally { reader.releaseLock(); }
+}
+
+export async function readJson(request: Request, maxBytes = 20_000) {
+  const text = await readText(request, maxBytes);
+  try { return JSON.parse(text) as unknown; } catch { throw new AppError(400, "Invalid JSON body."); }
 }

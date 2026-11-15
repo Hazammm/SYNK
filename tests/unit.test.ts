@@ -20,6 +20,63 @@ import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFi
 import { initials, trackerHref } from "../src/features/tickets/ui";
 import type { ChatMessage } from "../src/lib/chat-types";
 import { sendPasswordResetEmail } from "../src/lib/mailer";
+import { createHmac } from "node:crypto";
+import { parsePullRequestUrl, ticketKeysIn } from "../src/features/integrations/refs";
+import { fullNameSchema, validSignature } from "../src/features/integrations/providers/shared";
+import { github } from "../src/features/integrations/providers/github";
+import { bitbucket } from "../src/features/integrations/providers/bitbucket";
+
+test("ticket keys are found in pull request titles and branch names", () => {
+  assert.deepEqual(ticketKeysIn("SYN-12 fix login", "SYN"), ["SYN-12"]);
+  assert.deepEqual(ticketKeysIn("feature/syn-7-timer and Syn-12, SYN-7 again", "SYN"), ["SYN-7", "SYN-12"]); // any case, no repeats
+  assert.deepEqual(ticketKeysIn("[SYN-3] (SYN-004)", "SYN"), ["SYN-3", "SYN-4"]);
+  // Part of a longer word or number is not a key, and other projects' keys are ignored.
+  assert.deepEqual(ticketKeysIn("XSYN-1 SYN-1x SYN-12345678901 OTH-2 SYN- 5 SYN5", "SYN"), []);
+  assert.deepEqual(ticketKeysIn("SYN-1", "SY"), []);
+});
+
+test("pull request addresses are read for GitHub and Bitbucket only", () => {
+  assert.deepEqual(parsePullRequestUrl("https://github.com/acme/app/pull/12"), { provider: "GITHUB", fullName: "acme/app", number: 12 });
+  assert.deepEqual(parsePullRequestUrl(" https://github.com/acme/app/pull/12/files?diff=split "), { provider: "GITHUB", fullName: "acme/app", number: 12 });
+  assert.deepEqual(parsePullRequestUrl("https://bitbucket.org/team/site/pull-requests/3"), { provider: "BITBUCKET", fullName: "team/site", number: 3 });
+  for (const address of [
+    "", "not a url", "http://github.com/acme/app/pull/12", "https://github.com/acme/app/issues/12", "https://github.com/acme/app/pull/abc",
+    "https://github.com.evil.test/acme/app/pull/1", "https://bitbucket.org/team/site/pull/3", "https://gitlab.com/acme/app/pull/1",
+  ]) assert.equal(parsePullRequestUrl(address), null, address);
+});
+
+test("repository names must look like owner/repository", () => {
+  for (const name of ["acme/app", "Hazammm/SYNK", "a.b/c_d-e"]) assert.equal(fullNameSchema.safeParse(name).success, true, name);
+  for (const name of ["acme", "acme/app/extra", "../etc", "acme/..", "acme/app?x=1", "acme /app", ""]) assert.equal(fullNameSchema.safeParse(name).success, false, name);
+});
+
+test("webhook signatures must match the repository's secret over the exact body", () => {
+  const body = JSON.stringify({ action: "opened" });
+  const sign = (secret: string, text = body) => `sha256=${createHmac("sha256", secret).update(text).digest("hex")}`;
+  assert.equal(validSignature("secret", body, sign("secret")), true);
+  assert.equal(validSignature("secret", body, sign("other")), false);
+  assert.equal(validSignature("secret", `${body} `, sign("secret")), false); // one changed byte
+  assert.equal(validSignature("secret", body, sign("secret").slice(7)), false); // missing the sha256= prefix
+  assert.equal(validSignature("secret", body, "sha256=abc"), false);
+  assert.equal(validSignature("secret", body, null), false);
+});
+
+test("GitHub and Bitbucket deliveries map to the same pull request shape", () => {
+  const pull = { number: 4, title: "SYN-1 fix", html_url: "https://github.com/acme/app/pull/4", state: "closed", merged_at: "2026-11-14T10:00:00Z", head: { ref: "fix" }, user: { login: "hazam" }, updated_at: "2026-11-14T10:00:00Z" };
+  const event = (name: string) => new Headers({ "x-github-event": name });
+  const parsed = github.parseWebhook(event("pull_request"), { pull_request: pull, repository: { full_name: "acme/app" } });
+  assert.deepEqual([parsed?.fullName, parsed?.pullRequest.status, parsed?.pullRequest.branch, parsed?.pullRequest.author, parsed?.pullRequest.number], ["acme/app", "MERGED", "fix", "hazam", 4]);
+  const statusOf = (changes: object) => github.parseWebhook(event("pull_request"), { pull_request: { ...pull, ...changes }, repository: { full_name: "acme/app" } })?.pullRequest.status;
+  assert.deepEqual([statusOf({ state: "open", merged_at: null }), statusOf({ merged_at: null }), statusOf({ user: null })], ["OPEN", "DECLINED", "MERGED"]);
+  assert.equal(github.parseWebhook(event("ping"), { zen: "Keep it simple." }), null);
+  assert.equal(github.parseWebhook(event("pull_request"), { pull_request: { number: "4" } }), null); // not the expected shape
+
+  const hosted = { id: 9, title: "SYN-2 report", state: "OPEN", links: { html: { href: "https://bitbucket.org/team/site/pull-requests/9" } }, updated_on: "2026-11-14T11:00:00Z", source: { branch: { name: "report" } }, author: { display_name: "Asra" } };
+  const key = (name: string) => new Headers({ "x-event-key": name });
+  const states = ["OPEN", "MERGED", "DECLINED", "SUPERSEDED"].map(state => bitbucket.parseWebhook(key("pullrequest:updated"), { pullrequest: { ...hosted, state }, repository: { full_name: "team/site" } })?.pullRequest.status);
+  assert.deepEqual(states, ["OPEN", "MERGED", "DECLINED", "DECLINED"]);
+  assert.equal(bitbucket.parseWebhook(key("repo:push"), { pullrequest: hosted, repository: { full_name: "team/site" } }), null);
+});
 
 test("deny by default, including workspace admins outside a channel or project", () => {
   for (const action of ["workspace:read", "workspace:manage", "channel:read", "channel:write", "project:read", "project:write"] as Action[]) {

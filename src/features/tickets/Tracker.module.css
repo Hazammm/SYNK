@@ -222,3 +222,23 @@ a.rowTitle { text-decoration: none; }
 .breakdown a { color: var(--text); font-weight: 600; }
 .breakdown a:hover { color: var(--link); }
 .breakdown li > small { grid-column: 1 / -1; }
+
+/* Repositories and pull requests */
+.panel h3 { margin: 6px 0 0; font-size: 14px; }
+.panel a, .pulls a { color: var(--link); }
+.linkForm { display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid var(--structure); }
+.linkForm > button { justify-self: start; }
+.webhook { flex-basis: 100%; color: var(--muted); font-size: 12px; }
+.webhook summary { cursor: pointer; }
+.webhook dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 8px 0 0; }
+.webhook dd { margin: 0; overflow-wrap: anywhere; }
+.webhook code { user-select: all; }
+.pulls { margin: 0 0 12px; padding: 0; list-style: none; }
+.pulls li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--structure); }
+.pulls li > div { flex: 1; min-width: 0; }
+.pulls a { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.pulls small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.pullForm { display: flex; gap: 8px; }
+.pullForm input { flex: 1; min-width: 0; }
+.prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--structure); border-radius: 8px; font-size: 13px; }
+.panel .notice { margin: 0; }

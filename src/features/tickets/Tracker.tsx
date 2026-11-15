@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FolderKanban, Plus, ShieldCheck } from "lucide-react";
+import { FolderKanban, GitPullRequest, Plus, ShieldCheck } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import type { WorkspaceSummary } from "@/lib/chat-types";
 import type { AccessEntry, ProjectDetail, ProjectLevel, ProjectSummary } from "@/lib/ticket-types";
@@ -12,6 +12,7 @@ import BoardView from "./BoardView";
 import SprintsView from "./SprintsView";
 import ReportsView from "../reports/ReportsView";
 import { initials, syncUrl, trackerHref, type Selection, type TrackerView } from "./ui";
+import RepositoriesPanel from "@/features/integrations/RepositoriesPanel";
 import styles from "./Tracker.module.css";
 
 const VIEW_TITLES: Record<TrackerView, string> = { board: "Board", sprints: "Sprints", reports: "Sprint reports" };
@@ -39,7 +40,7 @@ export default function Tracker({ view, userId, initialWorkspaces, initial }: Pr
 function Projects({ workspace, view, userId, initial }: { workspace: WorkspaceSummary; view: TrackerView; userId: string; initial: Selection }) {
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [projectId, setProjectId] = useState(initial.projectId ?? "");
-  const [panel, setPanel] = useState<"create" | "access" | null>(null);
+  const [panel, setPanel] = useState<"create" | "access" | "repos" | null>(initial.repos ? "repos" : null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const isAdmin = workspace.role === "ADMIN";
@@ -53,7 +54,7 @@ function Projects({ workspace, view, userId, initial }: { workspace: WorkspaceSu
     }).catch(error => { if (!controller.signal.aborted) setError(messageOf(error)); });
     return () => controller.abort();
   }, [workspace.id, revision]);
-  useEffect(() => { if (projects) syncUrl({ workspaceId: workspace.id, projectId }); }, [workspace.id, projectId, projects]);
+  useEffect(() => { if (projects) syncUrl({ workspaceId: workspace.id, projectId, repos: panel === "repos" ? "1" : undefined }); }, [workspace.id, projectId, projects, panel]);
 
   const refresh = () => setRevision(value => value + 1);
   return <>
@@ -68,11 +69,13 @@ function Projects({ workspace, view, userId, initial }: { workspace: WorkspaceSu
         {projects?.map(item => <option key={item.id} value={item.id}>{item.name} ({item.key})</option>)}
       </select></label>
       {isAdmin && project && <Button aria-expanded={panel === "access"} onClick={() => setPanel(panel === "access" ? null : "access")}><ShieldCheck size={15} /> Project access</Button>}
+      {isAdmin && project && <Button aria-expanded={panel === "repos"} onClick={() => setPanel(panel === "repos" ? null : "repos")}><GitPullRequest size={15} /> Repositories</Button>}
       {isAdmin && <Button aria-expanded={panel === "create"} onClick={() => setPanel(panel === "create" ? null : "create")}><Plus size={15} /> New project</Button>}
     </div>
     {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={refresh}>Retry</button></p>}
     {panel === "create" && <CreateProject workspaceId={workspace.id} onCreated={created => { setProjectId(created.id); setPanel(null); refresh(); }} />}
     {panel === "access" && project && <ProjectAccess key={project.id} project={project} onChanged={refresh} />}
+    {panel === "repos" && project && isAdmin && <RepositoriesPanel key={project.id} project={project} />}
     {projects && !projects.length && panel !== "create" && <div className={styles.empty}><FolderKanban size={32} /><h2>No projects yet</h2>
       {isAdmin
         ? <><p>A project holds your boards, tickets and sprints.</p><Button variant="primary" onClick={() => setPanel("create")}><Plus size={15} /> Create the first project</Button></>

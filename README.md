@@ -54,7 +54,7 @@ flowchart LR
 |---|---|
 | Web app and API | Next.js 16.4.1 (App Router), React 19.3, NextAuth 4.24 (JWT strategy), zod 4.6, Node.js 22.12 or later |
 | Realtime | Socket.IO 4.8.4 on the same `node:http` server ([`server.ts`](server.ts)) |
-| Data | PostgreSQL 16, Prisma 6.19.3 (25 models, 9 migrations) |
+| Data | PostgreSQL 16, Prisma 6.19.3 (27 models, 10 migrations) |
 | Agent | Python 3.13, FastAPI, LangGraph 1.2, langchain-google-genai 4.5, run in Docker as a non-root user |
 | Email | Mailtrap (API or SMTP) for invites, welcome mail and password reset |
 
@@ -70,6 +70,7 @@ flowchart LR
 | Issue tracking | Per-project access, several boards per project with editable columns, drag and drop with mouse, touch or keyboard, four filters, comments with @mentions, sprints with one active per project |
 | Reports | Burndown with an ideal line, velocity over the last 6 completed sprints, status and assignee breakdowns, CSV export |
 | Docs | Nested Markdown pages per project, formatting toolbar and preview, clickable checklists, edit-conflict protection, PostgreSQL full-text search |
+| Code hosts | GitHub and Bitbucket repositories linked to a project. A pull request that names a ticket key in its title or branch appears on that ticket with its status, kept current by signed webhooks or a manual sync. A merged pull request offers to move the ticket to Done |
 | Time | One running timer per person (server clock, 24-hour cap), manual entries, a weekly report by day, ticket and person, CSV export |
 | Overview and alerts | Your open, overdue and recently completed tickets, active sprints, and in-app alerts for assignments, comments and mentions. Each alert type can be turned off |
 | Synk AI | Five tools: `create_ticket`, `update_ticket` (needs confirmation), `find_tickets`, `create_doc` and `search_workspace`. Each reply lists the actions it took, with links |
@@ -166,6 +167,7 @@ compose.yaml              PostgreSQL and the agent service for local development
 | [`docs/issue-tracking.md`](docs/issue-tracking.md) | Projects, boards, sprints, the access model and how reports are calculated |
 | [`docs/docs-module.md`](docs/docs-module.md) | Markdown pages, rendering, conflict handling, search |
 | [`docs/time-tracking.md`](docs/time-tracking.md) | Timers, manual entries, weekly reports |
+| [`docs/code-hosts.md`](docs/code-hosts.md) | GitHub and Bitbucket: linking repositories, pull requests on tickets, webhooks |
 | [`docs/chat-implementation.md`](docs/chat-implementation.md) | Original chat design notes (API table and roadmap predate later modules) |
 | [`docs/chat-qa.md`](docs/chat-qa.md) | Chat verification records and manual acceptance plan |
 

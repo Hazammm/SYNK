@@ -6,6 +6,7 @@ import { Avatar, Button, Input } from "@/components/Primitives";
 import type { BoardSummary, ProjectDetail, ProjectMember, TicketComment, TicketDetail } from "@/lib/ticket-types";
 import { messageOf, request } from "@/lib/client-http";
 import { TIMER_CHANGED, type TimerStart } from "@/lib/time-types";
+import PullRequests from "@/features/integrations/PullRequests";
 import Modal from "./Modal";
 import { formatDateTime, initials, PRIORITIES } from "./ui";
 import styles from "./Tracker.module.css";
@@ -30,6 +31,8 @@ export default function TicketDrawer({ target, project, board, userId, canWrite,
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [error, setError] = useState("");
   const dirty = useRef(false);
+  // Bumped when the ticket is changed from outside the form, so the form shows the new values.
+  const [formVersion, setFormVersion] = useState(0);
   useEffect(() => {
     if (!ticketId) return;
     const controller = new AbortController();
@@ -49,9 +52,11 @@ export default function TicketDrawer({ target, project, board, userId, canWrite,
     </header>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {ticketId && !ticket && !error && <p role="status" className={styles.loading}>Loading ticket…</p>}
-    {ticketBoard && (ticket || !ticketId) && <Editor key={ticket?.id ?? "new"} ticket={ticket} project={project} board={ticketBoard} canWrite={canWrite}
+    {ticketBoard && (ticket || !ticketId) && <Editor key={ticket ? `${ticket.id}:${formVersion}` : "new"} ticket={ticket} project={project} board={ticketBoard} canWrite={canWrite}
       startColumnId={"columnId" in target ? target.columnId : undefined} onDirty={value => { dirty.current = value; }}
       onSaved={update} onCreated={created => onCreated?.(created)} onDeleted={onDeleted} />}
+    {ticket && ticketBoard && <PullRequests ticket={ticket} board={ticketBoard} canWrite={canWrite}
+      onMoved={moved => { if (mayClose()) { dirty.current = false; update(moved); setFormVersion(version => version + 1); } }} />}
     {ticket && <Comments ticket={ticket} members={project.members} userId={userId} canWrite={canWrite}
       onAdded={comment => update({ ...ticket, comments: [...ticket.comments, comment], commentCount: ticket.commentCount + 1 })} />}
   </Modal>;

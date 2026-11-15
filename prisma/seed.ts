@@ -1,5 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { hash } from "bcryptjs";
+import { randomBytes } from "node:crypto";
 loadEnvConfig(process.cwd(), true);
 
 async function seed() {
@@ -71,6 +72,23 @@ async function seed() {
       const logged: [typeof admin, number, number, number][] = [[admin, 0, 6, 4.5], [member, 1, 5, 3], [admin, 2, 3, 2], [member, 0, 2, 1.25]];
       for (const [person, ticket, start, end] of logged) {
         if (tickets[ticket]) await addTimeEntry(person.id, { ticketId: tickets[ticket].id, startedAt: hoursAgo(start), endedAt: hoursAgo(end), note: "Demo time" });
+      }
+    }
+    // A linked repository with two merged pull requests, so tickets show them without a GitHub sign-in.
+    // SYN-101 is still To Do, so opening it shows the "Move to Done?" prompt.
+    if (!(await db.repository.count({ where: { projectId: project.id } }))) {
+      const repository = await db.repository.create({
+        data: { projectId: project.id, provider: "GITHUB", fullName: "Hazammm/SYNK", url: "https://github.com/Hazammm/SYNK", connectedById: admin.id, webhookSecret: randomBytes(32).toString("hex") },
+      });
+      const pulls: [string, number, string, string][] = [
+        ["SYN-101", 12, "SYN-101 improve workspace email and password reset email", "feat/mail"],
+        ["SYN-103", 11, "SYN-103 add time tracking and the AI accuracy evaluation", "feat/eval-and-time"],
+      ];
+      for (const [key, number, title, branch] of pulls) {
+        const ticket = await db.ticket.findFirst({ where: { projectId: project.id, key } });
+        if (ticket) await db.pullRequest.create({
+          data: { ticketId: ticket.id, repositoryId: repository.id, number, title, branch, url: `https://github.com/Hazammm/SYNK/pull/${number}`, status: "MERGED", author: "Hazammm", updatedAt: new Date(Date.now() - number * 3_600_000) },
+        });
       }
     }
     await sendMessage(admin.id, channel.id, { body: "Welcome! Our chat verification ticket is SYN-101.", clientMessageId: "b714897c-59df-425e-8567-1600f64ea760" });

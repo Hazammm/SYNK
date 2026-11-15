@@ -1,6 +1,7 @@
 import type { Priority } from "@/lib/ticket-types";
 
-export type Selection = { workspaceId?: string; projectId?: string; boardId?: string; ticket?: string; sprintId?: string };
+// `repos` reopens the Repositories panel after the round trip to GitHub or Bitbucket.
+export type Selection = { workspaceId?: string; projectId?: string; boardId?: string; ticket?: string; sprintId?: string; repos?: string };
 export type TrackerView = "board" | "sprints" | "reports";
 const VIEW_PATHS: Record<TrackerView, string> = { board: "/board", sprints: "/board/backlog", reports: "/board/reports" };
 

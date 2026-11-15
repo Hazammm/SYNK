@@ -180,13 +180,6 @@ export default function SynkShell({
           <div className={styles.sideFooter}><Link href={`${base}/settings`}><Settings size={17} /> Settings</Link><span>v1.0.0</span></div>
         </aside>
         <main className={styles.main}>{children}</main>
-        <aside className={styles.contextPanel}>
-          <div className={styles.contextHeading}>Workspace members</div>
-          <Link className={styles.contextDoc} href={`${base}/settings?section=Members`}>Manage members</Link>
-          <div className={styles.contextRule} />
-          <div className={styles.contextHeading}>Documents</div>
-          <span className={styles.contextDoc}>No documents yet</span>
-        </aside>
       </div>
       <ThemeBar />
       <AgentPanel />

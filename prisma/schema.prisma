@@ -57,6 +57,7 @@ model User {
   createdDocs           Doc[]                @relation("DocCreator")
   editedDocs            Doc[]                @relation("DocEditor")
   timeEntries           TimeEntry[]
+  repositories          Repository[]
 }
 
 enum TicketPriority {
@@ -255,6 +256,7 @@ model Project {
   tickets          Ticket[]
   docs             Doc[]
   timeEntries      TimeEntry[]
+  repositories     Repository[]
 
   @@unique([workspaceId, key])
   @@index([workspaceId])
@@ -347,6 +349,7 @@ model Ticket {
   comments      Comment[]
   notifications Notification[]
   timeEntries   TimeEntry[]
+  pullRequests  PullRequest[]
 
   @@unique([projectId, key])
   @@index([boardId, columnId, position])
@@ -479,4 +482,55 @@ model TimeEntry {
 
   @@index([projectId, startedAt])
   @@index([userId, endedAt])
+}
+
+enum CodeHost {
+  GITHUB
+  BITBUCKET
+}
+
+enum PullRequestStatus {
+  OPEN
+  MERGED
+  DECLINED
+}
+
+// A GitHub or Bitbucket repository linked to a project. Pull requests in it that name a ticket key attach to that ticket.
+model Repository {
+  id            String        @id @default(cuid())
+  projectId     String
+  provider      CodeHost
+  fullName      String
+  url           String
+  // Signs webhook deliveries from the code host for this repository.
+  webhookSecret String
+  // Whose code-host sign-in is used to read the repository.
+  connectedById String?
+  createdAt     DateTime      @default(now())
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  connectedBy   User?         @relation(fields: [connectedById], references: [id], onDelete: SetNull)
+  pullRequests  PullRequest[]
+
+  @@unique([projectId, provider, fullName])
+  @@index([provider, fullName])
+}
+
+model PullRequest {
+  id           String            @id @default(cuid())
+  ticketId     String
+  repositoryId String
+  number       Int
+  title        String
+  url          String
+  status       PullRequestStatus
+  branch       String            @default("")
+  author       String?
+  // When the pull request last changed on the code host.
+  updatedAt    DateTime
+  createdAt    DateTime          @default(now())
+  ticket       Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  repository   Repository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, repositoryId, number])
+  @@index([repositoryId, number])
 }
