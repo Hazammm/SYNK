@@ -50,3 +50,13 @@ async function requireRepository(userId: string, repositoryId: string, action: P
   if (action !== "project:read") await requireProject(userId, repository.projectId, action);
   return repository;
 }
+
+// Reads go through the sign-in of whoever linked the repository, so teammates need no code-host account of their own.
+async function repositoryToken(repository: { provider: CodeHost; connectedById: string | null }) {
+  const label = CODE_HOSTS[repository.provider].label;
+  if (!repository.connectedById) throw new AppError(409, `The person who linked this repository has left. Unlink it and link it again to reconnect ${label}.`);
+  return accessToken(repository.connectedById, repository.provider).catch(error => {
+    if (error instanceof AppError && error.status === 409) throw new AppError(409, `The ${label} connection for this repository has expired. The person who linked it needs to connect ${label} again.`);
+    throw error;
+  });
+}
