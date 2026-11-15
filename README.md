@@ -123,6 +123,8 @@ Audit:  4 ActionLog rows: find_tickets, update_ticket (dry run), update_ticket (
 
 Now suppose the user asks "Assign SYN-12 to Sarah" in a project with two members named Sarah. The dry run returns `ambiguous` with both names, the graph does not pause, and the agent asks which Sarah the user means.
 
+**Accuracy.** On the PRD's 30-prompt test set (15 happy path, 5 ambiguity, 5 permission denial, 5 edge cases), the agent scored 30 of 30 with `gemini-3.5-flash-lite`, against a target of 90%. See [`docs/ai-agent-eval.md`](docs/ai-agent-eval.md).
+
 ## Trade-offs
 
 | Decision | What it buys | What it costs |
