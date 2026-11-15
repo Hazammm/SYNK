@@ -149,6 +149,7 @@ export function useMessages(channelId: string, parentId: string | null) {
     } catch (error) { if (version === generation.current) setError(messageOf(error)); }
     finally { setLoadingOlder(false); }
   }
-  return { messages, loading, loadingOlder, error, connected, denied, nextCursor, loadOlder,
+  return { messages, loading, loadingOlder, error, connected, denied, nextCursor, loadOlder, notifyTyping,
+    typing: typingText(Object.values(typing).map(entry => entry.name)),
     refresh: () => refreshRef.current(), append: (message: ChatMessage) => setMessages(current => mergeMessages(current, [message])) };
 }
