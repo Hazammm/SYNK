@@ -190,12 +190,16 @@ E2E_SERVER_COMMAND="npm start" npm run test:e2e
 
 `npm start` refuses to run without email settings. Placeholder Mailtrap SMTP values are enough, because the browser tests do not need emails to be delivered.
 
+### Coverage, load test and walkthrough
+
+`npm run test:coverage` runs the unit and integration tests with coverage, as CI does, and fails below 80% of server-code lines. `npm run test:load` measures API response times and `npm run test:walkthrough` times the sign-up-to-first-AI-ticket flow; both need a running server. See [testing.md](testing.md) for what they measure and the latest results.
+
 ### CI parity
 
 The `Chat foundation` workflow ([`.github/workflows/chat-ci.yml`](../.github/workflows/chat-ci.yml)) has two jobs:
 
 - **agent:** builds the agent image and runs pytest inside it, with no API key.
-- **verify:** uses Node 22 with a `postgres:16-alpine` service. It runs `npm ci`, `db:generate`, `db:migrate`, lint, typecheck, unit tests, integration tests and `build`. Then it runs Playwright on Chromium against `npm start`, with placeholder Mailtrap SMTP values.
+- **verify:** uses Node 22 with a `postgres:16-alpine` service. It runs `npm ci`, `db:generate`, `db:migrate`, lint, typecheck, unit and integration tests together with coverage (`test:coverage`), and `build`. Then it runs Playwright on Chromium against `npm start`, with placeholder Mailtrap SMTP values.
 
 ## Production runtime
 

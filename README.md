@@ -169,6 +169,7 @@ compose.yaml              PostgreSQL and the agent service for local development
 | [`docs/issue-tracking.md`](docs/issue-tracking.md) | Projects, boards, sprints, the access model and how reports are calculated |
 | [`docs/docs-module.md`](docs/docs-module.md) | Markdown pages, rendering, conflict handling, search |
 | [`docs/time-tracking.md`](docs/time-tracking.md) | Timers, manual entries, weekly reports |
+| [`docs/testing.md`](docs/testing.md) | Results against the PRD quality targets: coverage, the denial suite, response times, the timed walkthrough |
 | [`docs/code-hosts.md`](docs/code-hosts.md) | GitHub and Bitbucket: linking repositories, pull requests on tickets, webhooks |
 | [`docs/chat-implementation.md`](docs/chat-implementation.md) | Original chat design notes (API table and roadmap predate later modules) |
 | [`docs/chat-qa.md`](docs/chat-qa.md) | Chat verification records and manual acceptance plan |
