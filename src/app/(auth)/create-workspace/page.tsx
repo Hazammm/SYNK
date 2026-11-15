@@ -5,12 +5,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { readGoogleProfileCookie } from "@/lib/google-profile-cookie";
 import CreateWorkspaceWizard from "@/features/workspaces/CreateWorkspaceWizard";
+import { PageLoading } from "@/components/Status";
 
 export default function CreateWorkspacePage({ searchParams }: {
   searchParams: Promise<{ from?: string }>;
 }) {
   return (
-    <Suspense fallback={<main role="status" style={{ padding: 32 }}>Loading workspace setup…</main>}>
+    <Suspense fallback={<PageLoading as="main" full label="Loading workspace setup…" />}>
       <CreateWorkspaceContent searchParams={searchParams} />
     </Suspense>
   );
