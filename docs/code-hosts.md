@@ -28,3 +28,23 @@ Code: [`src/features/integrations`](../src/features/integrations). `providers/` 
 | Connect an account, link or unlink a repository, see the webhook secret | Workspace admins |
 | Sync a repository, attach or remove a pull request | People who can edit the project |
 | See a ticket's pull requests | People who can view the project |
+
+## Setting it up
+
+1. Set up GitHub or Bitbucket sign-in as described in [setup.md](setup.md#github-and-bitbucket). The Bitbucket OAuth consumer also needs the **Repositories: Read** and **Pull requests: Read** permissions.
+2. As a workspace admin, open **Board**, choose the project and press **Repositories**.
+3. Press **Connect GitHub** (or Bitbucket), approve the access on the code host, and you are brought back to the panel.
+4. Choose a repository and press **Link repository**, then **Sync now**.
+
+### Live updates
+
+Without a webhook, pull requests update when someone presses **Sync now**. For live updates, add a webhook in the repository's settings on the code host:
+
+| Setting | Value |
+|---|---|
+| URL | Shown in the panel under "Set up live updates (webhook)": `{NEXTAUTH_URL}/api/integrations/github/webhook` or `.../bitbucket/webhook` |
+| Content type | `application/json` |
+| Secret | Shown in the same place. Each linked repository has its own. |
+| Events | Pull requests (on Bitbucket: created, updated, merged, declined) |
+
+The code host must be able to reach the URL, so this does not work with `http://localhost:3000` unless you use a tunnel.
