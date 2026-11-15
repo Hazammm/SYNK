@@ -154,3 +154,21 @@ export async function unlinkPullRequest(userId: string, pullRequestId: string) {
   await db.pullRequest.delete({ where: { id: row.id } });
   return { deleted: true };
 }
+
+// A delivery from the code host. It carries no session: the signature made with the repository's secret is the proof.
+export async function receiveWebhook(provider: CodeHost, headers: Headers, rawBody: string) {
+  let body: unknown;
+  try { body = JSON.parse(rawBody); } catch { throw new AppError(400, "Invalid JSON body."); }
+  const host = providers[provider];
+  const event = host.parseWebhook(headers, body);
+  // Other events (GitHub's ping, pushes) are acknowledged and ignored.
+  if (!event) return { ok: true, updated: 0 };
+  const repositories = await db.repository.findMany({
+    where: { provider, fullName: { equals: event.fullName, mode: "insensitive" } }, include: { project: { select: { key: true } } },
+  });
+  const trusted = repositories.filter(repository => validSignature(repository.webhookSecret, rawBody, headers.get(host.signatureHeader)));
+  // The same answer whether the repository is unknown or the signature is wrong.
+  if (!trusted.length) throw new AppError(401, "Unknown repository or invalid signature.");
+  for (const repository of trusted) await record(repository, event.pullRequest);
+  return { ok: true, updated: trusted.length };
+}
