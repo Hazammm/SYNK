@@ -6,7 +6,7 @@ import {
   useDraggable, useDroppable, useSensor, useSensors,
   type Announcements, type CollisionDetection, type DragEndEvent, type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import { CalendarDays, GripVertical, MessageSquare, Plus, Settings2, X } from "lucide-react";
+import { CalendarDays, GripVertical, GitPullRequest, MessageSquare, Plus, Settings2, X } from "lucide-react";
 import { Avatar, Badge, Button } from "@/components/Primitives";
 import type { BoardSummary, ColumnSummary, ProjectDetail, TicketSummary } from "@/lib/ticket-types";
 import { TICKETS_CHANGED } from "@/lib/agent-types";
@@ -210,6 +210,7 @@ function TicketCard({ ticket, overdue, overlay, handle, onOpen }: { ticket: Tick
     <div className={styles.cardMeta}>
       {ticket.dueDate && <span data-overdue={overdue}><CalendarDays size={13} aria-hidden="true" /> {overdue && <span className={styles.srOnly}>Overdue, </span>}Due {formatDate(ticket.dueDate)}</span>}
       {ticket.commentCount > 0 && <span><MessageSquare size={13} aria-hidden="true" /> {ticket.commentCount}<span className={styles.srOnly}> {ticket.commentCount === 1 ? "comment" : "comments"}</span></span>}
+      {ticket.pullRequestCount > 0 && <span><GitPullRequest size={13} aria-hidden="true" /> {ticket.pullRequestCount}<span className={styles.srOnly}> {ticket.pullRequestCount === 1 ? "pull request" : "pull requests"}</span></span>}
       {ticket.assignee
         ? <span className={styles.pushRight} title={`Assigned to ${ticket.assignee.name ?? "Member"}`}><span className={styles.srOnly}>Assigned to {ticket.assignee.name ?? "Member"}</span><Avatar small initials={initials(ticket.assignee.name)} /></span>
         : <span className={`${styles.pushRight} ${styles.unassigned}`}>Unassigned</span>}
