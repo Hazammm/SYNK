@@ -18,7 +18,8 @@
     "test": "node --import tsx --test tests/unit.test.ts",
     "test:integration": "node --import tsx --test \"tests/*integration.test.mts\"",
     "test:coverage": "node --import tsx --test --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test-coverage-exclude=\"src/app/**\" --test-coverage-lines=80 tests/unit.test.ts \"tests/*integration.test.mts\"",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:load": "node --import tsx scripts/load-test.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
