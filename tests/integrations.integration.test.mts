@@ -93,3 +93,23 @@ test("connections: GitHub counts as connected only once the sign-in granted repo
   assert.equal(hosted.calls.at(-1)?.token, `Bearer gh-${admin}`);
   await invalid(listRemoteRepositories(admin, "GITLAB"));
 });
+
+test("repositories: only workspace admins link them, and only ones their account can open", async () => {
+  await rejects(linkRepository(writer, projectId, { provider: "GITHUB", fullName: "acme/app" }), 403);
+  await rejects(linkRepository(admin, projectId, { provider: "GITHUB", fullName: "acme/secret" }), 404); // the host says no
+  await invalid(linkRepository(admin, projectId, { provider: "GITHUB", fullName: "../../user" }));
+
+  // The host's own spelling of the name is stored.
+  const linked = await linkRepository(admin, projectId, { provider: "GITHUB", fullName: "ACME/App" });
+  assert.deepEqual([linked.fullName, linked.url, linked.connectedBy, linked.pullRequestCount], ["acme/app", "https://github.com/acme/app", "Admin", 0]);
+  assert.match(linked.webhook!.secret, /^[0-9a-f]{64}$/);
+  assert.match(linked.webhook!.url, /\/api\/integrations\/github\/webhook$/);
+  repositoryId = linked.id; secret = linked.webhook!.secret;
+  await assert.rejects(linkRepository(admin, projectId, { provider: "GITHUB", fullName: "acme/app" })); // already linked
+
+  // Everyone on the project sees the repository; only admins see the webhook secret.
+  assert.equal((await listRepositories(admin, projectId))[0].webhook?.secret, secret);
+  assert.equal((await listRepositories(writer, projectId))[0].webhook, null);
+  assert.equal((await listRepositories(reader, projectId))[0].fullName, "acme/app");
+  await rejects(listRepositories(bystander, projectId), 403);
+});
