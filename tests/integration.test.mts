@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { encode } from "next-auth/jwt";
 import { io as connect, type Socket } from "socket.io-client";
 import nextEnv from "@next/env";
-import type { ServerEvents, ClientEvents, MessageEvent, Ack } from "../src/lib/chat-types";
+import type { ServerEvents, ClientEvents, MessageEvent, TypingEvent, Ack } from "../src/lib/chat-types";
 
 nextEnv.loadEnvConfig(process.cwd(), true);
 if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a migrated, disposable PostgreSQL database.");
@@ -158,6 +158,25 @@ test("only authorized sockets receive live events, including after channel acces
   await delay(100);
   assert.equal(received.length, 1);
   await joinChannel(member, channelId);
+});
+test("typing signals reach the other people in the channel, and nobody else", async () => {
+  const typist = await socketFor((await cookie(member)).value);
+  const sameUser = await socketFor((await cookie(member)).value); // the typist's other tab
+  const watcher = await socketFor((await cookie(admin)).value);
+  const outside = await socketFor((await cookie(outsider)).value);
+  for (const socket of [typist, sameUser, watcher]) assert.equal((await subscribe(socket, channelId)).ok, true);
+  assert.equal((await subscribe(outside, channelId)).ok, false);
+  const seen: Record<string, TypingEvent[]> = { sameUser: [], watcher: [], outside: [] };
+  sameUser.on("typing", event => seen.sameUser.push(event));
+  watcher.on("typing", event => seen.watcher.push(event));
+  outside.on("typing", event => seen.outside.push(event));
+
+  typist.emit("typing", { channelId });
+  outside.emit("typing", { channelId }); // not in the channel's room, so ignored
+  typist.emit("typing", { channelId: "not a valid id!" });
+  await delay(150);
+  assert.deepEqual(seen.watcher, [{ channelId, userId: member, name: "Member" }]);
+  assert.deepEqual([seen.sameUser.length, seen.outside.length], [0, 0]);
 });
 test("same-origin polling can authenticate when the browser omits Origin", async () => {
   const auth = await cookie(admin);
