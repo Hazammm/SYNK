@@ -21,20 +21,20 @@ function targetLink(target: AgentTarget, workspaceId: string) {
     : { href: trackerHref("board", { workspaceId, projectId: target.projectId, boardId: target.boardId, ticket: target.id }), label: `Open ${target.key}` };
 }
 
-// The assistant is available on every screen: a launcher button opens this side panel.
+// The assistant is available on every screen: a launcher button in the top bar opens this side panel.
 export default function AgentPanel() {
   const [open, setOpen] = useState(false);
   const launcher = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
-  // The launcher is hidden while the panel is open, so focus can only return to it after it reappears.
+  // Closing the panel hands focus back to the launcher.
   useEffect(() => {
     if (wasOpen.current && !open) launcher.current?.focus();
     wasOpen.current = open;
   }, [open]);
   const close = () => setOpen(false);
   return <>
-    <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="synk-ai-panel" onClick={() => setOpen(!open)}>
-      <Sparkles size={17} aria-hidden="true" /> Ask Synk AI
+    <button ref={launcher} type="button" className={styles.launcher} aria-label="Ask Synk AI" aria-expanded={open} aria-controls="synk-ai-panel" onClick={() => setOpen(!open)}>
+      <Sparkles size={15} aria-hidden="true" /> <span>Ask Synk AI</span>
     </button>
     {open && <Panel onClose={close} />}
   </>;
