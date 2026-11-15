@@ -58,7 +58,7 @@ export default function SettingsView({ initialSection, workspace, inviteDelivery
   const reload = () => setRevision(value => value + 1);
 
   return <div className={styles.page}>
-    <header className={styles.header}><span className={styles.eyebrow}>ACCOUNT</span><h1>Settings</h1></header>
+    <header className={styles.header}><h1>Settings</h1><p>Manage your account, how Synk looks, and the workspaces you belong to.</p></header>
     <div className={styles.layout}>
       <nav className={styles.nav} aria-label="Settings sections">
         {sections.map(id => { const { label, icon: Icon } = SECTIONS[id]; return <button key={id} type="button" aria-current={section === id ? "page" : undefined} onClick={() => choose(id)}><Icon size={16} aria-hidden="true" /> {label}</button>; })}
@@ -160,7 +160,7 @@ function Appearance() {
   return <Section title="Appearance" description="Choose how Synk looks. This is saved in this browser.">
     <div className={styles.themes} role="radiogroup" aria-label="Theme">
       {THEMES.map(item => <button key={item.id} type="button" role="radio" aria-checked={theme === item.id} data-swatch={item.id} className={styles.theme} onClick={() => applyTheme(item.id)}>
-        <span className={styles.swatch} data-swatch={item.id}><i /><i /><i /></span><strong>{item.label}</strong>
+        <span className={styles.swatch} data-swatch={item.id} aria-hidden="true"><i /><i /><i /></span><strong>{item.label}</strong><small>{item.hint}</small>
       </button>)}
     </div>
   </Section>;
