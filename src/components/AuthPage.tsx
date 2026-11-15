@@ -6,7 +6,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Button, Input } from "./Primitives";
-import { ThemeBar } from "./SynkShell";
+import AuthAside from "@/components/AuthAside";
+import Logo from "@/components/Logo";
 import { messageOf, request } from "@/features/chat/client";
 import styles from "./Auth.module.css";
 
@@ -66,9 +67,8 @@ export default function AuthPage({
   }
 
   return <main className={styles.authPage}>
-    <Link href="/" className={styles.wordmark}><span className={styles.brandMark}>s</span> synk</Link>
-    <section className={styles.authCard}>
-      <div className={styles.logo}>s</div><h1>Sign in to Synk</h1>
+    <Link href="/" className={styles.wordmark} aria-label="Synk home"><Logo size={22} /></Link>
+    <section className={styles.authCard}><h1>Sign in to Synk</h1>
       <p className={styles.tagline}>We suggest using the email address you use at work.</p>
       <form onSubmit={submit} className={styles.form}>
         <label className={styles.field}><span>Email</span><div className={styles.inputWrap}><Mail size={17} /><Input name="email" type="email" autoComplete="email" placeholder="you@company.com" required maxLength={254} /></div></label>
@@ -87,6 +87,6 @@ export default function AuthPage({
       </button>)}
       <p className={styles.switch}>New to Synk? <Link href="/create-workspace">Create a workspace</Link></p>
       {inviteToken && <p className={styles.secure}>Sign in with the invited email to join this workspace.</p>}
-    </section><ThemeBar />
+    </section><AuthAside />
   </main>;
 }

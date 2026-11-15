@@ -21,8 +21,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // The landing page (/) is public: the page itself forwards signed-in people to their workspace.
   // Allow create-workspace whether authenticated or not (Part B needs it for Google signup too).
-  if (pathname === "/create-workspace") {
+  if (pathname === "/" || pathname === "/create-workspace") {
     return NextResponse.next();
   }
 

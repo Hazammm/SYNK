@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CalendarDays, LayoutDashboard } from "lucide-react";
+import { ArrowUpRight, CalendarDays, CircleAlert, CircleCheck, CircleDot, Clock3, FileText, FolderKanban, KanbanSquare, LayoutDashboard, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/Primitives";
 import type { WorkspaceSummary } from "@/lib/chat-types";
 import type { Overview } from "@/lib/report-types";
@@ -15,7 +14,7 @@ import styles from "../tickets/Tracker.module.css";
 const DAY_MS = 86_400_000;
 
 export default function OverviewView({ userName, initialWorkspaces, initialWorkspaceId }: { userName: string; initialWorkspaces: WorkspaceSummary[]; initialWorkspaceId?: string }) {
-  const router = useRouter();
+  const workspaceName = initialWorkspaces.find(item => item.id === initialWorkspaceId)?.name ?? initialWorkspaces[0]?.name;
   const [workspaceId] = useState(initialWorkspaces.find(item => item.id === initialWorkspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
   const [loaded, setLoaded] = useState<{ workspaceId: string; overview: Overview } | null>(null);
   const [error, setError] = useState("");
@@ -33,23 +32,25 @@ export default function OverviewView({ userName, initialWorkspaces, initialWorks
   const overview = loaded?.workspaceId === workspaceId ? loaded.overview : null;
 
   return <div className={styles.tracker}>
-    <div className={styles.bar}>
-      <div><span className={styles.eyebrow}>OVERVIEW</span><h1>Welcome back, {userName.split(" ")[0]}</h1></div>
-      <label className={styles.picker}>Workspace<select value={workspaceId} onChange={event => router.push(`/w/${event.target.value}/overview`)} disabled={!initialWorkspaces.length}>
-        {!initialWorkspaces.length && <option value="">No workspaces yet</option>}
-        {initialWorkspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select></label>
+    <div className={styles.pageHead}>
+      <div><h1>Welcome back, {userName.split(" ")[0]}</h1><p>{workspaceName ? `Here is where things stand in ${workspaceName}.` : "Here is where things stand."}</p></div>
+      {workspaceId && <nav className={styles.quick} aria-label="Shortcuts">
+        <Link href={`/w/${workspaceId}/board`}><KanbanSquare size={15} aria-hidden="true" /> Board</Link>
+        <Link href={`/w/${workspaceId}/chat`}><MessageCircle size={15} aria-hidden="true" /> Chat</Link>
+        <Link href={`/w/${workspaceId}/docs`}><FileText size={15} aria-hidden="true" /> Docs</Link>
+        <Link href={`/w/${workspaceId}/time`}><Clock3 size={15} aria-hidden="true" /> Time</Link>
+      </nav>}
     </div>
     {!workspaceId && <div className={styles.empty}><LayoutDashboard size={32} /><h2>Create a workspace first</h2><p>Your tickets and sprints appear here once you belong to a workspace. Create one in chat, or ask an admin to add you.</p><Link href="/chat">Go to chat</Link></div>}
     {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Retry</button></p>}
     {workspaceId && !overview && !error && <p role="status" className={styles.loading}>Loading your overview…</p>}
     {overview && !error && <div className={styles.report}>
-      <dl className={styles.stats}>{[
-        ["Assigned to you", overview.stats.assignedOpen, overview.stats.assignedOpen === 1 ? "open ticket" : "open tickets"],
-        ["Overdue", overview.stats.overdue, overview.stats.overdue ? "past their due date" : "nothing is late"],
-        ["Completed", overview.stats.completedThisWeek, "by you in the last 7 days"],
-        ["Projects", overview.stats.projects, "you can open here"],
-      ].map(([label, value, note]) => <div className={styles.stat} key={label}><dt>{label}</dt><dd><strong>{value}</strong><small>{note}</small></dd></div>)}</dl>
+      <dl className={styles.stats}>{([
+        ["Assigned to you", overview.stats.assignedOpen, overview.stats.assignedOpen === 1 ? "open ticket" : "open tickets", CircleDot, "neutral"],
+        ["Overdue", overview.stats.overdue, overview.stats.overdue ? "past their due date" : "nothing is late", CircleAlert, overview.stats.overdue ? "high" : "neutral"],
+        ["Completed", overview.stats.completedThisWeek, "by you in the last 7 days", CircleCheck, "done"],
+        ["Projects", overview.stats.projects, "you can open here", FolderKanban, "neutral"],
+      ] as const).map(([label, value, note, Icon, tone]) => <div className={styles.stat} data-tone={tone} key={label}><dt><Icon size={15} aria-hidden="true" /> {label}</dt><dd><strong>{value}</strong><small>{note}</small></dd></div>)}</dl>
       <div className={styles.reportGrid}>
         <section className={styles.chartCard} aria-labelledby="my-tickets-title">
           <h2 id="my-tickets-title">Your open tickets</h2>
@@ -71,7 +72,7 @@ export default function OverviewView({ userName, initialWorkspaces, initialWorks
           {overview.sprints.length ? <ul className={styles.breakdown}>{overview.sprints.map(sprint => {
             const daysLeft = Math.max(0, Math.round((Date.parse(sprint.endDate) - Date.parse(today)) / DAY_MS) + 1), done = percent(sprint.completed, sprint.total);
             return <li key={sprint.id}>
-              <span><Link href={trackerHref("reports", { workspaceId, projectId: sprint.project.id, sprintId: sprint.id })}>{sprint.name}</Link><small> · {sprint.project.name}</small></span>
+              <span><Link href={trackerHref("reports", { workspaceId, projectId: sprint.project.id, sprintId: sprint.id })}>{sprint.name} <ArrowUpRight size={13} aria-hidden="true" /></Link><small> · {sprint.project.name}</small></span>
               <strong>{sprint.completed} of {sprint.total}<small> done</small></strong>
               <div className={styles.meter} role="progressbar" aria-label={`${sprint.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={done}><span data-done="true" style={{ width: `${done}%` }} /></div>
               <small>{daysLeft === 0 ? "Ended" : daysLeft === 1 ? "Last day" : `${daysLeft} days left`} · ends {formatDate(sprint.endDate)}</small>

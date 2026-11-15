@@ -12,10 +12,11 @@ import { redirect } from "next/navigation";
 import { readGoogleProfileCookie } from "@/lib/google-profile-cookie";
 import { db } from "@/lib/db";
 import PendingInviteClient from "./PendingInviteClient";
+import { PageLoading } from "@/components/Status";
 
 export default function JoinPendingPage() {
   return (
-    <Suspense fallback={<main role="status" style={{ padding: 32 }}>Loading invitations…</main>}>
+    <Suspense fallback={<PageLoading as="main" full label="Loading invitations…" />}>
       <JoinPendingContent />
     </Suspense>
   );

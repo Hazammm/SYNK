@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoading } from "@/components/Status";
 import SynkScreen, { type ScreenName } from "@/components/SynkScreen";
 import { listWorkspaces } from "@/features/workspaces/service";
 import type { Selection } from "@/features/tickets/ui";
@@ -14,7 +15,7 @@ export default function WorkspaceScreenPage({
   searchParams?: Promise<Selection>;
 }) {
   return (
-    <Suspense fallback={<div role="status" style={{ padding: 32 }}>Loading workspace page…</div>}>
+    <Suspense fallback={<PageLoading label="Loading workspace page…" />}>
       <WorkspaceScreenContent params={params} screen={screen} searchParams={searchParams} />
     </Suspense>
   );

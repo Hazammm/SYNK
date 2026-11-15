@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Eye, EyeOff, LockKeyhole, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button, Input } from "@/components/Primitives";
-import { ThemeBar } from "@/components/SynkShell";
+import AuthAside from "@/components/AuthAside";
+import Logo from "@/components/Logo";
 import { messageOf, request } from "@/features/chat/client";
 import styles from "@/components/Auth.module.css";
 
@@ -75,39 +76,31 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div style={{ textAlign: "center", display: "grid", gap: "16px", padding: "12px 0" }}>
-        <div style={{ display: "flex", justifyContent: "center", color: "var(--high)" }}>
+      <div className={styles.result}>
+        <div className={styles.resultIcon} data-tone="high">
           <AlertCircle size={40} />
         </div>
-        <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5, margin: 0 }}>
+        <p className={styles.resultTitle}>
           This reset link is missing a valid token or is incomplete.
         </p>
-        <Link href="/forgot-password" style={{ marginTop: "8px" }}>
-          <Button variant="primary" style={{ width: "100%" }}>
-            Request a new reset link
-          </Button>
-        </Link>
+        <Link href="/forgot-password" className={styles.linkButton} data-variant="primary">Request a new reset link</Link>
       </div>
     );
   }
 
   if (success) {
     return (
-      <div style={{ textAlign: "center", display: "grid", gap: "16px", padding: "12px 0" }}>
-        <div style={{ display: "flex", justifyContent: "center", color: "var(--action)" }}>
+      <div className={styles.result}>
+        <div className={styles.resultIcon} data-tone="done">
           <CheckCircle2 size={40} />
         </div>
-        <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)", margin: 0 }}>
+        <p className={styles.resultTitle}>
           Password successfully reset!
         </p>
-        <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0 }}>
+        <p className={styles.resultNote}>
           All previous active sessions have been invalidated. Redirecting to login…
         </p>
-        <Link href="/login" style={{ marginTop: "8px" }}>
-          <Button variant="primary" style={{ width: "100%" }}>
-            Proceed to Log In
-          </Button>
-        </Link>
+        <Link href="/login" className={styles.linkButton} data-variant="primary">Proceed to Log In</Link>
       </div>
     );
   }
@@ -168,23 +161,20 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <main className={styles.authPage}>
-      <Link href="/" className={styles.wordmark}>
-        <span className={styles.brandMark}>s</span> synk
-      </Link>
+      <Link href="/" className={styles.wordmark} aria-label="Synk home"><Logo size={22} /></Link>
       <section className={styles.authCard}>
-        <div className={styles.logo}>s</div>
         <h1>Create new password</h1>
         <p className={styles.tagline}>
           Choose a strong password with at least 10 characters.
         </p>
-        <Suspense fallback={<p style={{ textAlign: "center", color: "var(--muted)", fontSize: "12px" }}>Loading…</p>}>
+        <Suspense fallback={<p className={styles.resultNote}>Loading…</p>}>
           <ResetPasswordForm />
         </Suspense>
         <p className={styles.switch}>
           <Link href="/login">Back to log in</Link>
         </p>
       </section>
-      <ThemeBar />
+      <AuthAside />
     </main>
   );
 }

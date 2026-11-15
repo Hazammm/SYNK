@@ -17,6 +17,14 @@ Small teams usually split their work across a chat tool, an issue tracker, a wik
 - **Live delivery re-checks every recipient.** Chat messages are saved over REST and then published over Socket.IO. Each recipient's session and channel membership are checked again at publish time, so a revoked user stops receiving messages. A client UUID makes retries safe.
 - **Security.** Sessions are revocable: NextAuth JWTs are backed by `LoginSession` rows, sign-out ends the current session, a password change ends every other session, and a password reset ends them all, dropping the matching live sockets. Removing someone from a workspace removes their live channel subscriptions. Invite and reset tokens are single-use and stored only as hashes. Browser writes need an exact Origin match (the Google invite-acceptance route relies on a SameSite=Lax, HttpOnly profile cookie instead), and rate limits are applied per user and per IP.
 
+## Interface
+
+The interface has a light and a dark theme built on one token set, a public landing page, and a shell with a collapsible sidebar. The design system is documented in [`docs/design/design-system.md`](docs/design/design-system.md), and the research behind it in [`docs/design/research-report.md`](docs/design/research-report.md).
+
+| Landing | Board (dark) |
+|---|---|
+| ![Landing page](docs/images/landing.png) | ![Board in the dark theme](docs/images/board-dark.png) |
+
 ## Architecture
 
 ```mermaid

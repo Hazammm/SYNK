@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoading } from "@/components/Status";
 import { redirect } from "next/navigation";
 
 export default function WorkspaceRoot({
@@ -7,7 +8,7 @@ export default function WorkspaceRoot({
   params: Promise<{ workspaceId: string }>;
 }) {
   return (
-    <Suspense fallback={<div role="status" style={{ padding: 32 }}>Opening workspace…</div>}>
+    <Suspense fallback={<PageLoading label="Opening workspace…" />}>
       <WorkspaceRootRedirect params={params} />
     </Suspense>
   );

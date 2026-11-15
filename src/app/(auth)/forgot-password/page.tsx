@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button, Input } from "@/components/Primitives";
-import { ThemeBar } from "@/components/SynkShell";
+import AuthAside from "@/components/AuthAside";
+import Logo from "@/components/Logo";
 import { messageOf, request } from "@/features/chat/client";
 import styles from "@/components/Auth.module.css";
 
@@ -36,11 +37,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className={styles.authPage}>
-      <Link href="/" className={styles.wordmark}>
-        <span className={styles.brandMark}>s</span> synk
-      </Link>
+      <Link href="/" className={styles.wordmark} aria-label="Synk home"><Logo size={22} /></Link>
       <section className={styles.authCard}>
-        <div className={styles.logo}>s</div>
         <h1>Reset your password</h1>
         <p className={styles.tagline}>
           {submitted
@@ -49,21 +47,17 @@ export default function ForgotPasswordPage() {
         </p>
 
         {submitted ? (
-          <div style={{ textAlign: "center", display: "grid", gap: "16px", padding: "12px 0" }}>
-            <div style={{ display: "flex", justifyContent: "center", color: "var(--action)" }}>
+          <div className={styles.result}>
+            <div className={styles.resultIcon} data-tone="done">
               <CheckCircle2 size={40} />
             </div>
-            <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5, margin: 0 }}>
+            <p className={styles.resultTitle}>
               If an account is associated with that email, we have sent password reset instructions.
             </p>
-            <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>
+            <p className={styles.resultNote}>
               Be sure to check your spam or junk folder if you don&apos;t see it within a few minutes.
             </p>
-            <Link href="/login" style={{ marginTop: "8px" }}>
-              <Button variant="secondary" style={{ width: "100%" }}>
-                Return to log in
-              </Button>
-            </Link>
+            <Link href="/login" className={styles.linkButton} data-variant="secondary">Return to log in</Link>
           </div>
         ) : (
           <form onSubmit={submit} className={styles.form}>
@@ -89,12 +83,12 @@ export default function ForgotPasswordPage() {
         )}
 
         <p className={styles.switch}>
-          <Link href="/login" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+          <Link href="/login" className={styles.backLink}>
             <ArrowLeft size={13} /> Back to log in
           </Link>
         </p>
       </section>
-      <ThemeBar />
+      <AuthAside />
     </main>
   );
 }

@@ -41,15 +41,15 @@ export default function AlertsList() {
 
   return <div className={styles.tracker}>
     <div className={styles.alerts}>
-      <div className={styles.bar} style={{ paddingLeft: 0, paddingRight: 0 }}>
-        <div><span className={styles.eyebrow}>NOTIFICATIONS</span><h1>Alerts</h1></div>
-        <Button className={styles.pushRight} disabled={!unread} onClick={() => void markRead()}><CheckCheck size={15} /> Mark all as read</Button>
+      <div className={styles.pageHead}>
+        <div><h1>Alerts</h1><p>Assignments, mentions and comments on your tickets.</p></div>
+        <Button disabled={!unread} onClick={() => void markRead()}><CheckCheck size={15} /> Mark all as read</Button>
       </div>
       <div className={styles.chips} role="group" aria-label="Filter alerts">
         <button type="button" aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>All</button>
         <button type="button" aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>Unread{unread ? ` (${unread})` : ""}</button>
       </div>
-      {error && <p role="alert" className={styles.error} style={{ marginLeft: 0, marginRight: 0 }}>{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Retry</button></p>}
+      {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Retry</button></p>}
       {!items && !error && <p role="status" className={styles.loading}>Loading alerts…</p>}
       {items && !shown.length && <div className={styles.empty}><CheckCheck size={32} /><h2>{unreadOnly && items.length ? "You are all caught up" : "No alerts yet"}</h2><p>You will be notified here when someone assigns you a ticket, mentions you, or comments on a ticket assigned to you.</p></div>}
       {shown.length > 0 && <ul>{shown.map(item => {

@@ -21,14 +21,10 @@ import styles from "./Time.module.css";
 type Selection = { workspaceId?: string; projectId?: string };
 
 export default function TimeView({ initialWorkspaces, initial }: { initialWorkspaces: WorkspaceSummary[]; initial: Selection }) {
-  const [workspaceId, setWorkspaceId] = useState(initialWorkspaces.find(item => item.id === initial.workspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
+  const [workspaceId] = useState(initialWorkspaces.find(item => item.id === initial.workspaceId)?.id ?? initialWorkspaces[0]?.id ?? "");
   return <div className={report.tracker}>
     <div className={report.bar}>
-      <div><span className={report.eyebrow}>TIME TRACKING</span><h1>Time</h1></div>
-      <label className={report.picker}>Workspace<select value={workspaceId} onChange={event => setWorkspaceId(event.target.value)} disabled={!initialWorkspaces.length}>
-        {!initialWorkspaces.length && <option value="">No workspaces yet</option>}
-        {initialWorkspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select></label>
+      <h1>Time</h1>
     </div>
     {workspaceId
       ? <Workspace key={workspaceId} workspaceId={workspaceId} initialProjectId={workspaceId === initial.workspaceId ? initial.projectId : undefined} />
