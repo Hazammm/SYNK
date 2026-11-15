@@ -127,3 +127,21 @@ export async function listPullRequests(userId: string, ticketId: string): Promis
   ]);
   return { pullRequests: rows.map(serializePullRequest), linkable: repositories > 0 };
 }
+
+// Attaches a pull request by its address. Its repository must already be linked to the ticket's project.
+export async function linkPullRequest(userId: string, ticketId: string, input: unknown): Promise<TicketPullRequest> {
+  const reference = parsePullRequestUrl(linkPullRequestSchema.parse(input).url);
+  if (!reference) throw new AppError(400, "Paste the address of a GitHub or Bitbucket pull request.");
+  const ticket = await requireTicket(userId, ticketId, "ticket:write");
+  const repository = await db.repository.findFirst({
+    where: { projectId: ticket.projectId, provider: reference.provider, fullName: { equals: reference.fullName, mode: "insensitive" } },
+    include: { project: { select: { key: true } } },
+  });
+  if (!repository) throw new AppError(400, `${reference.fullName} is not linked to this project. A workspace admin can link it under Repositories.`);
+  const remote = await providers[repository.provider].getPullRequest(await repositoryToken(repository), repository.fullName, reference.number);
+  await record(repository, remote, ticket.id);
+  const row = await db.pullRequest.findUniqueOrThrow({
+    where: { ticketId_repositoryId_number: { ticketId: ticket.id, repositoryId: repository.id, number: remote.number } }, include: pullRequestInclude,
+  });
+  return serializePullRequest(row);
+}
