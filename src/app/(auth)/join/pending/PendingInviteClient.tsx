@@ -5,7 +5,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { Building2 } from "lucide-react";
 import { Button } from "@/components/Primitives";
-import { ThemeBar } from "@/components/SynkShell";
+import AuthAside from "@/components/AuthAside";
+import Logo from "@/components/Logo";
 import { messageOf } from "@/features/chat/client";
 import styles from "@/components/Auth.module.css";
 
@@ -53,42 +54,29 @@ export default function PendingInviteClient({ email, name, invites }: Props) {
 
   return (
     <main className={styles.authPage}>
-      <Link href="/" className={styles.wordmark}><span className={styles.brandMark}>s</span> synk</Link>
+      <Link href="/" className={styles.wordmark} aria-label="Synk home"><Logo size={22} /></Link>
       <section className={styles.authCard}>
-        <div className={styles.logo}>s</div>
         <h1>You&apos;re invited!</h1>
         <p className={styles.tagline}>
           <strong>{name || email}</strong> — you have {invites.length === 1 ? "an invitation" : "invitations"} waiting.
           Accept one to join as a member.
         </p>
-        <div style={{ display: "grid", gap: "10px", marginTop: "8px" }}>
+        <ul className={styles.inviteList}>
           {invites.map(invite => (
-            <div key={invite.id} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: "12px", padding: "12px 14px", border: "1px solid var(--structure)",
-              borderRadius: "8px", background: "var(--bg)",
-            }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 600 }}>
-                <Building2 size={16} style={{ color: "var(--muted)", flexShrink: 0 }} />
-                {invite.workspace.name}
-              </span>
-              <Button
-                variant="primary"
-                disabled={!!busy}
-                onClick={() => void acceptInvite(invite.id, invite.workspace.id)}
-                style={{ minWidth: "80px", fontSize: "11px" }}
-              >
+            <li key={invite.id}>
+              <span><Building2 size={16} aria-hidden="true" />{invite.workspace.name}</span>
+              <Button variant="primary" disabled={!!busy} onClick={() => void acceptInvite(invite.id, invite.workspace.id)}>
                 {busy === invite.id ? "Joining…" : "Join"}
               </Button>
-            </div>
+            </li>
           ))}
-        </div>
-        {error && <p role="alert" className={styles.error} style={{ marginTop: "12px" }}>{error}</p>}
-        <p className={styles.switch} style={{ marginTop: "20px" }}>
+        </ul>
+        {error && <p role="alert" className={styles.error}>{error}</p>}
+        <p className={styles.switch}>
           Want a fresh start? <Link href="/create-workspace?from=google">Create a workspace</Link>
         </p>
       </section>
-      <ThemeBar />
+      <AuthAside />
     </main>
   );
 }
