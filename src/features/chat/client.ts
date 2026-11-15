@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
-import type { ChatMessage, ClientEvents, MessageEvent, MessagePage, ServerEvents } from "../../lib/chat-types";
+import { TYPING_TTL_MS, type ChatMessage, type ClientEvents, type MessageEvent, type MessagePage, type ServerEvents } from "../../lib/chat-types";
 
 import { HttpError, messageOf, request } from "../../lib/client-http";
 export { HttpError, messageOf, request };
@@ -42,6 +42,10 @@ export function useMessages(channelId: string, parentId: string | null) {
   const [denied, setDenied] = useState(false);
   const generation = useRef(0);
   const refreshRef = useRef<() => void>(() => {});
+  // Who is typing in this channel, by user id, with when their last signal expires.
+  const [typing, setTyping] = useState<Record<string, { name: string; until: number }>>({});
+  const socketRef = useRef<Socket<ServerEvents, ClientEvents> | null>(null);
+  const lastTypingSent = useRef(0);
   const base = `/api/channels/${channelId}/messages`;
 
   useEffect(() => {
@@ -81,8 +85,14 @@ export function useMessages(channelId: string, parentId: string | null) {
         void refresh();
       });
     });
+    socket.on("typing", event => {
+      if (event.channelId !== channelId || parentId) return;
+      setTyping(current => ({ ...current, [event.userId]: { name: event.name, until: Date.now() + TYPING_TTL_MS } }));
+    });
     socket.on("message:created", event => {
       if (event.message.channelId !== channelId) return;
+      // A sent message ends that person's typing.
+      setTyping(current => Object.fromEntries(Object.entries(current).filter(([userId]) => userId !== event.message.sender.id)));
       if (synchronizing) buffer.push(event);
       setMessages(current => applyEvent(current, event, parentId));
     });
