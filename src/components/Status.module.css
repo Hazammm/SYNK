@@ -1,0 +1,20 @@
+/* Loading, not-found and plain content pages. */
+.loading { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 60dvh; padding: 32px; color: var(--muted); font-size: var(--t-md); }
+.loading[data-full="true"] { min-height: 100dvh; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: synk-spin .7s linear infinite; }
+.panel { display: grid; justify-items: center; gap: 10px; max-width: 460px; margin: 10dvh auto 0; padding: 40px 28px; border: 1px solid var(--border); border-radius: var(--r-xl); background: var(--surface); text-align: center; animation: synk-rise-in var(--d-slow) var(--ease-out); }
+.panel > svg { width: 44px; height: 44px; padding: 10px; border-radius: var(--r-lg); background: var(--fill); color: var(--muted); }
+.panel h1 { margin: 6px 0 0; font-size: var(--t-xl); }
+.panel p { margin: 0; color: var(--muted); font-size: var(--t-md); }
+.panel a, .back { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; margin-top: 10px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); font-size: var(--t-base); font-weight: 500; box-shadow: var(--shadow-sm); transition: background var(--d-base) var(--ease), border-color var(--d-base) var(--ease); }
+.panel a:hover, .back:hover { border-color: var(--border-strong); background: var(--fill); }
+.back { margin: 0 0 20px; }
+.article { max-width: 760px; margin: 0 auto; }
+.article article + article { margin-top: 24px; }
+.article article { padding: 24px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--muted); font-size: var(--t-base); }
+.crumbs code { padding: 1px 6px; border-radius: var(--r-xs); background: var(--fill); color: var(--text); font-size: var(--t-sm); font-weight: 500; }
+.crumbs span { padding: 1px 8px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent-text); font-size: var(--t-sm); font-weight: 500; }
+.article h1 { margin: 0 0 12px; font-size: var(--t-2xl); letter-spacing: -.025em; line-height: 1.25; }
+.body { margin: 0; color: var(--text); font-size: var(--t-md); line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bodyEmpty { margin: 0; color: var(--faint); font-size: var(--t-md); }
