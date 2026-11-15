@@ -78,3 +78,9 @@ async function record(repository: { id: string; projectId: string; project: { ke
 export async function listConnections(userId: string): Promise<HostConnection[]> {
   return Promise.all(HOSTS.map(async provider => ({ provider, available: hostAvailable(provider), connected: await isConnected(userId, provider) })));
 }
+
+// The repositories the signed-in person can link, read with their own code-host sign-in.
+export async function listRemoteRepositories(userId: string, provider: unknown): Promise<RemoteRepository[]> {
+  const host = codeHostSchema.parse(provider);
+  return providers[host].listRepositories(await accessToken(userId, host));
+}
