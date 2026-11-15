@@ -60,3 +60,17 @@ async function repositoryToken(repository: { provider: CodeHost; connectedById: 
     throw error;
   });
 }
+
+// Attaches one pull request to the tickets it names (plus `alsoTicketId` for a pasted link) and refreshes every copy already attached.
+async function record(repository: { id: string; projectId: string; project: { key: string } }, remote: RemotePullRequest, alsoTicketId?: string) {
+  const keys = ticketKeysIn(`${remote.title} ${remote.branch}`, repository.project.key);
+  const named = keys.length ? await db.ticket.findMany({ where: { projectId: repository.projectId, key: { in: keys } }, select: { id: true } }) : [];
+  const ticketIds = [...new Set([...named.map(ticket => ticket.id), ...(alsoTicketId ? [alsoTicketId] : [])])];
+  const data = {
+    number: remote.number, title: remote.title.slice(0, 300), url: remote.url.slice(0, 500), status: remote.status,
+    branch: remote.branch.slice(0, 250), author: remote.author?.slice(0, 100) ?? null, updatedAt: remote.updatedAt,
+  };
+  const { count } = await db.pullRequest.createMany({ data: ticketIds.map(ticketId => ({ ticketId, repositoryId: repository.id, ...data })), skipDuplicates: true });
+  await db.pullRequest.updateMany({ where: { repositoryId: repository.id, number: remote.number }, data });
+  return count;
+}
