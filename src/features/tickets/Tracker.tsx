@@ -39,7 +39,7 @@ export default function Tracker({ view, userId, initialWorkspaces, initial }: Pr
 function Projects({ workspace, view, userId, initial }: { workspace: WorkspaceSummary; view: TrackerView; userId: string; initial: Selection }) {
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [projectId, setProjectId] = useState(initial.projectId ?? "");
-  const [panel, setPanel] = useState<"create" | "access" | null>(null);
+  const [panel, setPanel] = useState<"create" | "access" | "repos" | null>(initial.repos ? "repos" : null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const isAdmin = workspace.role === "ADMIN";
@@ -53,7 +53,7 @@ function Projects({ workspace, view, userId, initial }: { workspace: WorkspaceSu
     }).catch(error => { if (!controller.signal.aborted) setError(messageOf(error)); });
     return () => controller.abort();
   }, [workspace.id, revision]);
-  useEffect(() => { if (projects) syncUrl({ workspaceId: workspace.id, projectId }); }, [workspace.id, projectId, projects]);
+  useEffect(() => { if (projects) syncUrl({ workspaceId: workspace.id, projectId, repos: panel === "repos" ? "1" : undefined }); }, [workspace.id, projectId, projects, panel]);
 
   const refresh = () => setRevision(value => value + 1);
   return <>
