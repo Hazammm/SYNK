@@ -49,6 +49,9 @@ def test_scoring_explains_each_kind_of_failure():
     denied = Turn(reply="You only have view access.", actions=[{"tool": "create_ticket", "ok": False, "summary": "view-only"}])
     assert score({"no_mutation": True}, denied) == []
     assert score({"no_mutation": True}, Turn(reply="Please confirm.", pending={"tool": "update_ticket"})) != []
+    # An update that had nothing to change is not a mutation.
+    unchanged = Turn(reply="SYN-30 is already Done.", actions=[{"tool": "update_ticket", "ok": True, "summary": "SYN-30 already has those values, so nothing was changed."}])
+    assert score({"no_mutation": True, "reply_any": ["already"]}, unchanged) == []
 
 
 def test_the_workspace_answers_like_the_real_tools():
