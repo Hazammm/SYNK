@@ -65,6 +65,10 @@ const scenarios: [string, () => Promise<unknown>][] = [
   ["a viewer edits a ticket", () => updateTicket(viewer, ticketId, { title: "Changed" })],
   ["a viewer deletes a ticket", () => deleteTicket(viewer, ticketId)],
   ["a viewer creates a ticket", async () => createTicket(viewer, { boardId: (await getProject(admin, projectId)).boards[0].id, title: "Sneaky" })],
+  ["a member without project access reads a page", () => getDoc(member, docId)],
+  ["a viewer edits a page", async () => updateDoc(viewer, docId, { title: "Changed", content: "x", version: (await getDoc(admin, docId)).version })],
+  ["a viewer logs time on a ticket", () => startTimer(viewer, { ticketId })],
+  ["a member without project access reads its sprint reports", () => getProjectReport(member, projectId, {})],
 ];
 
 for (const [scenario, attempt] of scenarios) {
