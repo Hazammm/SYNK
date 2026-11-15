@@ -31,6 +31,16 @@ test("ticket keys are found in pull request titles and branch names", () => {
   assert.deepEqual(ticketKeysIn("SYN-1", "SY"), []);
 });
 
+test("pull request addresses are read for GitHub and Bitbucket only", () => {
+  assert.deepEqual(parsePullRequestUrl("https://github.com/acme/app/pull/12"), { provider: "GITHUB", fullName: "acme/app", number: 12 });
+  assert.deepEqual(parsePullRequestUrl(" https://github.com/acme/app/pull/12/files?diff=split "), { provider: "GITHUB", fullName: "acme/app", number: 12 });
+  assert.deepEqual(parsePullRequestUrl("https://bitbucket.org/team/site/pull-requests/3"), { provider: "BITBUCKET", fullName: "team/site", number: 3 });
+  for (const address of [
+    "", "not a url", "http://github.com/acme/app/pull/12", "https://github.com/acme/app/issues/12", "https://github.com/acme/app/pull/abc",
+    "https://github.com.evil.test/acme/app/pull/1", "https://bitbucket.org/team/site/pull/3", "https://gitlab.com/acme/app/pull/1",
+  ]) assert.equal(parsePullRequestUrl(address), null, address);
+});
+
 test("deny by default, including workspace admins outside a channel or project", () => {
   for (const action of ["workspace:read", "workspace:manage", "channel:read", "channel:write", "project:read", "project:write"] as Action[]) {
     assert.equal(can(action, { role: null, channelMember: true, projectLevel: "WRITE" }), false);
