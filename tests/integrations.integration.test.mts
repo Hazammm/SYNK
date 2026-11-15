@@ -180,3 +180,11 @@ test("webhooks: a signed delivery updates the ticket; anything unsigned or unkno
   // Other events are acknowledged without being checked or acted on.
   assert.deepEqual(await receiveWebhook("GITHUB", headers("{}", "anything", "ping"), "{}"), { ok: true, updated: 0 });
 });
+
+test("an expired GitHub sign-in is reported as needing to reconnect", async () => {
+  hosted.githubStatus = 401;
+  await assert.rejects(syncRepository(writer, repositoryId), (error: unknown) => status(409)(error) && /connect GitHub again/i.test((error as Error).message));
+  hosted.githubStatus = 500;
+  await rejects(syncRepository(writer, repositoryId), 502);
+  hosted.githubStatus = 200;
+});
