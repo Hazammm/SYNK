@@ -84,3 +84,9 @@ export async function listRemoteRepositories(userId: string, provider: unknown):
   const host = codeHostSchema.parse(provider);
   return providers[host].listRepositories(await accessToken(userId, host));
 }
+
+export async function listRepositories(userId: string, projectId: string): Promise<LinkedRepository[]> {
+  const { role } = await requireProject(userId, projectId, "project:read");
+  const rows = await db.repository.findMany({ where: { projectId }, include: repositoryInclude, orderBy: [{ fullName: "asc" }, { id: "asc" }] });
+  return rows.map(row => serializeRepository(row, role === "ADMIN"));
+}
