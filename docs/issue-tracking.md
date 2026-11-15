@@ -80,7 +80,5 @@ Writes require a signed-in session, a same-origin request and a JSON body within
 
 ## Not done yet
 
-- Email invitations to a workspace (FR-W2); teammates must already be registered.
 - Story points or estimates, and scope-change tracking in the burndown.
 - Live board updates over Socket.IO; another person's changes appear after a reload.
-- Docs, time tracking, the AI agent and the Bitbucket integration, which are later sprints. Their screens still show sample data and are labelled as a preview.
