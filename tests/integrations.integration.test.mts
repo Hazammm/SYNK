@@ -188,3 +188,22 @@ test("an expired GitHub sign-in is reported as needing to reconnect", async () =
   await rejects(syncRepository(writer, repositoryId), 502);
   hosted.githubStatus = 200;
 });
+
+test("Bitbucket: an expired token is refreshed, and its webhook is verified the same way", async () => {
+  const account = await db.account.create({
+    data: { userId: admin, type: "oauth", provider: "bitbucket", providerAccountId: randomUUID(), access_token: "bb-old", refresh_token: "bb-refresh", expires_at: Math.floor(Date.now() / 1000) - 60 },
+  });
+  const linked = await linkRepository(admin, projectId, { provider: "BITBUCKET", fullName: "acme/site" });
+  assert.equal(hosted.calls.at(-1)?.token, "Bearer bb-fresh");
+  const stored = await db.account.findUniqueOrThrow({ where: { id: account.id } });
+  assert.deepEqual([stored.access_token, stored.refresh_token, stored.expires_at! > Date.now() / 1000], ["bb-fresh", "bb-refresh-2", true]);
+
+  assert.deepEqual(await syncRepository(writer, linked.id), { scanned: 1, linked: 1 });
+  assert.ok((await titles(ticket2)).includes("7:MERGED"));
+
+  const body = JSON.stringify({ pullrequest: { ...bitbucketPull, state: "SUPERSEDED" }, repository: { full_name: "acme/site" } });
+  const signed = new Headers({ "x-event-key": "pullrequest:rejected", "x-hub-signature": `sha256=${createHmac("sha256", linked.webhook!.secret).update(body).digest("hex")}` });
+  await rejects(receiveWebhook("BITBUCKET", new Headers({ "x-event-key": "pullrequest:rejected", "x-hub-signature": "sha256=00" }), body), 401);
+  assert.deepEqual(await receiveWebhook("BITBUCKET", signed, body), { ok: true, updated: 1 });
+  assert.ok((await titles(ticket2)).includes("7:DECLINED"));
+});
