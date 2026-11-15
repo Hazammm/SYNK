@@ -48,3 +48,16 @@ Without a webhook, pull requests update when someone presses **Sync now**. For l
 | Events | Pull requests (on Bitbucket: created, updated, merged, declined) |
 
 The code host must be able to reach the URL, so this does not work with `http://localhost:3000` unless you use a tunnel.
+
+## API
+
+| Method and path | Purpose |
+|---|---|
+| `GET /api/integrations` | Which code hosts the server offers, and which the signed-in person has connected |
+| `GET /api/integrations/{github\|bitbucket}/repos` | The signed-in person's repositories on that host |
+| `POST /api/integrations/{github\|bitbucket}/webhook` | Deliveries from the code host |
+| `GET`, `POST /api/projects/{id}/repositories` | List a project's repositories; link one with `{ provider, fullName }` |
+| `DELETE /api/repositories/{id}` | Unlink a repository and remove its pull requests from tickets |
+| `POST /api/repositories/{id}/sync` | Read recent pull requests and attach or refresh them |
+| `GET`, `POST /api/tickets/{id}/pull-requests` | List a ticket's pull requests; attach one with `{ url }` |
+| `DELETE /api/pull-requests/{id}` | Remove a pull request from a ticket |
