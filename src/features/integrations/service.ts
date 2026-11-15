@@ -31,3 +31,22 @@ const serializePullRequest = (row: Prisma.PullRequestGetPayload<{ include: typeo
   id: row.id, number: row.number, title: row.title, url: row.url, status: row.status, branch: row.branch, author: row.author,
   updatedAt: row.updatedAt.toISOString(), repository: row.repository,
 });
+
+// A ticket the caller cannot open is reported as missing, so its existence is not revealed.
+async function requireTicket(userId: string, ticketId: string, action: ProjectAction) {
+  idSchema.parse(ticketId);
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true, projectId: true } });
+  const readable = ticket && await requireProject(userId, ticket.projectId, "ticket:read").catch(() => null);
+  if (!ticket || !readable) throw new AppError(404, "Ticket not found.");
+  if (action !== "ticket:read") await requireProject(userId, ticket.projectId, action);
+  return ticket;
+}
+
+async function requireRepository(userId: string, repositoryId: string, action: ProjectAction) {
+  idSchema.parse(repositoryId);
+  const repository = await db.repository.findUnique({ where: { id: repositoryId }, include: { project: { select: { key: true } } } });
+  const readable = repository && await requireProject(userId, repository.projectId, "project:read").catch(() => null);
+  if (!repository || !readable) throw new AppError(404, "Repository not found.");
+  if (action !== "project:read") await requireProject(userId, repository.projectId, action);
+  return repository;
+}
