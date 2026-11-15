@@ -164,6 +164,8 @@
   color: var(--muted);
 }
 
+.search:focus-within { border-color: var(--link); }
+
 .search input {
   width: 100%;
   min-width: 0;
@@ -271,7 +273,7 @@
   letter-spacing: .08em;
 }
 
-.sidebarLabel button {
+.sidebarLabel a {
   display: grid;
   place-items: center;
   width: 24px;
@@ -281,8 +283,10 @@
   background: transparent;
   color: var(--muted);
   font-size: 17px;
-  cursor: pointer;
+  text-decoration: none;
 }
+
+.sidebarLabel a:hover, .sidebarLabel a:focus-visible { background: var(--structure); color: var(--text); }
 
 .sideLink {
   display: flex;
