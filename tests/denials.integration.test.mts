@@ -104,3 +104,19 @@ test("denied: a webhook signed with the wrong secret cannot change pull requests
   const forged = new Headers({ "x-github-event": "pull_request", "x-hub-signature-256": `sha256=${createHmac("sha256", "guess").update(body).digest("hex")}` });
   await assert.rejects(receiveWebhook("GITHUB", forged, body), (error: unknown) => (error as { status?: number }).status === 401);
 });
+
+test("nothing was changed by any refused attempt", async () => {
+  const ticket = await getTicket(admin, ticketId);
+  const doc = await getDoc(admin, docId);
+  assert.deepEqual([ticket.title, doc.title, doc.content], ["Budget review", "Salaries", "Confidential"]);
+  assert.equal(await db.ticket.count({ where: { projectId } }), 1);
+  assert.equal(await db.doc.count({ where: { projectId } }), 1);
+  assert.equal(await db.project.count({ where: { workspaceId } }), 2); // the starter project and Secret
+  assert.equal(await db.membership.count({ where: { workspaceId } }), 3);
+  assert.equal(await db.projectAccess.count({ where: { projectId, userId: member } }), 0);
+  assert.equal(await db.channelMember.count({ where: { channelId: privateId, userId: member } }), 0);
+  assert.equal(await db.timeEntry.count({ where: { ticketId } }), 0);
+  assert.equal(await db.invite.count({ where: { workspaceId } }), 0);
+  assert.equal(await db.repository.count({ where: { projectId } }), 0);
+  assert.equal(await db.message.count({ where: { channelId: generalId, senderId: outsider } }), 0);
+});
