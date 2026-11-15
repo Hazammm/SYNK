@@ -69,6 +69,12 @@ const scenarios: [string, () => Promise<unknown>][] = [
   ["a viewer edits a page", async () => updateDoc(viewer, docId, { title: "Changed", content: "x", version: (await getDoc(admin, docId)).version })],
   ["a viewer logs time on a ticket", () => startTimer(viewer, { ticketId })],
   ["a member without project access reads its sprint reports", () => getProjectReport(member, projectId, {})],
+  ["a member creates a project", () => createProject(member, workspaceId, { name: "Mine", key: "MINE" })],
+  ["a member gives themselves project access", () => setProjectAccess(member, projectId, { userId: member, level: "WRITE" })],
+  ["a member removes the admin from the workspace", () => removeMember(member, workspaceId, admin)],
+  ["a member sends workspace invites", () => createInvites(member, workspaceId, { emails: ["friend@example.test"] })],
+  ["an outsider opens another workspace's overview", () => getOverview(outsider, workspaceId)],
+  ["a member links a repository to a project", () => linkRepository(member, projectId, { provider: "GITHUB", fullName: "acme/app" })],
 ];
 
 for (const [scenario, attempt] of scenarios) {
