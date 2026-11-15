@@ -102,3 +102,10 @@ export async function linkRepository(userId: string, projectId: string, input: u
   });
   return serializeRepository(row, true);
 }
+
+// Unlinking also removes the repository's pull requests from tickets.
+export async function unlinkRepository(userId: string, repositoryId: string) {
+  const repository = await requireRepository(userId, repositoryId, "project:manage");
+  await db.repository.delete({ where: { id: repository.id } });
+  return { deleted: true };
+}
