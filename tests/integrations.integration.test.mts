@@ -113,3 +113,25 @@ test("repositories: only workspace admins link them, and only ones their account
   assert.equal((await listRepositories(reader, projectId))[0].fullName, "acme/app");
   await rejects(listRepositories(bystander, projectId), 403);
 });
+
+test("sync: pull requests that name a ticket key attach to it, and a second sync updates them", async () => {
+  hosted.pulls = [
+    { number: 1, title: "SYN-1 fix the login redirect", branch: "fix-login", state: "open" },
+    { number: 2, title: "Polish the report", branch: "feature/syn-2-report", state: "open" }, // key in the branch, lower case
+    { number: 3, title: "SYN-1 and SYN-2 share a helper", branch: "helper", state: "closed" },
+    { number: 4, title: "OTH-1 SYN-99 SYN-10 XSYN-1 nothing here", branch: "misc", state: "open" }, // no ticket matches
+  ];
+  await rejects(syncRepository(reader, repositoryId), 403);
+  await rejects(syncRepository(bystander, repositoryId), 404);
+
+  // A teammate with no GitHub account can sync: the linker's sign-in is used.
+  assert.deepEqual(await syncRepository(writer, repositoryId), { scanned: 4, linked: 4 });
+  assert.equal(hosted.calls.at(-1)?.token, `Bearer gh-${admin}`);
+  assert.deepEqual(await titles(ticket1), ["1:OPEN", "3:DECLINED"]);
+  assert.deepEqual(await titles(ticket2), ["2:OPEN", "3:DECLINED"]);
+
+  hosted.pulls[0] = { ...hosted.pulls[0], state: "closed", merged: true };
+  assert.deepEqual(await syncRepository(admin, repositoryId), { scanned: 4, linked: 0 });
+  assert.deepEqual(await titles(ticket1), ["1:MERGED", "3:DECLINED"]);
+  assert.equal((await listRepositories(admin, projectId))[0].pullRequestCount, 4);
+});
