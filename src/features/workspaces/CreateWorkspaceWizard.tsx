@@ -6,7 +6,8 @@ import { useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { Building2, Eye, EyeOff, FolderKanban, Mail, UserRound, X } from "lucide-react";
 import { Button, Input } from "@/components/Primitives";
-import { ThemeBar } from "@/components/SynkShell";
+import AuthAside from "@/components/AuthAside";
+import Logo from "@/components/Logo";
 import { emailSchema } from "@/lib/validation";
 import { messageOf, request } from "@/features/chat/client";
 import styles from "@/components/Auth.module.css";
@@ -146,9 +147,8 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
   const strength = passwordStrength(password);
 
   return <main className={styles.authPage}>
-    <Link href="/" className={styles.wordmark}><span className={styles.brandMark}>s</span> synk</Link>
+    <Link href="/" className={styles.wordmark} aria-label="Synk home"><Logo size={22} /></Link>
     <section className={`${styles.authCard} ${styles.wizardCard}`}>
-      <div className={styles.logo}>s</div>
       <h1>Create your workspace</h1>
       <p className={styles.tagline}>Set up your team&apos;s home on Synk.</p>
       <ol className={styles.wizardSteps} aria-label="Workspace setup progress">
@@ -205,6 +205,6 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
       </form>
       {!signedIn && <p className={styles.switch}>Already have an account? <Link href="/login">Sign in</Link></p>}
     </section>
-    <ThemeBar />
+    <AuthAside />
   </main>;
 }
