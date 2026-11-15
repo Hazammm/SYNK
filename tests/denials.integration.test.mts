@@ -95,3 +95,12 @@ test("denied: the AI agent acting for someone can do no more than they can", asy
     assert.equal(result.ok, false, name);
   }
 });
+
+test("denied: a webhook signed with the wrong secret cannot change pull requests", async () => {
+  const body = JSON.stringify({
+    repository: { full_name: "acme/app" },
+    pull_request: { number: 1, title: "SEC-1", html_url: "https://github.com/acme/app/pull/1", state: "open", head: { ref: "x" }, updated_at: "2026-11-15T00:00:00Z" },
+  });
+  const forged = new Headers({ "x-github-event": "pull_request", "x-hub-signature-256": `sha256=${createHmac("sha256", "guess").update(body).digest("hex")}` });
+  await assert.rejects(receiveWebhook("GITHUB", forged, body), (error: unknown) => (error as { status?: number }).status === 401);
+});
