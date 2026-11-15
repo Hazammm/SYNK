@@ -50,8 +50,8 @@ Copy `.env.example` to `.env`. Never commit `.env`.
 | `MAIL_FROM` | With either email mode | Sender address, verified in Mailtrap. |
 | `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS` | Instead of the API token | Mailtrap SMTP delivery. All four are required, with `MAIL_FROM`. There is no default port: `MAILTRAP_PORT` must be set (`.env.example` uses `2525`). Port `465` uses TLS. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | No; set both or neither | Google sign-in. |
-| `GITHUB_ID`, `GITHUB_SECRET` | No | GitHub sign-in. |
-| `BITBUCKET_ID`, `BITBUCKET_SECRET` | No | Bitbucket sign-in. |
+| `GITHUB_ID`, `GITHUB_SECRET` | No | GitHub sign-in, and linking GitHub repositories to projects. |
+| `BITBUCKET_ID`, `BITBUCKET_SECRET` | No | Bitbucket sign-in, and linking Bitbucket repositories to projects. |
 | `TRUSTED_PROXY_IPS` | Behind a reverse proxy | Comma-separated exact addresses of your proxies, so rate limits apply to each client rather than to the proxy. |
 | `AI_SERVICE_URL` | For the AI agent | Where Next.js reaches the agent, for example `http://127.0.0.1:8000`. |
 | `AI_SERVICE_SECRET` | For the AI agent | Bearer secret shared by both services. At least 32 characters. |
@@ -98,6 +98,8 @@ Unverified Google emails are rejected. An existing account with the same verifie
 | Bitbucket | Bitbucket OAuth consumer with the `account` and `email` scopes | `http://localhost:3000/api/auth/callback/bitbucket` | `BITBUCKET_ID`, `BITBUCKET_SECRET` |
 
 In production, replace `http://localhost:3000` with your `NEXTAUTH_URL`. Bitbucket sign-in requires a confirmed primary email on the account. A new user who signs in with GitHub or Bitbucket is taken to the workspace setup form.
+
+The same two apps let workspace admins link repositories, so pull requests appear on tickets. For that, the Bitbucket consumer also needs the **Repositories: Read** and **Pull requests: Read** permissions. See [code-hosts.md](code-hosts.md).
 
 ## AI agent service (optional)
 
