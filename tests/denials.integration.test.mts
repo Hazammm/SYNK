@@ -82,3 +82,16 @@ for (const [scenario, attempt] of scenarios) {
     await assert.rejects(attempt(), refused);
   });
 }
+
+test("denied: the AI agent acting for someone can do no more than they can", async () => {
+  // Tools report a refusal instead of throwing; the last check confirms nothing changed.
+  for (const [userId, name, args] of [
+    [member, "create_ticket", { title: "Budget leak", project: "Secret" }],
+    [viewer, "update_ticket", { ticket: "SEC-1", status: "Done" }],
+    [viewer, "create_doc", { title: "Notes", project: "Secret", content: "x" }],
+    [outsider, "find_tickets", { query: "budget" }],
+  ] as const) {
+    const result = await runAgentTool({ userId, workspaceId }, name, { args, dryRun: false });
+    assert.equal(result.ok, false, name);
+  }
+});
