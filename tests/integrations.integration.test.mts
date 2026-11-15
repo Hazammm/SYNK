@@ -156,3 +156,27 @@ test("attaching by address: needs a linked repository and edit access", async ()
   assert.deepEqual(await unlinkPullRequest(writer, attached.id), { deleted: true });
   await rejects(unlinkPullRequest(writer, attached.id), 404);
 });
+
+test("webhooks: a signed delivery updates the ticket; anything unsigned or unknown is refused", async () => {
+  const delivery = (pull: Pull, fullName = "acme/app") => JSON.stringify({ action: "closed", pull_request: githubPull(pull), repository: { full_name: fullName } });
+  const headers = (body: string, key: string, event = "pull_request") => new Headers({ "x-github-event": event, "x-hub-signature-256": `sha256=${createHmac("sha256", key).update(body).digest("hex")}` });
+
+  const merged = delivery({ number: 2, title: "Polish the report", branch: "feature/syn-2-report", state: "closed", merged: true });
+  await rejects(receiveWebhook("GITHUB", headers(merged, "wrong-secret"), merged), 401);
+  await rejects(receiveWebhook("GITHUB", new Headers({ "x-github-event": "pull_request" }), merged), 401);
+  const elsewhere = delivery({ number: 2, title: "SYN-2", branch: "x", state: "open" }, "acme/unknown");
+  await rejects(receiveWebhook("GITHUB", headers(elsewhere, secret), elsewhere), 401);
+  await rejects(receiveWebhook("GITHUB", headers("{not json", secret), "{not json"), 400);
+  assert.ok((await titles(ticket2)).includes("2:OPEN")); // nothing above changed anything
+
+  assert.deepEqual(await receiveWebhook("GITHUB", headers(merged, secret), merged), { ok: true, updated: 1 });
+  assert.ok((await titles(ticket2)).includes("2:MERGED"));
+
+  // A new pull request arrives by webhook alone.
+  const opened = delivery({ number: 6, title: "syn-1: tighten validation", branch: "validation", state: "open" });
+  await receiveWebhook("GITHUB", headers(opened, secret), opened);
+  assert.ok((await titles(ticket1)).includes("6:OPEN"));
+
+  // Other events are acknowledged without being checked or acted on.
+  assert.deepEqual(await receiveWebhook("GITHUB", headers("{}", "anything", "ping"), "{}"), { ok: true, updated: 0 });
+});
