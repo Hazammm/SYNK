@@ -12,13 +12,9 @@ if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a 
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.NEXTAUTH_SECRET ??= "integration-only-not-a-production-secret-123456789";
 process.env.NEXTAUTH_URL = "http://localhost:3000";
-// Never send real email from tests, even when Mailtrap is configured locally.
-delete process.env.MAILTRAP_HOST;
-delete process.env.MAILTRAP_PORT;
-delete process.env.MAILTRAP_USER;
-delete process.env.MAILTRAP_PASS;
-delete process.env.MAILTRAP_API_TOKEN;
-delete process.env.MAIL_FROM;
+// Never send real email from tests, even when Mailtrap is configured locally. Empty rather than deleted:
+// Next.js reloads .env when a route module is imported, and that only fills in variables that are unset.
+for (const name of ["MAILTRAP_HOST", "MAILTRAP_PORT", "MAILTRAP_USER", "MAILTRAP_PASS", "MAILTRAP_API_TOKEN", "MAIL_FROM"]) process.env[name] = "";
 const { db } = await import("../src/lib/db");
 const { createWorkspace, listWorkspaces, removeMember } = await import("../src/features/workspaces/service");
 const { requireWorkspace } = await import("../src/lib/permissions");
