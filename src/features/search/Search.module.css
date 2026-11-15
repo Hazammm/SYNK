@@ -1,0 +1,10 @@
+.page { width: 100%; max-width: 860px; margin: 0 auto; padding: 24px 28px 40px; }
+.page h1 { margin: 3px 0 18px; font-size: 24px; letter-spacing: -.04em; }
+.eyebrow { color: var(--muted); font-size: 11px; letter-spacing: .12em; }
+.notice { color: var(--muted); font-size: 13px; }
+.group { margin-top: 22px; }
+.group h2 { margin: 0 0 8px; font-size: 14px; }
+.group ul { margin: 0; padding: 0; list-style: none; }
+.group li { padding: 10px 0; border-top: 1px solid var(--structure); }
+.group a { color: var(--link); font-weight: 600; }
+.group p { margin: 4px 0 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }

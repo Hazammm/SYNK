@@ -22,7 +22,9 @@ export interface GoogleProfile {
 
 /** Derive a 128-bit key from the NEXTAUTH_SECRET.  Deterministic, never stored. */
 async function cookieKey(): Promise<Uint8Array> {
-  const secret = process.env.NEXTAUTH_SECRET ?? "dev-secret-change-me";
+  // No built-in fallback: a guessable key would let anyone forge a verified Google profile.
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) throw new Error("NEXTAUTH_SECRET is not set.");
   const encoded = new TextEncoder().encode(secret);
   const keyMaterial = await crypto.subtle.importKey("raw", encoded, { name: "HKDF" }, false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits(

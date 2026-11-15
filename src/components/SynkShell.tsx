@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bell, BookOpen, ChevronDown, Clock3, FileText, LayoutDashboard, MessageCircle,
   Search, Settings, KanbanSquare,
@@ -55,6 +55,15 @@ export default function SynkShell({
   const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const base = workspaceId ? `/w/${workspaceId}` : "";
+  const search = useRef<HTMLInputElement>(null);
+  // Ctrl+K or ⌘K jumps to the search box from anywhere.
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && search.current) { event.preventDefault(); search.current.focus(); }
+    };
+    window.addEventListener("keydown", focusSearch);
+    return () => window.removeEventListener("keydown", focusSearch);
+  }, []);
   const displayName = workspaceName || "Workspace";
   const displayGlyph = displayName[0]?.toUpperCase() || "W";
 
@@ -148,11 +157,11 @@ export default function SynkShell({
             );
           })}
         </nav>
-        <label className={styles.search}>
-          <Search size={15} />
-          <input aria-label="Search Synk" placeholder="Search anything..." />
-          <kbd>⌘ K</kbd>
-        </label>
+        {workspaceId && <form role="search" action={`${base}/search`} className={styles.search}>
+          <Search size={15} aria-hidden="true" />
+          <input ref={search} type="search" name="q" required minLength={2} maxLength={200} aria-label="Search Synk" placeholder="Search tickets, pages, messages..." />
+          <kbd>Ctrl K</kbd>
+        </form>}
         <Link href={`${base}/alerts`} className={styles.alertButton} aria-label={`Alerts, ${unread} unread`}>
           <Bell size={18} />{unread > 0 && <span className={styles.alertCount}>{unread > 99 ? "99+" : unread}</span>}
         </Link>
@@ -174,7 +183,7 @@ export default function SynkShell({
           <Link href={`${base}/board`} className={`${styles.sideLink} ${pathname.includes("/board") ? styles.sideActive : ""}`}><KanbanSquare size={17} /> Board</Link>
           <Link href={`${base}/docs`} className={`${styles.sideLink} ${pathname.endsWith("/docs") ? styles.sideActive : ""}`}><BookOpen size={17} /> Docs</Link>
           <Link href={`${base}/time`} className={`${styles.sideLink} ${pathname.endsWith("/time") ? styles.sideActive : ""}`}><Clock3 size={17} /> Time</Link>
-          <div className={styles.sidebarLabel}>CONVERSATIONS <button type="button" aria-label="Add conversation">+</button></div>
+          <div className={styles.sidebarLabel}>CONVERSATIONS <Link href={`${base}/chat?newChannel=1`} aria-label="Create channel">+</Link></div>
           <Link href={`${base}/chat`} className={`${styles.sideLink} ${pathname.endsWith("/chat") ? styles.sideActive : ""}`}><MessageCircle size={17} /> # general</Link>
           <Link href={`${base}/settings?section=Members`} className={styles.sideLink}>Workspace members</Link>
           <div className={styles.sideFooter}><Link href={`${base}/settings`}><Settings size={17} /> Settings</Link><span>v1.0.0</span></div>

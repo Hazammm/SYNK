@@ -429,3 +429,17 @@ test("time schemas need real timestamps, tickets and short notes", () => {
   assert.equal(can("time:read", { role: "MEMBER", projectLevel: "READ" }), true);
   assert.equal(can("time:log", { role: "MEMBER", projectLevel: "WRITE" }), true);
 });
+
+test("the Google sign-up cookie refuses to work without NEXTAUTH_SECRET", async () => {
+  const { encryptGoogleProfile, decryptGoogleProfile } = await import("../src/lib/google-profile-cookie");
+  const saved = process.env.NEXTAUTH_SECRET;
+  const profile = { email: "person@example.test", name: "Person", providerAccountId: "1" };
+  try {
+    process.env.NEXTAUTH_SECRET = "unit-test-secret-that-is-long-enough-1234";
+    assert.deepEqual(await decryptGoogleProfile(await encryptGoogleProfile(profile)), { ...profile, image: undefined });
+    delete process.env.NEXTAUTH_SECRET;
+    await assert.rejects(encryptGoogleProfile(profile), /NEXTAUTH_SECRET/);
+  } finally {
+    if (saved === undefined) delete process.env.NEXTAUTH_SECRET; else process.env.NEXTAUTH_SECRET = saved;
+  }
+});
