@@ -132,10 +132,17 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await member.setViewportSize({ width: 390, height: 844 });
     await expect(member.getByLabel("Message", { exact: true })).toBeVisible();
     expect(await member.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    // Nothing floats over the composer on a phone: the point at its centre is the message box itself.
-    const inputBox = await member.getByLabel("Message", { exact: true }).boundingBox();
-    expect(inputBox && inputBox.x >= 0 && inputBox.x + inputBox.width <= 390).toBeTruthy();
-    expect(await member.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.getAttribute("aria-label"), { x: inputBox!.x + inputBox!.width / 2, y: inputBox!.y + inputBox!.height / 2 })).toBe("Message");
+    // At phone width the sidebar becomes a drawer and slides away; wait for that before checking.
+    await expect(member.getByRole("complementary", { name: "Workspace" })).toBeHidden();
+    // Nothing floats over the composer on a phone. Scroll it into view first: on a short window
+    // it can sit below the fold, and elementFromPoint only sees what is on screen.
+    const composer = member.getByLabel("Message", { exact: true });
+    await composer.scrollIntoViewIfNeeded();
+    expect(await composer.evaluate(element => {
+      const box = element.getBoundingClientRect();
+      const fits = box.left >= 0 && box.right <= window.innerWidth;
+      return fits && document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2) === element;
+    })).toBe(true);
     await member.screenshot({ path: "test-results/chat-mobile.png", fullPage: true });
 
     await member.locator('button[aria-controls="profile-card"]').click(); // sign out lives in the profile menu
