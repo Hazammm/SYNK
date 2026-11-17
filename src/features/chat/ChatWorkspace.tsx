@@ -1127,12 +1127,13 @@ function SearchDrawer({
           onChange={e => setQuery(e.target.value)}
           autoFocus
         />
-        <Button variant="primary" disabled={loading || !query.trim()}>
-          <Search size={14} />
+        <Button variant="primary" disabled={loading || !query.trim()} aria-label="Find messages">
+          <Search size={14} aria-hidden="true" />
         </Button>
       </form>
 
       {loading && <p className={styles.role}>Searching…</p>}
+      {error && <p role="alert" className={styles.role}>{error}</p>}
       {!loading && results.map(item => (
         <div
           key={item.id}
@@ -1146,7 +1147,7 @@ function SearchDrawer({
           <small style={{ color: "var(--faint)" }}>{formatClockTime(item.createdAt)}</small>
         </div>
       ))}
-      {!loading && !results.length && query && (
+      {!loading && !error && !results.length && query && (
         <p className={styles.role}>No matching messages found.</p>
       )}
     </div>
