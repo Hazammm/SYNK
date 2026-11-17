@@ -51,6 +51,8 @@ export const channelSchema = z.object({
 export const dmChannelSchema = z.object({
   userIds: z.array(idSchema).min(1).max(8),
 }).strict();
+const driveFileIdSchema = z.string().trim().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/, "Choose a file from Drive.");
+export const driveImportSchema = z.object({ fileId: driveFileIdSchema }).strict();
 const tiptapMarkSchema = z.object({
   type: z.enum(["bold", "italic", "underline", "strike", "code", "link"]),
   attrs: z.record(z.string(), z.any()).optional(),

@@ -125,7 +125,22 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (existing) {
-          // Known user — PrismaAdapter links the Account; normal JWT resolution applies.
+          // A later Google consent (chat asks for Drive) must replace the stored token.
+          // The adapter only writes tokens the first time the account is linked.
+          // A normal sign-in does not include Drive, so leave an existing Drive grant in place.
+          const scope = account.scope ?? "";
+          if (account.access_token && scope.includes("https://www.googleapis.com/auth/drive.readonly")) {
+            await db.account.updateMany({
+              where: { provider: "google", providerAccountId: account.providerAccountId },
+              data: {
+                access_token: account.access_token,
+                scope,
+                ...(account.expires_at ? { expires_at: account.expires_at } : {}),
+                ...(account.refresh_token ? { refresh_token: account.refresh_token } : {}),
+                ...(account.token_type ? { token_type: account.token_type } : {}),
+              },
+            });
+          }
           return true;
         }
 
