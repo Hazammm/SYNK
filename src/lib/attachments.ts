@@ -2,7 +2,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { db } from "./db";
 import { AppError } from "./errors";
-import { requireWorkspace } from "./permissions";
+import { requireChannel, requireWorkspace } from "./permissions";
+import { idSchema } from "./validation";
+import { INLINE_ATTACHMENT_TYPES } from "./chat-types";
 
 const UPLOAD_DIR = join(process.cwd(), ".uploads");
 
@@ -51,13 +53,19 @@ export async function saveAttachment(
   };
 }
 
+// A file posted in a message is readable by the people who can read that channel. One not yet posted (or whose
+// message was deleted) is readable only by its uploader. Missing and forbidden look the same.
 export async function readAttachment(userId: string, attachmentId: string) {
+  idSchema.parse(attachmentId);
   const attachment = await db.attachment.findUnique({
     where: { id: attachmentId },
+    include: { message: { select: { channelId: true, deletedAt: true } } },
   });
-
-  if (!attachment) throw new AppError(404, "Attachment not found.");
-  await requireWorkspace(userId, attachment.workspaceId);
+  // A deleted message's files go back to being visible only to their uploader.
+  const allowed = attachment && (attachment.message && !attachment.message.deletedAt
+    ? await requireChannel(userId, attachment.message.channelId).then(() => true, () => false)
+    : attachment.uploaderId === userId && await requireWorkspace(userId, attachment.workspaceId).then(() => true, () => false));
+  if (!attachment || !allowed) throw new AppError(404, "Attachment not found.");
 
   const filePath = join(UPLOAD_DIR, attachment.storageKey);
   const data = await readFile(filePath);
