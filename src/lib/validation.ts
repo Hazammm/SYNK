@@ -40,20 +40,145 @@ export const acceptInviteSchema = z.object({
 }).strict();
 export const inviteTokenSchema = z.string().regex(/^[a-f0-9]{64}$/i, "Invalid invite.");
 export const workspaceSchema = z.object({ name: z.string().trim().min(1).max(80) }).strict();
+export const channelTypeSchema = z.enum(["PUBLIC", "PRIVATE", "DM", "GROUP_DM"]);
 export const channelSchema = z.object({
-  name: z.string().trim().toLowerCase().min(1).max(60).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and hyphens."),
-  description: z.string().trim().max(240).default(""),
-  isPrivate: z.boolean().default(false),
+  name: z.string().trim().toLowerCase().min(1).max(60).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and hyphens.").optional(),
+  type: channelTypeSchema.optional(),
+  topic: z.string().trim().max(250).optional(),
+  description: z.string().trim().max(240).optional(),
+  isPrivate: z.boolean().optional(),
 }).strict();
+export const dmChannelSchema = z.object({
+  userIds: z.array(idSchema).min(1).max(8),
+}).strict();
+const driveFileIdSchema = z.string().trim().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/, "Choose a file from Drive.");
+export const driveImportSchema = z.object({ fileId: driveFileIdSchema }).strict();
+
+export type TiptapJsonNode = {
+  type: string;
+  text?: string;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
+  attrs?: Record<string, unknown>;
+  content?: TiptapJsonNode[];
+};
+
+const tiptapMarkSchema = z.object({
+  type: z.enum(["bold", "italic", "underline", "strike", "code", "link"]),
+  attrs: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const tiptapNodeSchema: z.ZodType<TiptapJsonNode> = z.lazy(() =>
+  z.object({
+    type: z.string(),
+    text: z.string().optional(),
+    marks: z.array(tiptapMarkSchema).optional(),
+    attrs: z.record(z.string(), z.unknown()).optional(),
+    content: z.array(tiptapNodeSchema).optional(),
+  })
+);
+
+export const tiptapDocSchema = z.object({
+  type: z.literal("doc"),
+  content: z.array(tiptapNodeSchema).optional(),
+});
+
+export function extractTextFromTiptap(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const record = node as TiptapJsonNode;
+  if (typeof record.text === "string") return record.text;
+  if (Array.isArray(record.content)) {
+    return record.content.map(extractTextFromTiptap).join("");
+  }
+  return "";
+}
+
+export function isTiptapDoc(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  return (value as { type?: unknown }).type === "doc";
+}
+
+export function extractPlainText(body: string): string {
+  if (!body) return "";
+  if (body.startsWith("{") && body.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(body);
+      if (isTiptapDoc(parsed)) {
+        return extractTextFromTiptap(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return body;
+}
+
 export const messageSchema = z.object({
-  body: z.string().trim().min(1, "Write a message first.").max(4000, "Messages can contain up to 4,000 characters."),
+  body: z.string().trim().min(1, "Write a message first.").superRefine((val, ctx) => {
+    if (val.startsWith("{") && val.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(val);
+        if (parsed && typeof parsed === "object" && parsed.type === "doc") {
+          const res = tiptapDocSchema.safeParse(parsed);
+          if (!res.success) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid rich text content." });
+            return;
+          }
+          const text = extractTextFromTiptap(parsed);
+          if (text.length > 4000) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Messages can contain up to 4,000 characters." });
+          }
+          return;
+        }
+      } catch {
+        // Not JSON
+      }
+    }
+    if (val.length > 4000) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Messages can contain up to 4,000 characters." });
+    }
+  }),
+  threadRootId: idSchema.nullable().optional(),
   parentId: idSchema.nullable().optional().transform(value => value ?? null),
-  clientMessageId: z.string().uuid(),
+  clientId: z.string().min(1).max(100).optional(),
+  clientMessageId: z.string().uuid().optional(),
+  attachmentIds: z.array(idSchema).max(10).optional().default([]),
+}).strict().refine(data => data.clientId !== undefined || data.clientMessageId !== undefined, {
+  message: "Client ID is required.",
+});
+export const messageEditSchema = z.object({
+  body: z.string().trim().min(1, "Write a message first.").superRefine((val, ctx) => {
+    if (val.startsWith("{") && val.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(val);
+        if (parsed && typeof parsed === "object" && parsed.type === "doc") {
+          const res = tiptapDocSchema.safeParse(parsed);
+          if (!res.success) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid rich text content." });
+            return;
+          }
+          const text = extractTextFromTiptap(parsed);
+          if (text.length > 4000) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Messages can contain up to 4,000 characters." });
+          }
+          return;
+        }
+      } catch {
+        // Not JSON
+      }
+    }
+    if (val.length > 4000) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Messages can contain up to 4,000 characters." });
+    }
+  }),
+}).strict();
+export const reactionSchema = z.object({
+  emoji: z.string().min(1).max(16),
 }).strict();
 export const historySchema = z.object({
   cursor: idSchema.optional(),
   parentId: idSchema.optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(30),
+  threadRootId: idSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
 // Password reset schemas

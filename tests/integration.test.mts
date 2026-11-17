@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { encode } from "next-auth/jwt";
 import { io as connect, type Socket } from "socket.io-client";
 import nextEnv from "@next/env";
-import type { ServerEvents, ClientEvents, MessageEvent, TypingEvent, Ack } from "../src/lib/chat-types";
+import type { ServerEvents, ClientEvents, MessageEvent, TypingEvent, SocketAck } from "../src/lib/chat-types";
 
 nextEnv.loadEnvConfig(process.cwd(), true);
 if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a migrated, disposable PostgreSQL database.");
@@ -73,7 +73,12 @@ async function socketFor(cookieValue?: string, origin = url) {
   await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("connect_error", reject); socket.connect(); });
   return socket;
 }
-const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) => new Promise<Ack>((resolve, reject) => socket.timeout(10_000).emit("channel:join", { channelId: channel }, (error, result) => error ? reject(error) : resolve(result)));
+const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) =>
+  new Promise<SocketAck<{ channelId: string }>>((resolve, reject) =>
+    socket.timeout(10_000).emit("channel:join", { channelId: channel }, (error, result) =>
+      error ? reject(error) : result ? resolve(result) : reject(new Error("Missing ack"))
+    )
+  );
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 test("workspace creation is atomic, and discovery excludes other tenants", async () => {
@@ -110,7 +115,7 @@ test("message retries persist once and conflicting retries are rejected", async 
   const data = input("send exactly once");
   const [a, b] = await Promise.all([sendMessage(admin, channelId, data), sendMessage(admin, channelId, data)]);
   assert.equal(a.id, b.id);
-  assert.equal(await db.message.count({ where: { clientMessageId: data.clientMessageId } }), 1);
+  assert.equal(await db.message.count({ where: { clientId: data.clientMessageId } }), 1);
   await assert.rejects(sendMessage(admin, channelId, { ...data, body: "changed" }), /different content/);
 });
 test("thread parents must be top-level messages in the same channel", async () => {
@@ -126,7 +131,7 @@ test("thread parents must be top-level messages in the same channel", async () =
 test("cursor pages are stable with identical timestamps and reject foreign cursors", async () => {
   const channel = await createChannel(admin, workspaceId, { name: "pagination" });
   const stamp = new Date("2026-10-01T00:00:00.000Z");
-  for (let i = 0; i < 7; i++) await db.message.create({ data: { id: `pagination-${randomUUID()}-${i}`, channelId: channel.id, senderId: admin, body: String(i), clientMessageId: randomUUID(), createdAt: stamp } });
+  for (let i = 0; i < 7; i++) await db.message.create({ data: { id: `pagination-${randomUUID()}-${i}`, workspaceId, channelId: channel.id, authorId: admin, body: String(i), clientId: randomUUID(), createdAt: stamp } });
   const ids: string[] = []; let cursor: string | undefined;
   do { const page = await listMessages(admin, channel.id, { limit: 2, cursor }); ids.push(...page.messages.map(row => row.id)); cursor = page.nextCursor ?? undefined; } while (cursor);
   assert.equal(ids.length, 7); assert.equal(new Set(ids).size, 7);
@@ -171,12 +176,32 @@ test("typing signals reach the other people in the channel, and nobody else", as
   watcher.on("typing", event => seen.watcher.push(event));
   outside.on("typing", event => seen.outside.push(event));
 
+  // Wait for the signal itself rather than a fixed time: under coverage the server can take longer than 150 ms.
+  const arrived = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("No typing signal within 5 seconds.")), 5000);
+    watcher.once("typing", () => { clearTimeout(timer); resolve(); });
+  });
   typist.emit("typing", { channelId });
   outside.emit("typing", { channelId }); // not in the channel's room, so ignored
   typist.emit("typing", { channelId: "not a valid id!" });
-  await delay(150);
+  await arrived;
+  await delay(150); // time for any signal that should not arrive
   assert.deepEqual(seen.watcher, [{ channelId, userId: member, name: "Member" }]);
   assert.deepEqual([seen.sameUser.length, seen.outside.length], [0, 0]);
+});
+test("editing, reacting and sending work over the socket", async () => {
+  const socket = await socketFor((await cookie(member)).value);
+  const ask = (event: "message:edit" | "reaction:toggle" | "message:send", data: object) =>
+    (socket.timeout(5000) as unknown as { emitWithAck: (event: string, data: object) => Promise<{ ok: boolean; error?: string }> }).emitWithAck(event, data);
+  const message = await sendMessage(member, channelId, input("socket edit target"));
+  assert.deepEqual(await ask("message:edit", { messageId: message.id, body: "edited over the socket" }).then(result => result.ok), true);
+  assert.equal((await db.message.findUniqueOrThrow({ where: { id: message.id } })).body, "edited over the socket");
+  assert.equal((await ask("reaction:toggle", { messageId: message.id, emoji: "👍" })).ok, true);
+  assert.equal(await db.reaction.count({ where: { messageId: message.id, userId: member } }), 1);
+  assert.equal((await ask("message:send", { channelId, body: "sent over the socket", clientId: randomUUID() })).ok, true);
+  // Mistakes come back as a person-readable message, never an internal error.
+  const refused = await ask("message:edit", { messageId: message.id, body: "" });
+  assert.deepEqual([refused.ok, typeof refused.error], [false, "string"]);
 });
 test("same-origin polling can authenticate when the browser omits Origin", async () => {
   const auth = await cookie(admin);

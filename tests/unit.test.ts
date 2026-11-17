@@ -2,7 +2,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { can, type Action } from "../src/lib/permissions";
-import { acceptInviteSchema, channelSchema, createWorkspaceSchema, forgotPasswordSchema, historySchema, messageSchema, passwordSchema, resetPasswordSchema } from "../src/lib/validation";
+import {
+  acceptInviteSchema,
+  channelSchema,
+  createWorkspaceGoogleSchema,
+  createWorkspaceSchema,
+  dmChannelSchema,
+  driveImportSchema,
+  extractPlainText,
+  extractTextFromTiptap,
+  forgotPasswordSchema,
+  historySchema,
+  isTiptapDoc,
+  messageEditSchema,
+  messageSchema,
+  notificationReadSchema,
+  passwordSchema,
+  resetPasswordSchema,
+} from "../src/lib/validation";
 import { assertSameOrigin, readJson } from "../src/lib/http";
 import { parseTrustedProxies, resolveClientIp } from "../src/lib/client-ip";
 import { burndown, percent, sprintDays } from "../src/features/reports/calc";
@@ -15,9 +32,9 @@ import { parseInline, parseMarkdown, plainText, safeHref, toggleTask } from "../
 import { insertCodeBlock, insertLink, toggleLinePrefix, wrapSelection } from "../src/features/docs/editing";
 import { buildTree, descendantsOf } from "../src/features/docs/tree";
 import { addDays, dayKey, entrySeconds, formatClock, formatDuration, hours, localToIso, secondsByDay, startOfWeek, totalsBy, weekDays } from "../src/features/time/calc";
-import { mergeMessages } from "../src/features/chat/client";
+import { applyMessageEvent, mergeMessages, messageOf } from "../src/features/chat/message-utils";
 import { boardUpdateSchema, commentSchema, projectSchema, sprintSchema, ticketFilterSchema, ticketSchema, ticketUpdateSchema } from "../src/lib/validation";
-import { initials, trackerHref } from "../src/features/tickets/ui";
+import { initials, priorityOf, trackerHref } from "../src/features/tickets/ui";
 import type { ChatMessage } from "../src/lib/chat-types";
 import { sendPasswordResetEmail } from "../src/lib/mailer";
 import { createHmac } from "node:crypto";
@@ -115,6 +132,10 @@ test("invite-only account schemas normalize email and enforce password byte limi
   assert.equal(workspace.email, "admin@example.com");
   assert.equal(workspace.projectName, "My first project");
   assert.equal(acceptInviteSchema.safeParse({ name: "Member", password: "short" }).success, false);
+  assert.equal(createWorkspaceGoogleSchema.safeParse({ workspaceName: "Team" }).success, true);
+  assert.equal(dmChannelSchema.safeParse({ userIds: ["u1"] }).success, true);
+  assert.equal(dmChannelSchema.safeParse({ userIds: [] }).success, false);
+  assert.match(messageOf(new Error("boom")), /boom/);
 });
 test("bounded history and channel name validation", () => {
   assert.equal(historySchema.safeParse({ limit: 101 }).success, false);
@@ -138,6 +159,81 @@ test("client merges REST/socket retries and does not lose a newer thread count",
   assert.equal(merged.length, 2);
   assert.equal(merged[0].replyCount, 2);
   assert.deepEqual(merged.map(row => row.id), ["a", "b"]);
+});
+test("client drops optimistic rows when the server echoes the same client id", () => {
+  const clientId = randomUUID();
+  const optimistic: ChatMessage = {
+    id: "opt-1",
+    channelId: "c",
+    body: "hi",
+    clientId,
+    status: "sending",
+    createdAt: "2026-10-17T00:00:00.000Z",
+    parentId: null,
+    sender: { id: "u", name: "You" },
+    replyCount: 0,
+  };
+  const confirmed: ChatMessage = {
+    id: "real-1",
+    channelId: "c",
+    body: "hi",
+    clientId,
+    createdAt: "2026-10-17T00:00:01.000Z",
+    parentId: null,
+    sender: { id: "u", name: "You" },
+    replyCount: 0,
+    status: "sent",
+  };
+  const merged = mergeMessages([optimistic], [confirmed]);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].id, "real-1");
+});
+test("tiptap bodies validate, extract plain text, and accept attachments metadata", () => {
+  const doc = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Hello team" }] }] };
+  const body = JSON.stringify(doc);
+  assert.equal(isTiptapDoc(doc), true);
+  assert.equal(isTiptapDoc({ type: "paragraph" }), false);
+  assert.equal(extractTextFromTiptap(doc), "Hello team");
+  assert.equal(extractPlainText(body), "Hello team");
+  assert.equal(extractPlainText("plain text"), "plain text");
+  assert.equal(messageSchema.safeParse({ body, clientId: "client-key-1", attachmentIds: ["att_1"] }).success, true);
+  assert.equal(messageEditSchema.safeParse({ body }).success, true);
+  assert.equal(driveImportSchema.safeParse({ fileId: "abc123-_X" }).success, true);
+  assert.equal(driveImportSchema.safeParse({ fileId: "../evil" }).success, false);
+  const badDoc = JSON.stringify({
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text: "x", marks: [{ type: "fake" }] }] }],
+  });
+  assert.equal(messageSchema.safeParse({ body: badDoc, clientMessageId: randomUUID() }).success, false);
+  const longDoc = JSON.stringify({
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text: "a".repeat(4001) }] }],
+  });
+  assert.equal(messageSchema.safeParse({ body: longDoc, clientMessageId: randomUUID() }).success, false);
+});
+test("mailer configuration is required before workspace invites send", async () => {
+  const { assertMailerConfigured } = await import("../src/lib/mailer");
+  const keys = ["MAILTRAP_API_TOKEN", "MAILTRAP_HOST", "MAILTRAP_PORT", "MAILTRAP_USER", "MAILTRAP_PASS", "MAIL_FROM"] as const;
+  const previous = keys.map(key => [key, process.env[key]] as const);
+  try {
+    for (const key of keys) Reflect.deleteProperty(process.env, key);
+    assert.throws(() => assertMailerConfigured(), /not configured/);
+    process.env.MAILTRAP_API_TOKEN = "mailtrap-token";
+    assert.throws(() => assertMailerConfigured(), /MAIL_FROM/);
+    process.env.MAIL_FROM = "noreply@test.com";
+    assert.doesNotThrow(() => assertMailerConfigured());
+    Reflect.deleteProperty(process.env, "MAILTRAP_API_TOKEN");
+    process.env.MAILTRAP_HOST = "smtp.test";
+    process.env.MAILTRAP_PORT = "587";
+    process.env.MAILTRAP_USER = "user";
+    process.env.MAILTRAP_PASS = "pass";
+    assert.doesNotThrow(() => assertMailerConfigured());
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) Reflect.deleteProperty(process.env, key);
+      else Reflect.set(process.env, key, value);
+    }
+  }
 });
 test("forgot password and reset password validation schemas", () => {
   assert.equal(forgotPasswordSchema.safeParse({ email: "user@example.com" }).success, true);
@@ -241,6 +337,7 @@ test("tracker links keep only the selected values", () => {
   assert.equal(trackerHref("sprints", { workspaceId: "w1", projectId: undefined, ticket: "" }), "/w/w1/board/backlog?workspaceId=w1");
   assert.equal(trackerHref("board", { workspaceId: "w1", projectId: "p1", boardId: "b1", ticket: "t1" }), "/w/w1/board?workspaceId=w1&projectId=p1&boardId=b1&ticket=t1");
   assert.equal(initials("Hazam Liaqat Khan"), "HL"); assert.equal(initials("  asra "), "A"); assert.equal(initials(null), "M");
+  assert.equal(priorityOf("LOW").label, "Low");
 });
 
 test("sprint days are inclusive, cross month ends and reject backwards ranges", () => {
@@ -322,6 +419,9 @@ test("settings accept only a name or notification switches, and passwords that m
   assert.equal(password({ currentPassword: "", newPassword: "long-enough-1" }), false);
   assert.equal(password({ currentPassword: "old", newPassword: "short" }), false);
   assert.equal(password({ currentPassword: "old", newPassword: "é".repeat(40) }), false); // over 72 bytes
+  assert.equal(notificationReadSchema.safeParse({}).success, true);
+  assert.equal(notificationReadSchema.safeParse({ ids: ["n1"] }).success, true);
+  assert.equal(notificationReadSchema.safeParse({ ids: [] }).success, false);
 });
 
 test("markdown blocks: headings, lists, checklists, code, quotes and paragraphs", () => {
@@ -444,10 +544,129 @@ test("the Google sign-up cookie refuses to work without NEXTAUTH_SECRET", async 
   }
 });
 
+test("client sorts messages with stable ids on identical timestamps", () => {
+  const later: ChatMessage = { id: "b", channelId: "c", body: "2", createdAt: "2026-10-17T00:00:00.000Z", parentId: null, sender: { id: "u", name: "U" }, replyCount: 0 };
+  const earlierId: ChatMessage = { id: "a", channelId: "c", body: "1", createdAt: "2026-10-17T00:00:00.000Z", parentId: null, sender: { id: "u", name: "U" }, replyCount: 0 };
+  assert.deepEqual(mergeMessages([], [later, earlierId]).map(message => message.id), ["a", "b"]);
+});
+test("google Drive helpers build safe queries and file names", async () => {
+  const { driveSearchQuery, googleDriveConfigured, hasDriveScope, safeDriveFileName } = await import(
+    "../src/lib/google-drive-helpers"
+  );
+  const keys = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const;
+  const previous = keys.map(key => [key, process.env[key]] as const);
+  try {
+    for (const key of keys) Reflect.deleteProperty(process.env, key);
+    assert.equal(googleDriveConfigured(), false);
+    process.env.GOOGLE_CLIENT_ID = "id";
+    process.env.GOOGLE_CLIENT_SECRET = "secret";
+    assert.equal(googleDriveConfigured(), true);
+    assert.equal(hasDriveScope("openid https://www.googleapis.com/auth/drive.readonly"), true);
+    assert.equal(hasDriveScope("openid"), false);
+    assert.match(driveSearchQuery("Q1' report"), /name contains 'Q1 report'/);
+    assert.match(driveSearchQuery("   "), /trashed = false/);
+    assert.equal(safeDriveFileName("Deck", ".pdf"), "Deck.pdf");
+    assert.equal(safeDriveFileName("bad:name", ".docx"), "bad_name.docx");
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) Reflect.deleteProperty(process.env, key);
+      else Reflect.set(process.env, key, value);
+    }
+  }
+});
+test("client applies thread reply counts from live events", () => {
+  const parent: ChatMessage = {
+    id: "parent",
+    channelId: "c",
+    body: "root",
+    createdAt: "2026-10-17T00:00:00.000Z",
+    parentId: null,
+    sender: { id: "u", name: "User" },
+    replyCount: 1,
+  };
+  const updated = applyMessageEvent([parent], { message: { ...parent, id: "child", parentId: "parent" }, parentReplyCount: 4 }, null);
+  assert.equal(updated[0].replyCount, 4);
+  const reply: ChatMessage = {
+    id: "child",
+    channelId: "c",
+    body: "reply",
+    createdAt: "2026-10-17T00:00:01.000Z",
+    parentId: "parent",
+    threadRootId: "parent",
+    sender: { id: "u", name: "User" },
+    replyCount: 0,
+  };
+  const merged = applyMessageEvent([], { message: reply, parentReplyCount: 0 }, "parent");
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].id, "child");
+});
+test("google profile cookie headers set and clear the pending profile", async () => {
+  const { googleProfileCookieHeader, clearGoogleProfileCookieHeader, GOOGLE_PROFILE_COOKIE } = await import("../src/lib/google-profile-cookie");
+  assert.match(googleProfileCookieHeader("signed-token"), new RegExp(`${GOOGLE_PROFILE_COOKIE}=signed-token`));
+  assert.match(clearGoogleProfileCookieHeader(), /Max-Age=0/);
+});
+test("agent client refuses calls when the service is not configured", async () => {
+  const { forgetAgentThreads, callAgent } = await import("../src/features/agent/client");
+  const savedUrl = process.env.AI_SERVICE_URL;
+  const savedSecret = process.env.AI_SERVICE_SECRET;
+  const originalFetch = globalThis.fetch;
+  assert.equal(await forgetAgentThreads([]), true);
+  delete process.env.AI_SERVICE_URL;
+  delete process.env.AI_SERVICE_SECRET;
+  assert.equal(await forgetAgentThreads(["thread-1"]), false);
+  await assert.rejects(callAgent({ workspaceId: "w", message: "hi" } as never), /not set up/);
+  process.env.AI_SERVICE_URL = "http://127.0.0.1:9/";
+  process.env.AI_SERVICE_SECRET = "secret";
+  globalThis.fetch = async () => new Response(JSON.stringify({ reply: "Done", actions: [], pending: null }), { status: 200 });
+  const configured = await import("../src/features/agent/client");
+  assert.equal(await configured.forgetAgentThreads(["thread-1"]), true);
+  const answer = await configured.callAgent({ workspaceId: "w", message: "hello" } as never);
+  assert.equal(answer.reply, "Done");
+  globalThis.fetch = async () => new Response("{not-json", { status: 200 });
+  await assert.rejects(configured.callAgent({ workspaceId: "w", message: "hello" } as never), /could not read/);
+  if (savedUrl === undefined) delete process.env.AI_SERVICE_URL;
+  else process.env.AI_SERVICE_URL = savedUrl;
+  if (savedSecret === undefined) delete process.env.AI_SERVICE_SECRET;
+  else process.env.AI_SERVICE_SECRET = savedSecret;
+  globalThis.fetch = originalFetch;
+});
+test("Bitbucket OAuth profile maps uuid and primary email", async () => {
+  const { Bitbucket } = await import("../src/lib/bitbucket-provider");
+  const provider = Bitbucket({ clientId: "id", clientSecret: "secret" });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = String(input);
+    if (url.includes("/user/emails")) {
+      return new Response(JSON.stringify({ values: [{ email: "Person@Example.com", is_primary: true, is_confirmed: true }] }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ uuid: "uuid-1", display_name: "Person", links: { avatar: { href: "https://avatar" } } }), { status: 200 });
+  };
+  try {
+    const userinfo = provider.userinfo as { request: (ctx: { tokens: { access_token: string } }) => Promise<Record<string, unknown>> };
+    const profile = await userinfo.request({ tokens: { access_token: "tok" } });
+    assert.equal(profile.email, "person@example.com");
+    assert.deepEqual(provider.profile!(profile as never, {} as never), { id: "uuid-1", name: "Person", email: "person@example.com", image: "https://avatar" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 test("typing indicators name up to two people", async () => {
-  const { typingText } = await import("../src/features/chat/client");
+  const { typingText } = await import("../src/features/chat/message-utils");
   assert.equal(typingText([]), "");
   assert.equal(typingText(["Asra"]), "Asra is typing…");
   assert.equal(typingText(["Asra", "Bilal"]), "Asra and Bilal are typing…");
   assert.equal(typingText(["Asra", "Bilal", "Sara"]), "Several people are typing…");
+});
+
+test("rich-text messages are validated and their plain text is extracted", async () => {
+  const { extractPlainText } = await import("../src/lib/validation");
+  const doc = (content: object[]) => JSON.stringify({ type: "doc", content });
+  const hello = doc([{ type: "paragraph", content: [{ type: "text", text: "Hello " }, { type: "text", text: "SYN-1", marks: [{ type: "bold" }] }] }]);
+  assert.equal(extractPlainText(hello), "Hello SYN-1");
+  assert.equal(extractPlainText("Plain text stays as it is"), "Plain text stays as it is");
+  assert.equal(messageSchema.safeParse({ body: hello, clientMessageId: randomUUID() }).success, true);
+  const badMark = doc([{ type: "paragraph", content: [{ type: "text", text: "x", marks: [{ type: "script" }] }] }]);
+  assert.equal(messageSchema.safeParse({ body: badMark, clientMessageId: randomUUID() }).success, false);
+  const tooLong = doc([{ type: "paragraph", content: [{ type: "text", text: "a".repeat(4001) }] }]);
+  assert.equal(messageSchema.safeParse({ body: tooLong, clientMessageId: randomUUID() }).success, false);
 });

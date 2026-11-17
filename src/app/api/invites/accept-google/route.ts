@@ -107,6 +107,19 @@ export async function POST(request: Request) {
         });
       }
 
+      // Auto-join default channels
+      const defaultChannels = await tx.channel.findMany({
+        where: { workspaceId: invite.workspaceId, isDefault: true },
+        select: { id: true },
+      });
+      for (const ch of defaultChannels) {
+        await tx.channelMember.upsert({
+          where: { channelId_userId: { channelId: ch.id, userId } },
+          create: { channelId: ch.id, workspaceId: invite.workspaceId, userId, role: "MEMBER" },
+          update: {},
+        });
+      }
+
       // Remember this workspace as the active one.
       await tx.user.update({ where: { id: userId }, data: { lastActiveWorkspaceId: invite.workspaceId } });
       return {

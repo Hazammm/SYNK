@@ -100,6 +100,12 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await admin.getByRole("button", { name: "Send message", exact: true }).click();
     await expect(member.getByRole("log", { name: "Channel messages" }).getByText(message)).toBeVisible();
     console.log(`Observed cross-user delivery, including UI actions: ${Date.now() - start} ms`);
+    // Chat search finds the message by a word in it.
+    await member.getByRole("button", { name: "Search messages" }).click();
+    await member.getByPlaceholder("Search channel messages…").fill(`delivery ${nonce}`);
+    await member.getByRole("button", { name: "Find messages" }).click();
+    await expect(member.getByRole("button", { name: /#general/ }).filter({ hasText: nonce })).toBeVisible();
+    await member.getByRole("button", { name: "Search messages" }).click();
     await expect(admin.getByRole("log", { name: "Channel messages" }).locator("article")).toHaveCount(1);
     await member.getByRole("button", { name: "0 replies · Reply" }).click();
     await member.getByLabel("Reply to thread").fill("Thread reply persisted");
