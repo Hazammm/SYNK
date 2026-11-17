@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
-import type { ChannelSummary, ChatAttachment, ChatMessage, ChatReaction, WorkspaceSummary } from "@/lib/chat-types";
+import { INLINE_ATTACHMENT_TYPES, type ChannelSummary, type ChatAttachment, type ChatMessage, type ChatReaction, type WorkspaceSummary } from "@/lib/chat-types";
 import { extractPlainText } from "@/lib/validation";
 import { messageOf, request, useMessages } from "./client";
 import { RichComposer } from "./RichComposer";
@@ -1606,7 +1606,7 @@ function MessageCard({
         {!isDeleted && message.attachments && message.attachments.length > 0 && (
           <div className={styles.messageAttachments}>
             {message.attachments.map(att => {
-              const isImage = att.mimeType.startsWith("image/");
+              const isImage = INLINE_ATTACHMENT_TYPES.includes(att.mimeType);
               const url = att.url ?? `/api/attachments/${att.id}`;
 
               if (isImage) {
