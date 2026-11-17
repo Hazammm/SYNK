@@ -19,7 +19,7 @@ export async function createWorkspace(userId: string, input: unknown) {
     const project = await tx.project.create({ data: { workspaceId: workspace.id, name: "General", key: "GEN" } });
     await tx.projectAccess.create({ data: { projectId: project.id, userId, level: "WRITE" } });
     await createBoardRecord(tx, project.id, "Main board");
-    const channel = await tx.channel.create({ data: { workspaceId: workspace.id, createdById: userId, name: "general", description: "Updates and conversations for everyone." } });
+    const channel = await tx.channel.create({ data: { workspaceId: workspace.id, createdById: userId, name: "general", description: "Updates and conversations for everyone.", isDefault: true } });
     await tx.channelMember.create({ data: { workspaceId: workspace.id, channelId: channel.id, userId } });
     return { ...workspace, role: "ADMIN" as const };
   });
