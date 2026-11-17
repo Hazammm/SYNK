@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -67,9 +67,7 @@ export function RichComposer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const onSendRef = useRef<() => void>(() => {});
   const showMentionMenuRef = useRef(showMentionMenu);
-  showMentionMenuRef.current = showMentionMenu;
   const onEditLastMessageRef = useRef(onEditLastMessage);
-  onEditLastMessageRef.current = onEditLastMessage;
 
   // Mention candidates
   const mentionCandidates = useMemo(() => {
@@ -88,7 +86,6 @@ export function RichComposer({
   }, [showMentionMenu, mentionQuery, workspaceMembers]);
 
   const mentionCandidatesRef = useRef(mentionCandidates);
-  mentionCandidatesRef.current = mentionCandidates;
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -286,7 +283,13 @@ export function RichComposer({
     }
   };
 
-  onSendRef.current = handleSend;
+  // The editor's key handlers are created once, so they read the latest values through these refs.
+  useLayoutEffect(() => {
+    showMentionMenuRef.current = showMentionMenu;
+    onEditLastMessageRef.current = onEditLastMessage;
+    mentionCandidatesRef.current = mentionCandidates;
+    onSendRef.current = handleSend;
+  });
 
   const isEditorEmpty = !editor || editor.isEmpty;
 
