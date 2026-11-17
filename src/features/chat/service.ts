@@ -2,33 +2,291 @@ import { Prisma } from "@prisma/client";
 import { db } from "../../lib/db";
 import { AppError } from "../../lib/errors";
 import { requireChannel, requireWorkspace } from "../../lib/permissions";
-import { channelSchema, historySchema, messageSchema } from "../../lib/validation";
+import { channelSchema, dmChannelSchema, extractPlainText, historySchema, messageEditSchema, messageSchema, reactionSchema } from "../../lib/validation";
 import { realtime } from "../../lib/realtime";
-import type { ChatMessage, MessagePage } from "../../lib/chat-types";
+import type { ChannelSummary, ChatMessage, ChatReaction, MessagePage } from "../../lib/chat-types";
 
-const include = { sender: { select: { id: true, name: true } }, _count: { select: { replies: true } } } satisfies Prisma.MessageInclude;
+const include = {
+  author: { select: { id: true, name: true, image: true } },
+  reactions: { select: { emoji: true, userId: true } },
+  attachments: { select: { id: true, fileName: true, mimeType: true, size: true, storageKey: true } },
+  pins: { select: { id: true } },
+  _count: { select: { replies: true } },
+} satisfies Prisma.MessageInclude;
+
 type Record = Prisma.MessageGetPayload<{ include: typeof include }>;
-export function serializeMessage(row: Record): ChatMessage {
-  return { id: row.id, channelId: row.channelId, body: row.body, parentId: row.parentId, clientMessageId: row.clientMessageId, createdAt: row.createdAt.toISOString(), sender: row.sender, replyCount: row._count.replies };
+
+function formatReactions(reactions: Array<{ emoji: string; userId: string }>): ChatReaction[] {
+  const map = new Map<string, string[]>();
+  for (const r of reactions) {
+    const list = map.get(r.emoji) ?? [];
+    list.push(r.userId);
+    map.set(r.emoji, list);
+  }
+  return [...map.entries()].map(([emoji, userIds]) => ({
+    emoji,
+    count: userIds.length,
+    userIds,
+  }));
 }
 
-export async function listChannels(userId: string, workspaceId: string) {
+export function serializeMessage(row: Record): ChatMessage {
+  const isDeleted = !!row.deletedAt;
+  const author = { id: row.author.id, name: row.author.name, image: row.author.image };
+  const reactions = formatReactions(row.reactions ?? []);
+  const attachments = (row.attachments ?? []).map(a => ({
+    id: a.id,
+    fileName: a.fileName,
+    mimeType: a.mimeType,
+    size: a.size,
+    storageKey: a.storageKey,
+    url: `/api/attachments/${a.id}`,
+  }));
+  const isPinned = (row.pins?.length ?? 0) > 0;
+
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    channelId: row.channelId,
+    authorId: row.authorId,
+    body: isDeleted ? "This message was deleted" : row.body,
+    threadRootId: row.threadRootId,
+    clientId: row.clientId,
+    editedAt: row.editedAt ? row.editedAt.toISOString() : null,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+    author,
+    replyCount: row._count.replies,
+    reactions,
+    attachments: isDeleted ? [] : attachments,
+    isPinned,
+
+    // Aliases
+    senderId: row.authorId,
+    sender: author,
+    parentId: row.threadRootId,
+    clientMessageId: row.clientId,
+  };
+}
+
+export async function listChannels(userId: string, workspaceId: string): Promise<ChannelSummary[]> {
   const member = await requireWorkspace(userId, workspaceId);
   const channels = await db.channel.findMany({
-    where: { workspaceId, OR: [{ isPrivate: false }, { members: { some: { userId } } }] },
-    include: { members: { where: { userId }, select: { userId: true } }, _count: { select: { members: true } } },
-    orderBy: { name: "asc" },
+    where: {
+      workspaceId,
+      archivedAt: null,
+      OR: [
+        { type: "PUBLIC" },
+        { members: { some: { userId } } },
+      ],
+    },
+    include: {
+      members: {
+        select: {
+          userId: true,
+          lastReadAt: true,
+          role: true,
+          user: { select: { id: true, name: true, image: true } },
+        },
+      },
+      _count: { select: { members: true } },
+    },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
   });
-  return channels.map(({ members, _count, ...channel }) => ({ ...channel, joined: members.length > 0, memberCount: _count.members, canManageMembers: channel.createdById === userId || member.role === "ADMIN" }));
+
+  return Promise.all(channels.map(async channel => {
+    const userMembership = channel.members.find(m => m.userId === userId);
+    const joined = !!userMembership;
+    const lastReadAt = userMembership?.lastReadAt;
+
+    let unreadCount = 0;
+    let mentionCount = 0;
+
+    if (joined) {
+      const unreadWhere: Prisma.MessageWhereInput = {
+        channelId: channel.id,
+        deletedAt: null,
+        threadRootId: null,
+        ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+      };
+
+      unreadCount = await db.message.count({ where: unreadWhere });
+
+      mentionCount = await db.mention.count({
+        where: {
+          message: unreadWhere,
+          OR: [
+            { mentionedUserId: userId },
+            { kind: "CHANNEL" },
+            { kind: "HERE" },
+          ],
+        },
+      });
+    }
+
+    let otherUser: ChannelSummary["otherUser"] | undefined;
+    if (channel.type === "DM" || channel.type === "GROUP_DM") {
+      const other = channel.members.find(m => m.userId !== userId)?.user;
+      if (other) {
+        otherUser = { id: other.id, name: other.name, image: other.image };
+      }
+    }
+
+    return {
+      id: channel.id,
+      workspaceId: channel.workspaceId,
+      name: channel.name,
+      type: channel.type,
+      topic: channel.topic,
+      description: channel.description,
+      isDefault: channel.isDefault,
+      isPrivate: channel.type !== "PUBLIC",
+      joined,
+      memberCount: channel._count.members,
+      canManageMembers: channel.createdById === userId || member.role === "ADMIN",
+      unreadCount,
+      mentionCount,
+      otherUser,
+    };
+  }));
 }
 
-export async function createChannel(userId: string, workspaceId: string, input: unknown) {
+export async function createChannel(userId: string, workspaceId: string, input: unknown): Promise<ChannelSummary> {
   const data = channelSchema.parse(input);
+  const type = data.type ?? (data.isPrivate ? "PRIVATE" : "PUBLIC");
+
   return db.$transaction(async tx => {
     await requireWorkspace(userId, workspaceId, "workspace:read", tx);
-    const channel = await tx.channel.create({ data: { ...data, workspaceId, createdById: userId } });
-    await tx.channelMember.create({ data: { userId, workspaceId, channelId: channel.id } });
-    return channel;
+
+    const channel = await tx.channel.create({
+      data: {
+        workspaceId,
+        createdById: userId,
+        name: data.name ?? null,
+        type,
+        topic: data.topic ?? "",
+        description: data.description ?? "",
+        isPrivate: type !== "PUBLIC",
+      },
+    });
+
+    await tx.channelMember.create({
+      data: {
+        userId,
+        workspaceId,
+        channelId: channel.id,
+        role: "OWNER",
+        lastReadAt: new Date(),
+      },
+    });
+
+    return {
+      id: channel.id,
+      workspaceId: channel.workspaceId,
+      name: channel.name,
+      type: channel.type,
+      topic: channel.topic,
+      description: channel.description,
+      isDefault: channel.isDefault,
+      isPrivate: channel.isPrivate,
+      joined: true,
+      memberCount: 1,
+      canManageMembers: true,
+      unreadCount: 0,
+      mentionCount: 0,
+    };
+  });
+}
+
+export async function createDirectMessage(userId: string, workspaceId: string, input: unknown): Promise<ChannelSummary> {
+  const { userIds } = dmChannelSchema.parse(input);
+  const allUserIds = [...new Set([userId, ...userIds])];
+
+  await requireWorkspace(userId, workspaceId);
+  for (const uid of userIds) {
+    await requireWorkspace(uid, workspaceId);
+  }
+
+  // If 1-on-1 DM, check if one already exists
+  if (allUserIds.length === 2) {
+    const existing = await db.channel.findFirst({
+      where: {
+        workspaceId,
+        type: "DM",
+        AND: [
+          { members: { some: { userId: allUserIds[0] } } },
+          { members: { some: { userId: allUserIds[1] } } },
+        ],
+      },
+      include: {
+        members: { select: { userId: true, user: { select: { id: true, name: true, image: true } } } },
+        _count: { select: { members: true } },
+      },
+    });
+
+    if (existing && existing._count.members === 2) {
+      const other = existing.members.find(m => m.userId !== userId)?.user;
+      return {
+        id: existing.id,
+        workspaceId: existing.workspaceId,
+        name: null,
+        type: "DM",
+        topic: existing.topic,
+        description: existing.description,
+        isDefault: false,
+        isPrivate: true,
+        joined: true,
+        memberCount: 2,
+        canManageMembers: false,
+        unreadCount: 0,
+        mentionCount: 0,
+        otherUser: other ? { id: other.id, name: other.name, image: other.image } : undefined,
+      };
+    }
+  }
+
+  const type = allUserIds.length === 2 ? "DM" : "GROUP_DM";
+
+  return db.$transaction(async tx => {
+    const channel = await tx.channel.create({
+      data: {
+        workspaceId,
+        createdById: userId,
+        type,
+        isPrivate: true,
+      },
+    });
+
+    await tx.channelMember.createMany({
+      data: allUserIds.map(uid => ({
+        channelId: channel.id,
+        workspaceId,
+        userId: uid,
+        role: uid === userId ? "OWNER" : "MEMBER",
+        lastReadAt: new Date(),
+      })),
+    });
+
+    const otherUserRecord = type === "DM"
+      ? await tx.user.findUnique({ where: { id: userIds[0] }, select: { id: true, name: true, image: true } })
+      : null;
+
+    return {
+      id: channel.id,
+      workspaceId: channel.workspaceId,
+      name: null,
+      type: channel.type,
+      topic: "",
+      description: "",
+      isDefault: false,
+      isPrivate: true,
+      joined: true,
+      memberCount: allUserIds.length,
+      canManageMembers: false,
+      unreadCount: 0,
+      mentionCount: 0,
+      otherUser: otherUserRecord ? { id: otherUserRecord.id, name: otherUserRecord.name, image: otherUserRecord.image } : undefined,
+    };
   });
 }
 
@@ -38,8 +296,12 @@ export async function joinChannel(userId: string, channelId: string) {
     if (!channel) throw new AppError(403, "Channel unavailable.");
     await requireWorkspace(userId, channel.workspaceId, "workspace:read", tx);
     if (channel.isPrivate) await requireChannel(userId, channelId, tx);
-    await tx.channelMember.upsert({ where: { channelId_userId: { channelId, userId } },
-      create: { channelId, workspaceId: channel.workspaceId, userId }, update: {} });
+
+    await tx.channelMember.upsert({
+      where: { channelId_userId: { channelId, userId } },
+      create: { channelId, workspaceId: channel.workspaceId, userId, role: "MEMBER", lastReadAt: new Date() },
+      update: {},
+    });
     return { joined: true };
   });
 }
@@ -49,26 +311,73 @@ export async function addChannelMember(actorId: string, channelId: string, userI
     const channel = await requireChannel(actorId, channelId, tx);
     if (channel.createdById !== actorId) await requireWorkspace(actorId, channel.workspaceId, "workspace:manage", tx);
     await requireWorkspace(userId, channel.workspaceId, "workspace:read", tx);
-    await tx.channelMember.upsert({ where: { channelId_userId: { channelId, userId } },
-      create: { channelId, workspaceId: channel.workspaceId, userId }, update: {} });
+    await tx.channelMember.upsert({
+      where: { channelId_userId: { channelId, userId } },
+      create: { channelId, workspaceId: channel.workspaceId, userId, role: "MEMBER", lastReadAt: new Date() },
+      update: {},
+    });
     return { added: true };
   });
 }
 
+export async function leaveChannel(userId: string, channelId: string) {
+  return db.$transaction(async tx => {
+    const channel = await tx.channel.findUnique({ where: { id: channelId } });
+    if (!channel) throw new AppError(404, "Channel not found.");
+    if (channel.isDefault) throw new AppError(400, "Cannot leave default channel.");
+
+    await tx.channelMember.deleteMany({
+      where: { channelId, userId },
+    });
+    return { left: true };
+  });
+}
+
+export async function markChannelRead(userId: string, channelId: string) {
+  const readAt = new Date();
+  await db.channelMember.updateMany({
+    where: { channelId, userId },
+    data: { lastReadAt: readAt },
+  });
+  return { lastReadAt: readAt.toISOString() };
+}
+
 export async function listMessages(userId: string, channelId: string, input: unknown): Promise<MessagePage> {
-  const { cursor, parentId, limit } = historySchema.parse(input);
+  const { cursor, parentId, threadRootId, limit } = historySchema.parse(input);
+  const targetParent = threadRootId ?? parentId ?? null;
   await requireChannel(userId, channelId);
-  const scope = { channelId, parentId: parentId ?? null };
-  if (parentId) {
-    const root = await db.message.findFirst({ where: { id: parentId, channelId, parentId: null } });
+
+  const scope: Prisma.MessageWhereInput = {
+    channelId,
+    threadRootId: targetParent,
+  };
+
+  if (targetParent) {
+    const root = await db.message.findFirst({ where: { id: targetParent, channelId, threadRootId: null } });
     if (!root) throw new AppError(404, "Thread not found in this channel.");
   }
-  const boundary = cursor ? await db.message.findFirst({ where: { ...scope, id: cursor }, select: { id: true, createdAt: true } }) : null;
+
+  const boundary = cursor
+    ? await db.message.findFirst({ where: { ...scope, id: cursor }, select: { id: true, createdAt: true } })
+    : null;
+
   if (cursor && !boundary) throw new AppError(400, "Invalid cursor for this channel or thread.");
+
   const rows = await db.message.findMany({
-    where: { ...scope, ...(boundary && { OR: [{ createdAt: { lt: boundary.createdAt } }, { createdAt: boundary.createdAt, id: { lt: boundary.id } }] }) },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit + 1, include,
+    where: {
+      ...scope,
+      ...(boundary && {
+        OR: [
+          { createdAt: { lt: boundary.createdAt } },
+          { createdAt: boundary.createdAt, id: { lt: boundary.id } },
+        ],
+      }),
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
+    include,
   });
+
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit);
   return { messages: page.reverse().map(serializeMessage), nextCursor: hasMore ? page[0].id : null };
@@ -76,33 +385,338 @@ export async function listMessages(userId: string, channelId: string, input: unk
 
 export async function sendMessage(userId: string, channelId: string, input: unknown): Promise<ChatMessage> {
   const data = messageSchema.parse(input);
-  const unique = { senderId_channelId_clientMessageId: { senderId: userId, channelId, clientMessageId: data.clientMessageId } };
+  const clientId = data.clientId ?? data.clientMessageId ?? crypto.randomUUID();
+  const threadRootId = data.threadRootId ?? data.parentId ?? null;
+  const unique = { authorId_clientId: { authorId: userId, clientId } };
+
   const checkRetry = (row: Record) => {
-    if (row.body !== data.body || row.parentId !== data.parentId) throw new AppError(409, "This message ID was already used for different content.");
+    if (row.body !== data.body || row.threadRootId !== threadRootId) {
+      throw new AppError(409, "This message ID was already used for different content.");
+    }
     return row;
   };
+
   let row: Record;
+  let workspaceId = "";
+
   try {
-    row = await db.$transaction(async tx => {
-      await requireChannel(userId, channelId, tx);
+    const result = await db.$transaction(async tx => {
+      const channel = await requireChannel(userId, channelId, tx);
+      workspaceId = channel.workspaceId;
+
       const existing = await tx.message.findUnique({ where: unique, include });
-      if (existing) return checkRetry(existing);
-      if (data.parentId) {
-        const parent = await tx.message.findFirst({ where: { id: data.parentId, channelId, parentId: null } });
+      if (existing) return { row: checkRetry(existing), workspaceId };
+
+      if (threadRootId) {
+        const parent = await tx.message.findFirst({ where: { id: threadRootId, channelId, threadRootId: null } });
         if (!parent) throw new AppError(400, "Reply to a top-level message in this channel.");
       }
-      return tx.message.create({ data: { ...data, senderId: userId, channelId }, include });
+
+      const created = await tx.message.create({
+        data: {
+          body: data.body,
+          workspaceId: channel.workspaceId,
+          channelId,
+          authorId: userId,
+          threadRootId,
+          clientId,
+        },
+        include,
+      });
+
+      // Link attachments if provided
+      if (data.attachmentIds && data.attachmentIds.length > 0) {
+        await tx.attachment.updateMany({
+          where: { id: { in: data.attachmentIds }, uploaderId: userId, workspaceId: channel.workspaceId },
+          data: { messageId: created.id },
+        });
+      }
+
+      // Parse mentions (@username, @channel, @here)
+      const textContent = extractPlainText(data.body);
+      const mentionMatches = textContent.match(/@([a-zA-Z0-9_-]+)/g);
+      if (mentionMatches) {
+        const uniqueNames = [...new Set(mentionMatches.map(m => m.slice(1).toLowerCase()))];
+        for (const name of uniqueNames) {
+          if (name === "channel") {
+            await tx.mention.create({ data: { messageId: created.id, kind: "CHANNEL" } });
+          } else if (name === "here") {
+            await tx.mention.create({ data: { messageId: created.id, kind: "HERE" } });
+          } else {
+            const mentionedUser = await tx.user.findFirst({
+              where: {
+                name: { equals: name, mode: "insensitive" },
+                memberships: { some: { workspaceId: channel.workspaceId } },
+              },
+              select: { id: true },
+            });
+            if (mentionedUser) {
+              await tx.mention.create({
+                data: { messageId: created.id, mentionedUserId: mentionedUser.id, kind: "USER" },
+              });
+            }
+          }
+        }
+      }
+
+      // Auto update sender lastReadAt
+      await tx.channelMember.updateMany({
+        where: { channelId, userId },
+        data: { lastReadAt: new Date() },
+      });
+
+      return { row: created, workspaceId };
     });
+
+    row = result.row;
+    workspaceId = result.workspaceId;
   } catch (error) {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
-    // A concurrent retry may have inserted the same client UUID first.
-    await requireChannel(userId, channelId);
+    const channel = await requireChannel(userId, channelId);
+    workspaceId = channel.workspaceId;
     row = checkRetry(await db.message.findUniqueOrThrow({ where: unique, include }));
   }
+
   const message = serializeMessage(row);
-  const parentReplyCount = data.parentId ? await db.message.count({ where: { channelId, parentId: data.parentId } }) : undefined;
-  // Persistence is authoritative; failed live delivery must not turn a committed write into an error.
-  try { await realtime()?.publish({ message, parentReplyCount }); }
-  catch { console.error("Live message delivery failed; history will reconcile on reconnect."); }
+  const parentReplyCount = threadRootId
+    ? await db.message.count({ where: { channelId, threadRootId } })
+    : undefined;
+
+  try {
+    await realtime()?.publish({ message, parentReplyCount });
+  } catch {
+    console.error("Live message delivery failed; history will reconcile on reconnect.");
+  }
+
   return message;
+}
+
+export async function editMessage(userId: string, messageId: string, input: unknown): Promise<ChatMessage> {
+  const { body } = messageEditSchema.parse(input);
+
+  const row = await db.$transaction(async tx => {
+    const existing = await tx.message.findUnique({
+      where: { id: messageId },
+      include,
+    });
+
+    if (!existing) throw new AppError(404, "Message not found.");
+    if (existing.authorId !== userId) throw new AppError(403, "You can only edit your own messages.");
+    if (existing.deletedAt) throw new AppError(400, "Cannot edit deleted message.");
+
+    return tx.message.update({
+      where: { id: messageId },
+      data: { body, editedAt: new Date() },
+      include,
+    });
+  });
+
+  const message = serializeMessage(row);
+  try {
+    await realtime()?.publishMessageUpdated?.({ message });
+  } catch {
+    console.error("Failed to broadcast message edit");
+  }
+  return message;
+}
+
+export async function deleteMessage(userId: string, messageId: string): Promise<{ id: string; channelId: string }> {
+  return db.$transaction(async tx => {
+    const existing = await tx.message.findUnique({
+      where: { id: messageId },
+      include: { channel: { select: { workspaceId: true } } },
+    });
+
+    if (!existing) throw new AppError(404, "Message not found.");
+    const member = await requireWorkspace(userId, existing.channel.workspaceId, "workspace:read", tx);
+
+    const isAuthor = existing.authorId === userId;
+    const isAdmin = member.role === "ADMIN";
+
+    if (!isAuthor && !isAdmin) {
+      throw new AppError(403, "You do not have permission to delete this message.");
+    }
+
+    await tx.message.update({
+      where: { id: messageId },
+      data: { deletedAt: new Date(), body: "This message was deleted" },
+    });
+
+    try {
+      await realtime()?.publishMessageDeleted?.({ messageId: existing.id, channelId: existing.channelId });
+    } catch {
+      console.error("Failed to broadcast message delete");
+    }
+
+    return { id: existing.id, channelId: existing.channelId };
+  });
+}
+
+export async function toggleReaction(userId: string, messageId: string, input: unknown) {
+  const { emoji } = reactionSchema.parse(input);
+
+  const result = await db.$transaction(async tx => {
+    const message = await tx.message.findUnique({ where: { id: messageId } });
+    if (!message) throw new AppError(404, "Message not found.");
+    await requireChannel(userId, message.channelId, tx);
+
+    const existing = await tx.reaction.findUnique({
+      where: { messageId_userId_emoji: { messageId, userId, emoji } },
+    });
+
+    if (existing) {
+      await tx.reaction.delete({ where: { id: existing.id } });
+    } else {
+      await tx.reaction.create({ data: { messageId, userId, emoji } });
+    }
+
+    const updatedReactions = await tx.reaction.findMany({
+      where: { messageId },
+      select: { emoji: true, userId: true },
+    });
+
+    const formatted = formatReactions(updatedReactions);
+    try {
+      await realtime()?.publishReactionUpdated?.({
+        messageId,
+        channelId: message.channelId,
+        reactions: formatted,
+      });
+    } catch {
+      console.error("Failed to broadcast reaction update");
+    }
+
+    return {
+      messageId,
+      channelId: message.channelId,
+      emoji,
+      reactions: formatted,
+    };
+  });
+
+  return result;
+}
+
+export async function togglePin(userId: string, messageId: string) {
+  return db.$transaction(async tx => {
+    const message = await tx.message.findUnique({ where: { id: messageId } });
+    if (!message) throw new AppError(404, "Message not found.");
+    await requireChannel(userId, message.channelId, tx);
+
+    const existing = await tx.pin.findUnique({
+      where: { channelId_messageId: { channelId: message.channelId, messageId } },
+    });
+
+    let pinned = false;
+    if (existing) {
+      await tx.pin.delete({ where: { id: existing.id } });
+    } else {
+      await tx.pin.create({ data: { channelId: message.channelId, messageId, pinnedById: userId } });
+      pinned = true;
+    }
+
+    return { messageId, channelId: message.channelId, pinned };
+  });
+}
+
+export async function listPins(userId: string, channelId: string): Promise<ChatMessage[]> {
+  await requireChannel(userId, channelId);
+  const pins = await db.pin.findMany({
+    where: { channelId },
+    include: { message: { include } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return pins.map(p => serializeMessage(p.message));
+}
+
+export async function updateChannelTopic(userId: string, channelId: string, topic: string): Promise<ChannelSummary> {
+  const channel = await requireChannel(userId, channelId);
+  const updated = await db.channel.update({
+    where: { id: channelId },
+    data: { topic: topic.trim().slice(0, 250) },
+    include: {
+      members: {
+        select: {
+          userId: true,
+          lastReadAt: true,
+          role: true,
+          user: { select: { id: true, name: true, image: true } },
+        },
+      },
+      _count: { select: { members: true } },
+    },
+  });
+
+  const userMembership = updated.members.find(m => m.userId === userId);
+  const summary: ChannelSummary = {
+    id: updated.id,
+    workspaceId: updated.workspaceId,
+    name: updated.name,
+    type: updated.type,
+    topic: updated.topic,
+    description: updated.description,
+    isDefault: updated.isDefault,
+    isPrivate: updated.type !== "PUBLIC",
+    joined: !!userMembership,
+    memberCount: updated._count.members,
+    canManageMembers: updated.createdById === userId,
+  };
+
+  try {
+    await realtime()?.publishChannelUpdated?.(updated.workspaceId, summary);
+  } catch {
+    // ignore
+  }
+
+  return summary;
+}
+
+export async function getChannel(userId: string, channelId: string): Promise<ChannelSummary> {
+  const channel = await db.channel.findUnique({
+    where: { id: channelId },
+    include: {
+      members: {
+        select: {
+          userId: true,
+          lastReadAt: true,
+          role: true,
+          user: { select: { id: true, name: true, image: true } },
+        },
+      },
+      _count: { select: { members: true } },
+    },
+  });
+
+  if (!channel) throw new AppError(404, "Channel not found.");
+  await requireWorkspace(userId, channel.workspaceId);
+
+  const userMembership = channel.members.find(m => m.userId === userId);
+  const joined = !!userMembership;
+  if (channel.type === "PRIVATE" && !joined) {
+    throw new AppError(403, "You do not have access to this private channel.");
+  }
+
+  let otherUser: ChannelSummary["otherUser"] | undefined;
+  if (channel.type === "DM" || channel.type === "GROUP_DM") {
+    const other = channel.members.find(m => m.userId !== userId)?.user;
+    if (other) {
+      otherUser = { id: other.id, name: other.name, image: other.image };
+    }
+  }
+
+  return {
+    id: channel.id,
+    workspaceId: channel.workspaceId,
+    name: channel.name,
+    type: channel.type,
+    topic: channel.topic,
+    description: channel.description,
+    isDefault: channel.isDefault,
+    isPrivate: channel.type !== "PUBLIC",
+    joined,
+    memberCount: channel._count.members,
+    canManageMembers: channel.createdById === userId,
+    otherUser,
+  };
 }

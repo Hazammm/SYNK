@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "../../lib/db";
 import { requireWorkspace } from "../../lib/permissions";
-import { docSearchSchema } from "../../lib/validation";
+import { docSearchSchema, extractPlainText } from "../../lib/validation";
 import { searchDocs, snippetOf } from "../docs/service";
 
 const PER_KIND = 8;
@@ -10,7 +10,7 @@ const MAX_WORDS = 6;
 type WorkspaceSearchResult =
   | { type: "ticket"; id: string; title: string; snippet: string; score: number; key: string; projectId: string; boardId: string; status: string }
   | { type: "doc"; id: string; title: string; snippet: string; score: number; projectId: string; project: string }
-  | { type: "message"; id: string; title: string; snippet: string; score: number; channel: string; sender: string; createdAt: string };
+  | { type: "message"; id: string; title: string; snippet: string; score: number; channel: string; channelId?: string; sender: string; createdAt: string };
 
 // Every word must appear in the field, in any order and ignoring case.
 const allWords = (words: string[], fields: string[]) =>
@@ -34,7 +34,7 @@ export async function searchWorkspace(userId: string, workspaceId: string, input
     searchDocs(userId, workspaceId, { query }),
     db.message.findMany({
       where: { channel: { workspaceId, members: { some: { userId } } }, AND: allWords(words, ["body"]) as Prisma.MessageWhereInput[] },
-      select: { id: true, body: true, createdAt: true, channel: { select: { name: true } }, sender: { select: { name: true } } },
+      select: { id: true, channelId: true, body: true, createdAt: true, channel: { select: { id: true, name: true } }, author: { select: { name: true } } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: PER_KIND,
     }),
   ]);
@@ -46,8 +46,8 @@ export async function searchWorkspace(userId: string, workspaceId: string, input
     })),
     ...docs.slice(0, PER_KIND).map(doc => ({ type: "doc" as const, id: doc.id, title: doc.title, projectId: doc.projectId, project: doc.projectName, snippet: doc.snippet, score: Math.min(1, doc.score) })),
     ...messages.map(message => ({
-      type: "message" as const, id: message.id, title: `#${message.channel.name} · ${message.sender.name ?? "Member"}`, channel: message.channel.name,
-      sender: message.sender.name ?? "Member", createdAt: message.createdAt.toISOString(), snippet: snippetOf(message.body, query), score: 0.5,
+      type: "message" as const, id: message.id, title: `#${message.channel.name ?? "general"} · ${message.author.name ?? "Member"}`, channel: message.channel.name ?? "general",
+      channelId: message.channelId, sender: message.author.name ?? "Member", createdAt: message.createdAt.toISOString(), snippet: snippetOf(extractPlainText(message.body), query), score: 0.5,
     })),
   ];
   return results.sort((a, b) => b.score - a.score);

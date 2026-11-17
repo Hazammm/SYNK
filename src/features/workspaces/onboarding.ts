@@ -58,10 +58,24 @@ async function seedWorkspace(tx: Prisma.TransactionClient, owner: Owner, data: S
   await tx.projectAccess.create({ data: { projectId: project.id, userId: owner.id, level: "WRITE" } });
   await createBoardRecord(tx, project.id, "Main board");
   const channel = await tx.channel.create({
-    data: { workspaceId: workspace.id, createdById: owner.id, name: "general", description: "Updates and conversations for everyone." },
+    data: {
+      workspaceId: workspace.id,
+      createdById: owner.id,
+      name: "general",
+      description: "Updates and conversations for everyone.",
+      type: "PUBLIC",
+      isDefault: true,
+    },
     select: { id: true },
   });
-  await tx.channelMember.create({ data: { channelId: channel.id, workspaceId: workspace.id, userId: owner.id } });
+  await tx.channelMember.create({
+    data: {
+      channelId: channel.id,
+      workspaceId: workspace.id,
+      userId: owner.id,
+      role: "OWNER",
+    },
+  });
   const invites = await Promise.all(data.inviteEmails.map(async email => {
     const token = createInviteToken();
     await tx.invite.create({

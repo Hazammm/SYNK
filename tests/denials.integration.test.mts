@@ -118,5 +118,5 @@ test("nothing was changed by any refused attempt", async () => {
   assert.equal(await db.timeEntry.count({ where: { ticketId } }), 0);
   assert.equal(await db.invite.count({ where: { workspaceId } }), 0);
   assert.equal(await db.repository.count({ where: { projectId } }), 0);
-  assert.equal(await db.message.count({ where: { channelId: generalId, senderId: outsider } }), 0);
+  assert.equal(await db.message.count({ where: { channelId: generalId, authorId: outsider } }), 0);
 });

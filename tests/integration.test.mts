@@ -110,7 +110,7 @@ test("message retries persist once and conflicting retries are rejected", async 
   const data = input("send exactly once");
   const [a, b] = await Promise.all([sendMessage(admin, channelId, data), sendMessage(admin, channelId, data)]);
   assert.equal(a.id, b.id);
-  assert.equal(await db.message.count({ where: { clientMessageId: data.clientMessageId } }), 1);
+  assert.equal(await db.message.count({ where: { clientId: data.clientMessageId } }), 1);
   await assert.rejects(sendMessage(admin, channelId, { ...data, body: "changed" }), /different content/);
 });
 test("thread parents must be top-level messages in the same channel", async () => {
@@ -126,7 +126,7 @@ test("thread parents must be top-level messages in the same channel", async () =
 test("cursor pages are stable with identical timestamps and reject foreign cursors", async () => {
   const channel = await createChannel(admin, workspaceId, { name: "pagination" });
   const stamp = new Date("2026-10-01T00:00:00.000Z");
-  for (let i = 0; i < 7; i++) await db.message.create({ data: { id: `pagination-${randomUUID()}-${i}`, channelId: channel.id, senderId: admin, body: String(i), clientMessageId: randomUUID(), createdAt: stamp } });
+  for (let i = 0; i < 7; i++) await db.message.create({ data: { id: `pagination-${randomUUID()}-${i}`, workspaceId, channelId: channel.id, authorId: admin, body: String(i), clientId: randomUUID(), createdAt: stamp } });
   const ids: string[] = []; let cursor: string | undefined;
   do { const page = await listMessages(admin, channel.id, { limit: 2, cursor }); ids.push(...page.messages.map(row => row.id)); cursor = page.nextCursor ?? undefined; } while (cursor);
   assert.equal(ids.length, 7); assert.equal(new Set(ids).size, 7);

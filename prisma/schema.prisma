@@ -40,7 +40,12 @@ model User {
   sessions              Session[]
   loginSessions         LoginSession[]
   memberships           Membership[]
-  messages              Message[]
+  messages              Message[]            @relation("MessageAuthor")
+  reactions             Reaction[]
+  mentions              Mention[]            @relation("MentionedUser")
+  attachments           Attachment[]         @relation("AttachmentUploader")
+  pins                  Pin[]                @relation("PinnedBy")
+  channelMembers        ChannelMember[]
   projectAccess         ProjectAccess[]
   createdChannels       Channel[]
   createdWorkspaces     Workspace[]          @relation("WorkspaceCreator")
@@ -155,6 +160,8 @@ model Workspace {
   createdBy     User           @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: Restrict)
   memberships   Membership[]
   channels      Channel[]
+  messages      Message[]
+  attachments   Attachment[]
   projects      Project[]
   invites       Invite[]
   activeUsers   User[]         @relation("UserLastActiveWorkspace")
@@ -192,51 +199,146 @@ model Invite {
   @@index([workspaceId])
 }
 
+enum ChannelType {
+  PUBLIC
+  PRIVATE
+  DM
+  GROUP_DM
+}
+
+enum ChannelMemberRole {
+  OWNER
+  MEMBER
+}
+
+enum MentionKind {
+  USER
+  CHANNEL
+  HERE
+}
+
 model Channel {
   id          String          @id @default(cuid())
   workspaceId String
   createdById String
-  creator     User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  name        String
+  name        String?
+  type        ChannelType     @default(PUBLIC)
+  topic       String          @default("")
   description String          @default("")
+  isDefault   Boolean         @default(false)
   isPrivate   Boolean         @default(false)
+  archivedAt  DateTime?
   createdAt   DateTime        @default(now())
   workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator     User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
   members     ChannelMember[]
   messages    Message[]
+  pins        Pin[]
 
   @@unique([workspaceId, name])
   @@unique([id, workspaceId])
+  @@index([workspaceId, type])
 }
 
 model ChannelMember {
   channelId   String
   userId      String
   workspaceId String
-  joinedAt    DateTime   @default(now())
-  channel     Channel    @relation(fields: [channelId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
-  membership  Membership @relation(fields: [workspaceId, userId], references: [workspaceId, userId], onDelete: Cascade)
+  role        ChannelMemberRole @default(MEMBER)
+  lastReadAt  DateTime?
+  muted       Boolean           @default(false)
+  joinedAt    DateTime          @default(now())
+  channel     Channel           @relation(fields: [channelId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  membership  Membership        @relation(fields: [workspaceId, userId], references: [workspaceId, userId], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([channelId, userId])
   @@index([workspaceId, userId])
 }
 
 model Message {
-  id              String    @id @default(cuid())
-  channelId       String
-  senderId        String
-  body            String    @db.Text
-  parentId        String?
-  clientMessageId String
-  createdAt       DateTime  @default(now())
-  channel         Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  sender          User      @relation(fields: [senderId], references: [id], onDelete: Restrict)
-  parent          Message?  @relation("Thread", fields: [parentId, channelId], references: [id, channelId], onDelete: Cascade)
-  replies         Message[] @relation("Thread")
+  id           String       @id @default(cuid())
+  workspaceId  String
+  channelId    String
+  authorId     String
+  body         String       @db.Text
+  threadRootId String?
+  clientId     String
+  editedAt     DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime     @default(now())
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel      Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author       User         @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  threadRoot   Message?     @relation("ThreadReplies", fields: [threadRootId], references: [id], onDelete: Cascade)
+  replies      Message[]    @relation("ThreadReplies")
+  reactions    Reaction[]
+  mentions     Mention[]
+  attachments  Attachment[]
+  pins         Pin[]
 
-  @@unique([id, channelId])
-  @@unique([senderId, channelId, clientMessageId])
-  @@index([channelId, parentId, createdAt, id])
+  @@unique([authorId, clientId])
+  @@index([channelId, createdAt(sort: Desc)])
+  @@index([threadRootId, createdAt])
+  @@index([workspaceId])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model Mention {
+  id              String      @id @default(cuid())
+  messageId       String
+  mentionedUserId String?
+  kind            MentionKind
+  createdAt       DateTime    @default(now())
+  message         Message     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  mentionedUser   User?       @relation("MentionedUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([mentionedUserId])
+}
+
+model Attachment {
+  id          String    @id @default(cuid())
+  messageId   String?
+  uploaderId  String
+  workspaceId String
+  storageKey  String
+  fileName    String
+  mimeType    String
+  size        Int
+  createdAt   DateTime  @default(now())
+  message     Message?  @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  uploader    User      @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([workspaceId])
+}
+
+model Pin {
+  id         String   @id @default(cuid())
+  channelId  String
+  messageId  String
+  pinnedById String
+  createdAt  DateTime @default(now())
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  pinnedBy   User     @relation("PinnedBy", fields: [pinnedById], references: [id], onDelete: Restrict)
+
+  @@unique([channelId, messageId])
+  @@index([channelId])
 }
 
 // Issue tracking (PRD 6.4). A project owns boards, sprints and tickets.
