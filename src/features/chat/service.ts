@@ -696,9 +696,8 @@ export async function getChannel(userId: string, channelId: string): Promise<Cha
 
   const userMembership = channel.members.find(m => m.userId === userId);
   const joined = !!userMembership;
-  if (channel.type === "PRIVATE" && !joined) {
-    throw new AppError(403, "You do not have access to this private channel.");
-  }
+  // Private channels and direct messages look missing to everyone outside them.
+  if (channel.type !== "PUBLIC" && !joined) throw new AppError(404, "Channel not found.");
 
   let otherUser: ChannelSummary["otherUser"] | undefined;
   if (channel.type === "DM" || channel.type === "GROUP_DM") {
