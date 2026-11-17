@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/session";
 import { api, AppError } from "@/lib/errors";
 import { assertSameOrigin } from "@/lib/http";

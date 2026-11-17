@@ -1,6 +1,4 @@
 export type ChannelType = "PUBLIC" | "PRIVATE" | "DM" | "GROUP_DM";
-export type ChannelMemberRole = "OWNER" | "MEMBER";
-export type MentionKind = "USER" | "CHANNEL" | "HERE";
 
 export type ChatReaction = {
   emoji: string;
@@ -77,8 +75,6 @@ export type ClientEvents = {
   "message:edit": (data: { messageId: string; body: string }, ack?: SocketCallback<SocketAck<ChatMessage>>) => void;
   "message:delete": (data: { messageId: string }, ack?: SocketCallback<SocketAck<{ messageId: string }>>) => void;
   "reaction:toggle": (data: { messageId: string; emoji: string }, ack?: SocketCallback<SocketAck<{ messageId: string; emoji: string; reactions: ChatReaction[] }>>) => void;
-  "typing:start": (data: { channelId: string }) => void;
-  "typing:stop": (data: { channelId: string }) => void;
   "typing": (data: { channelId: string }) => void;
   "heartbeat": () => void;
 };

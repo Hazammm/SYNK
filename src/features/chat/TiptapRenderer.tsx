@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
-import { isTiptapDoc, type tiptapNodeSchema } from "@/lib/validation";
+import { isTiptapDoc } from "@/lib/validation";
 import { parseInline, safeHref, type Inline } from "@/lib/markdown";
 import styles from "./Chat.module.css";
 

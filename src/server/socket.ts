@@ -24,21 +24,6 @@ type PresenceRecord = {
 };
 const presenceTracker = new Map<string, PresenceRecord>();
 
-export function isUserOnline(userId: string): boolean {
-  const p = presenceTracker.get(userId);
-  return !!p && p.socketIds.size > 0;
-}
-
-export function getOnlineUsers(workspaceId: string): string[] {
-  const online: string[] = [];
-  for (const [userId, record] of presenceTracker.entries()) {
-    if (record.socketIds.size > 0 && record.workspaceIds.has(workspaceId)) {
-      online.push(userId);
-    }
-  }
-  return online;
-}
-
 async function identity(request: IncomingMessage) {
   // Deliberately accept only the NextAuth cookie, never a client-supplied user ID.
   const req = { cookies: parse(request.headers.cookie ?? ""), headers: {} };
@@ -103,7 +88,7 @@ export function attachRealtime(http: HttpServer) {
   });
 
   io.on("connection", socket => {
-    const { userId, workspaceId, name } = socket.data;
+    const { userId, workspaceId } = socket.data;
 
     // 1. Join user private room & workspace room
     void socket.join(`user:${userId}`);
@@ -231,21 +216,6 @@ export function attachRealtime(http: HttpServer) {
       }
     });
 
-    // Typing start / stop
-    socket.on("typing:start", async input => {
-      const parsed = idSchema.safeParse(input?.channelId);
-      const room = parsed.success ? `channel:${parsed.data}` : "";
-      if (!room || !socket.rooms.has(room)) return;
-      try { rateLimit(`typing:${socket.data.userId}`, 40); } catch { return; }
-      const event = { channelId: parsed.data!, userId: socket.data.userId, name: socket.data.name };
-      socket.to(room).except(`user:${socket.data.userId}`).emit("typing", event);
-    });
-
-    socket.on("typing:stop", input => {
-      // Handled via expiration on client or on next message
-    });
-
-    // Legacy typing event
     socket.on("typing", async input => {
       const parsed = idSchema.safeParse(input?.channelId);
       const room = parsed.success ? `channel:${parsed.data}` : "";

@@ -11,15 +11,12 @@ import {
   Edit2,
   FileText,
   Hash,
-  Image as ImageIcon,
   LockKeyhole,
   MessageCircle,
   MessageSquare,
-  Paperclip,
   Pin,
   Plus,
   Search,
-  Send,
   Smile,
   Ticket,
   Trash2,
@@ -28,7 +25,6 @@ import {
 } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import type { ChannelSummary, ChatAttachment, ChatMessage, ChatReaction, WorkspaceSummary } from "@/lib/chat-types";
-import { parseInline, type Inline } from "@/lib/markdown";
 import { extractPlainText } from "@/lib/validation";
 import { messageOf, request, useMessages } from "./client";
 import { RichComposer } from "./RichComposer";
@@ -553,7 +549,6 @@ function WorkspaceChannels({
             <ChannelView
               key={channel.id}
               channel={channel}
-              workspace={workspace}
               workspaceMembers={workspaceMembers}
               onTopicUpdated={handleChannelTopicUpdated}
               onOpenMembers={() => setShowMembers(true)}
@@ -787,7 +782,6 @@ function Members({
 
 function ChannelView({
   channel,
-  workspace,
   workspaceMembers,
   onTopicUpdated,
   onOpenMembers,
@@ -795,7 +789,6 @@ function ChannelView({
   onJumpToChannel,
 }: {
   channel: ChannelSummary;
-  workspace: WorkspaceSummary;
   workspaceMembers: Member[];
   onTopicUpdated: (updated: ChannelSummary) => void;
   onOpenMembers: () => void;

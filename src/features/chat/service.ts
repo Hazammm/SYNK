@@ -631,7 +631,7 @@ export async function listPins(userId: string, channelId: string): Promise<ChatM
 }
 
 export async function updateChannelTopic(userId: string, channelId: string, topic: string): Promise<ChannelSummary> {
-  const channel = await requireChannel(userId, channelId);
+  await requireChannel(userId, channelId);
   const updated = await db.channel.update({
     where: { id: channelId },
     data: { topic: topic.trim().slice(0, 250) },

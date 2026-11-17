@@ -4,7 +4,6 @@ import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import {
   TYPING_TTL_MS,
-  type ChannelSummary,
   type ChatMessage,
   type ClientEvents,
   type MessageEvent,
@@ -13,7 +12,7 @@ import {
 } from "../../lib/chat-types";
 
 import { HttpError, messageOf, request } from "../../lib/client-http";
-export { HttpError, messageOf, request };
+export { messageOf, request };
 
 export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
   const byId = new Map(current.map(message => [message.id, message]));
