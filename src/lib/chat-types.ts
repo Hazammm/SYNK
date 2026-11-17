@@ -95,3 +95,6 @@ export type ServerEvents = {
 };
 
 export const TYPING_TTL_MS = 4000;
+
+// Attachment types shown in the browser; every other file is offered as a download.
+export const INLINE_ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
