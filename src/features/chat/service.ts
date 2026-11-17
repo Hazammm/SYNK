@@ -501,6 +501,7 @@ export async function editMessage(userId: string, messageId: string, input: unkn
     });
 
     if (!existing) throw new AppError(404, "Message not found.");
+    await requireChannel(userId, existing.channelId, tx);
     if (existing.authorId !== userId) throw new AppError(403, "You can only edit your own messages.");
     if (existing.deletedAt) throw new AppError(400, "Cannot edit deleted message.");
 
