@@ -187,8 +187,8 @@ export function attachRealtime(http: HttpServer) {
       try {
         rateLimit(`msg-edit:${socket.data.userId}`, 20, 10_000);
         const messageId = idSchema.parse(input?.messageId);
-        const parsed = messageEditSchema.parse(input);
-        const message = await editMessage(socket.data.userId, messageId, parsed);
+        // The edit schema is strict, so pass only its own field; editMessage validates it.
+        const message = await editMessage(socket.data.userId, messageId, { body: input?.body });
         respond(ack, { ok: true, data: message });
       } catch (err) {
         respond(ack, { ok: false, error: failure(err, "Unable to edit message.") });
@@ -212,8 +212,7 @@ export function attachRealtime(http: HttpServer) {
       try {
         rateLimit(`react:${socket.data.userId}`, 40, 10_000);
         const messageId = idSchema.parse(input?.messageId);
-        const parsed = reactionSchema.parse(input);
-        const result = await toggleReaction(socket.data.userId, messageId, parsed);
+        const result = await toggleReaction(socket.data.userId, messageId, { emoji: input?.emoji });
         respond(ack, { ok: true, data: result });
       } catch (err) {
         respond(ack, { ok: false, error: failure(err, "Unable to toggle reaction.") });
