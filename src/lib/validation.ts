@@ -53,15 +53,23 @@ export const dmChannelSchema = z.object({
 }).strict();
 const tiptapMarkSchema = z.object({
   type: z.enum(["bold", "italic", "underline", "strike", "code", "link"]),
-  attrs: z.record(z.string(), z.any()).optional(),
+  attrs: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const tiptapNodeSchema: z.ZodType<any> = z.lazy(() =>
+export type TiptapNode = {
+  type: string;
+  text?: string;
+  marks?: { type: "bold" | "italic" | "underline" | "strike" | "code" | "link"; attrs?: Record<string, unknown> }[];
+  attrs?: Record<string, unknown>;
+  content?: TiptapNode[];
+};
+
+export const tiptapNodeSchema: z.ZodType<TiptapNode> = z.lazy(() =>
   z.object({
     type: z.string(),
     text: z.string().optional(),
     marks: z.array(tiptapMarkSchema).optional(),
-    attrs: z.record(z.string(), z.any()).optional(),
+    attrs: z.record(z.string(), z.unknown()).optional(),
     content: z.array(tiptapNodeSchema).optional(),
   })
 );
