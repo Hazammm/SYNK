@@ -816,9 +816,9 @@ function ChannelView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [thread, rightPanel]);
 
-  useEffect(() => {
-    setTopicDraft(channel.topic ?? "");
-  }, [channel.topic]);
+  // A topic changed elsewhere replaces the draft (adjusting state while rendering, as React recommends).
+  const [topicShown, setTopicShown] = useState(channel.topic);
+  if (topicShown !== channel.topic) { setTopicShown(channel.topic); setTopicDraft(channel.topic ?? ""); }
 
   async function saveTopic(e: React.FormEvent) {
     e.preventDefault();
@@ -1298,7 +1298,7 @@ function Feed({
     });
 
     return items;
-  }, [feed.messages, channel.workspaceId, editingMessageId, feed, onThread]);
+  }, [channel.workspaceId, editingMessageId, feed, onThread]);
 
   return (
     <>
@@ -1418,9 +1418,9 @@ function MessageCard({
   const [editDraft, setEditDraft] = useState(plainBody);
   const [busyEdit, setBusyEdit] = useState(false);
 
-  useEffect(() => {
-    setEditDraft(extractPlainText(message.body));
-  }, [message.body]);
+  // An edit made elsewhere replaces the draft.
+  const [bodyShown, setBodyShown] = useState(message.body);
+  if (bodyShown !== message.body) { setBodyShown(message.body); setEditDraft(plainBody); }
 
   const ticketKeys = [...new Set(plainBody.match(/\b([A-Z][A-Z0-9]{1,9}-[1-9]\d*)\b/g) ?? [])];
   const isDeleted = !!message.deletedAt;
