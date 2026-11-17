@@ -523,7 +523,7 @@ export async function editMessage(userId: string, messageId: string, input: unkn
 
 // Authors delete their own messages; workspace admins may delete any message in a channel they can read.
 export async function deleteMessage(userId: string, messageId: string): Promise<{ id: string; channelId: string }> {
-  return db.$transaction(async tx => {
+  const deleted = await db.$transaction(async tx => {
     const existing = await tx.message.findUnique({
       where: { id: messageId },
       include: { channel: { select: { workspaceId: true } } },
@@ -544,15 +544,15 @@ export async function deleteMessage(userId: string, messageId: string): Promise<
       where: { id: messageId },
       data: { deletedAt: new Date(), body: "This message was deleted" },
     });
-
-    try {
-      await realtime()?.publishMessageDeleted?.({ messageId: existing.id, channelId: existing.channelId });
-    } catch {
-      console.error("Failed to broadcast message delete");
-    }
-
     return { id: existing.id, channelId: existing.channelId };
   });
+
+  try {
+    await realtime()?.publishMessageDeleted?.({ messageId: deleted.id, channelId: deleted.channelId });
+  } catch {
+    console.error("Failed to broadcast message delete");
+  }
+  return deleted;
 }
 
 export async function toggleReaction(userId: string, messageId: string, input: unknown) {
