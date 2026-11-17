@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import { getToken } from "next-auth/jwt";
 import { parse } from "cookie";
 import { db } from "../lib/db";
+import { AppError } from "../lib/errors";
 import { requireChannel } from "../lib/permissions";
 import { idSchema, messageEditSchema, messageSchema, reactionSchema } from "../lib/validation";
 import { setRealtime } from "../lib/realtime";
@@ -51,7 +52,10 @@ async function identity(request: IncomingMessage) {
   return membership ? { userId: session.userId, sessionId: session.id, workspaceId: membership.workspaceId, name: user?.name ?? "Someone" } : null;
 }
 
-function respond<T>(callback: SocketCallback<T> | undefined, result: { ok: true; data?: any } | { ok: false; error: string }) {
+// Only messages written for people are sent back; anything unexpected becomes the fallback.
+const failure = (error: unknown, fallback: string) => error instanceof AppError ? error.message : fallback;
+
+function respond<T>(callback: SocketCallback<T> | undefined, result: { ok: true; data?: unknown } | { ok: false; error: string }) {
   if (typeof callback === "function") {
     try {
       callback(result);
@@ -131,8 +135,8 @@ export function attachRealtime(http: HttpServer) {
         }
         await socket.join(`channel:${channelId}`);
         respond(ack, { ok: true, data: { channelId } });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "You cannot subscribe to this channel." });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "You cannot subscribe to this channel.") });
       }
     });
 
@@ -160,8 +164,8 @@ export function attachRealtime(http: HttpServer) {
           unreadCount: 0,
           mentionCount: 0,
         });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Failed to mark channel as read." });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "Failed to mark channel as read.") });
       }
     });
 
@@ -173,8 +177,8 @@ export function attachRealtime(http: HttpServer) {
         const parsed = messageSchema.parse(input);
         const message = await sendMessage(socket.data.userId, channelId, parsed);
         respond(ack, { ok: true, data: message });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Unable to send message." });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "Unable to send message.") });
       }
     });
 
@@ -186,8 +190,8 @@ export function attachRealtime(http: HttpServer) {
         const parsed = messageEditSchema.parse(input);
         const message = await editMessage(socket.data.userId, messageId, parsed);
         respond(ack, { ok: true, data: message });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Unable to edit message." });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "Unable to edit message.") });
       }
     });
 
@@ -198,8 +202,8 @@ export function attachRealtime(http: HttpServer) {
         const messageId = idSchema.parse(input?.messageId);
         const result = await deleteMessage(socket.data.userId, messageId);
         respond(ack, { ok: true, data: result });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Unable to delete message." });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "Unable to delete message.") });
       }
     });
 
@@ -211,8 +215,8 @@ export function attachRealtime(http: HttpServer) {
         const parsed = reactionSchema.parse(input);
         const result = await toggleReaction(socket.data.userId, messageId, parsed);
         respond(ack, { ok: true, data: result });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Unable to toggle reaction." });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "Unable to toggle reaction.") });
       }
     });
 
