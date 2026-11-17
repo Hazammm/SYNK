@@ -555,37 +555,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* New Messages Divider */
-.newDivider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  margin: 12px 0 6px;
-}
-
-.newDivider::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--high);
-}
-
-.newDividerBadge {
-  position: relative;
-  z-index: 1;
-  padding: 1px 10px;
-  border-radius: var(--r-pill);
-  background: var(--high);
-  color: #ffffff;
-  font-size: var(--t-xs);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 /* Synk Message Card Design */
 .messageCard {
   position: relative;
@@ -790,15 +759,6 @@
   font-weight: 600;
 }
 
-/* Mentions Styling */
-.mentionHighlight {
-  padding: 1px 6px;
-  border-radius: var(--r-xs);
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-weight: 600;
-}
-
 .messageText {
   margin: 0;
   font-size: var(--t-md);
@@ -972,19 +932,6 @@
   color: var(--text);
 }
 
-.retryBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 0;
-  background: transparent;
-  color: var(--high);
-  font-size: var(--t-sm);
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
 /* Jump to bottom button */
 .jumpToBottom {
   position: absolute;
@@ -1029,35 +976,6 @@
   padding: 0 20px 16px;
 }
 
-.composerBox {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  transition: border-color var(--d-base) var(--ease), box-shadow var(--d-base) var(--ease);
-}
-
-.composerBox:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.composer textarea {
-  width: 100%;
-  min-height: 48px;
-  max-height: 180px;
-  padding: 10px 14px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
-  font-size: var(--t-md);
-  line-height: 1.5;
-  resize: none;
-}
-
 /* Staged Attachments in Composer */
 .stagedAttachments {
   display: flex;
@@ -1077,25 +995,6 @@
   border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--text);
-  font-size: var(--t-xs);
-}
-
-.composerActions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px 8px;
-  border-top: 1px solid var(--fill);
-}
-
-.composerTools {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.composerHelp {
-  color: var(--faint);
   font-size: var(--t-xs);
 }
 
@@ -1188,8 +1087,7 @@
   min-height: 1.5em;
 }
 
-.tiptapEditor p.isEditorEmpty:first-child::before,
-.tiptapEditor p.is-editor-empty:first-child::before {
+.tiptapEditor p.isEditorEmpty:first-child::before {
   content: attr(data-placeholder);
   color: var(--faint);
   float: left;
@@ -1691,9 +1589,6 @@
   }
   .composer {
     padding: 0 14px 12px;
-  }
-  .composerActions button span {
-    display: none;
   }
   .setup {
     margin: 14px;
