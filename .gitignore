@@ -45,3 +45,6 @@ next-env.d.ts
 /test-results/
 
 /test-server.log
+
+# uploaded chat attachments (local storage)
+/.uploads
