@@ -55,10 +55,12 @@ function renderNode(node: TiptapNode, index: number, workspaceId: string): React
         } else if (mark.type === "code") {
           content = <code key="c" className={styles.inlineCode}>{content}</code>;
         } else if (mark.type === "link") {
-          content = (
+          // Only http(s), mailto and in-app links; anything else (javascript:, data:) is shown as plain text.
+          const href = typeof mark.attrs?.href === "string" ? safeHref(mark.attrs.href) : null;
+          if (href) content = (
             <a
               key="l"
-              href={mark.attrs?.href || "#"}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.messageLink}
