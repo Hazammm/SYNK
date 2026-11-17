@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { encode } from "next-auth/jwt";
 import { io as connect, type Socket } from "socket.io-client";
 import nextEnv from "@next/env";
-import type { ServerEvents, ClientEvents, MessageEvent, TypingEvent, Ack } from "../src/lib/chat-types";
+import type { ServerEvents, ClientEvents, MessageEvent, TypingEvent, SocketAck } from "../src/lib/chat-types";
 
 nextEnv.loadEnvConfig(process.cwd(), true);
 if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a migrated, disposable PostgreSQL database.");
@@ -73,7 +73,12 @@ async function socketFor(cookieValue?: string, origin = url) {
   await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("connect_error", reject); socket.connect(); });
   return socket;
 }
-const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) => new Promise<Ack>((resolve, reject) => socket.timeout(10_000).emit("channel:join", { channelId: channel }, (error, result) => error ? reject(error) : resolve(result ?? { ok: false, error: "No reply." })));
+const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) =>
+  new Promise<SocketAck<{ channelId: string }>>((resolve, reject) =>
+    socket.timeout(10_000).emit("channel:join", { channelId: channel }, (error, result) =>
+      error ? reject(error) : result ? resolve(result) : reject(new Error("Missing ack"))
+    )
+  );
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 test("workspace creation is atomic, and discovery excludes other tenants", async () => {

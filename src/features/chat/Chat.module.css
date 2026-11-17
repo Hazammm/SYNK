@@ -1176,6 +1176,94 @@
   letter-spacing: -0.5px;
 }
 
+.attachMenuWrap {
+  position: relative;
+}
+
+.attachMenu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 230px;
+  display: grid;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--raised);
+  box-shadow: var(--shadow-lg);
+  z-index: 70;
+}
+
+.attachMenu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--t-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.attachMenu button:hover {
+  background: var(--fill);
+}
+
+.driveSearch {
+  display: flex;
+  gap: 8px;
+}
+
+.driveList {
+  display: grid;
+  gap: 4px;
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.driveFile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--t-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.driveFile:hover:not(:disabled) {
+  background: var(--fill);
+}
+
+.driveFile:disabled {
+  cursor: wait;
+}
+
+.driveFileName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.driveFileSize {
+  color: var(--faint);
+  font-size: var(--t-xs);
+  white-space: nowrap;
+}
+
 .composerEmojiPopover {
   position: absolute;
   bottom: calc(100% - 6px);

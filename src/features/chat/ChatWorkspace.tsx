@@ -27,9 +27,9 @@ import { Avatar, Button, Input } from "@/components/Primitives";
 import { INLINE_ATTACHMENT_TYPES, type ChannelSummary, type ChatAttachment, type ChatMessage, type ChatReaction, type WorkspaceSummary } from "@/lib/chat-types";
 import { extractPlainText } from "@/lib/validation";
 import type { WorkspaceSearchResult } from "@/features/search/service";
-import { messageOf, request, useMessages } from "./client";
 
-type MessageResult = Extract<WorkspaceSearchResult, { type: "message" }>;
+type MessageSearchResult = Extract<WorkspaceSearchResult, { type: "message" }>;
+import { messageOf, request, useMessages } from "./client";
 import { RichComposer } from "./RichComposer";
 import { TiptapRenderer } from "./TiptapRenderer";
 import styles from "./Chat.module.css";
@@ -816,10 +816,6 @@ function ChannelView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [thread, rightPanel]);
 
-  // A topic changed elsewhere replaces the draft (adjusting state while rendering, as React recommends).
-  const [topicShown, setTopicShown] = useState(channel.topic);
-  if (topicShown !== channel.topic) { setTopicShown(channel.topic); setTopicDraft(channel.topic ?? ""); }
-
   async function saveTopic(e: React.FormEvent) {
     e.preventDefault();
     setSavingTopic(true);
@@ -881,7 +877,10 @@ function ChannelView({
                 <button
                   type="button"
                   className={styles.topicBtn}
-                  onClick={() => setEditingTopic(true)}
+                  onClick={() => {
+                    setTopicDraft(channel.topic ?? "");
+                    setEditingTopic(true);
+                  }}
                   title="Edit topic"
                 >
                   <span>{channel.topic || "Add a topic"}</span>
@@ -1098,7 +1097,7 @@ function SearchDrawer({
   onJumpToMessage: (channelId: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<MessageResult[]>([]);
+  const [results, setResults] = useState<MessageSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -1107,8 +1106,10 @@ function SearchDrawer({
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const { results: found } = await request<{ results: WorkspaceSearchResult[] }>(`/api/workspaces/${workspaceId}/search?query=${encodeURIComponent(query.trim())}`);
-      setResults(found.filter((item): item is MessageResult => item.type === "message"));
+      const { results: hits } = await request<{ results: WorkspaceSearchResult[] }>(
+        `/api/workspaces/${workspaceId}/search?query=${encodeURIComponent(query.trim())}`
+      );
+      setResults(hits.filter((r): r is MessageSearchResult => r.type === "message"));
       setError("");
     } catch (error) {
       setResults([]);
@@ -1168,15 +1169,22 @@ function Feed({
   onThread?: (message: ChatMessage) => void;
   onUserPresenceChange?: (updater: (prev: Set<string>) => Set<string>) => void;
 }) {
-  const handlePresence = useCallback((event: { userId: string; online: boolean }) => {
-    onUserPresenceChange?.(prev => {
-      const next = new Set(prev);
-      if (event.online) next.add(event.userId);
-      else next.delete(event.userId);
-      return next;
-    });
-  }, [onUserPresenceChange]);
-  const feed = useMessages(channel.id, parentId, handlePresence);
+  const handlePresenceUpdate = useCallback(
+    (event: { userId: string; online: boolean }) => {
+      if (!onUserPresenceChange) return;
+      onUserPresenceChange(prev => {
+        const next = new Set(prev);
+        if (event.online) next.add(event.userId);
+        else next.delete(event.userId);
+        return next;
+      });
+    },
+    [onUserPresenceChange]
+  );
+
+  const feed = useMessages(channel.id, parentId, {
+    onPresenceUpdate: onUserPresenceChange ? handlePresenceUpdate : undefined,
+  });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
@@ -1418,9 +1426,10 @@ function MessageCard({
   const [editDraft, setEditDraft] = useState(plainBody);
   const [busyEdit, setBusyEdit] = useState(false);
 
-  // An edit made elsewhere replaces the draft.
-  const [bodyShown, setBodyShown] = useState(message.body);
-  if (bodyShown !== message.body) { setBodyShown(message.body); setEditDraft(plainBody); }
+  function handleStartEdit() {
+    setEditDraft(extractPlainText(message.body));
+    onStartEdit?.();
+  }
 
   const ticketKeys = [...new Set(plainBody.match(/\b([A-Z][A-Z0-9]{1,9}-[1-9]\d*)\b/g) ?? [])];
   const isDeleted = !!message.deletedAt;
@@ -1481,7 +1490,7 @@ function MessageCard({
               className={styles.actionBtn}
               title="Edit message"
               aria-label="Edit message"
-              onClick={onStartEdit}
+              onClick={handleStartEdit}
             >
               <Edit2 size={14} />
             </button>

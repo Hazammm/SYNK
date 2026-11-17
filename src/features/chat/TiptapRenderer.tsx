@@ -2,9 +2,17 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
-import { isTiptapDoc, type TiptapNode } from "@/lib/validation";
+import { isTiptapDoc } from "@/lib/validation";
 import { parseInline, safeHref, type Inline } from "@/lib/markdown";
 import styles from "./Chat.module.css";
+
+type TiptapNode = {
+  type: string;
+  text?: string;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
+  attrs?: Record<string, unknown>;
+  content?: TiptapNode[];
+};
 
 function renderTextWithTickets(text: string, workspaceId: string): React.ReactNode[] {
   const ticketRegex = /\b([A-Z][A-Z0-9]{1,9}-[1-9]\d*)\b/g;

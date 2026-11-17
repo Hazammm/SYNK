@@ -3,11 +3,11 @@ import { Server } from "socket.io";
 import { getToken } from "next-auth/jwt";
 import { parse } from "cookie";
 import { db } from "../lib/db";
-import { AppError } from "../lib/errors";
 import { requireChannel } from "../lib/permissions";
 import { idSchema } from "../lib/validation";
+import { AppError } from "../lib/errors";
 import { setRealtime } from "../lib/realtime";
-import type { ClientEvents, ServerEvents, SocketCallback } from "../lib/chat-types";
+import type { ClientEvents, ServerEvents, SocketAck, SocketCallback } from "../lib/chat-types";
 import { rateLimit } from "../lib/rate-limit";
 import {
   deleteMessage,
@@ -55,7 +55,7 @@ async function identity(request: IncomingMessage) {
 // Only messages written for people are sent back; anything unexpected becomes the fallback.
 const failure = (error: unknown, fallback: string) => error instanceof AppError ? error.message : fallback;
 
-function respond<T>(callback: SocketCallback<T> | undefined, result: { ok: true; data?: unknown } | { ok: false; error: string }) {
+function respond<Data>(callback: SocketCallback<SocketAck<Data>> | undefined, result: SocketAck<Data>) {
   if (typeof callback === "function") {
     try {
       callback(result);
@@ -202,7 +202,7 @@ export function attachRealtime(http: HttpServer) {
         rateLimit(`msg-del:${socket.data.userId}`, 20, 10_000);
         const messageId = idSchema.parse(input?.messageId);
         const result = await deleteMessage(socket.data.userId, messageId);
-        respond(ack, { ok: true, data: result });
+        respond(ack, { ok: true, data: { messageId: result.id } });
       } catch (err) {
         respond(ack, { ok: false, error: failure(err, "Unable to delete message.") });
       }

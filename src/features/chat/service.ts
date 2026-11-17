@@ -30,7 +30,7 @@ function formatReactions(reactions: Array<{ emoji: string; userId: string }>): C
   }));
 }
 
-export function serializeMessage(row: Record): ChatMessage {
+function serializeMessage(row: Record): ChatMessage {
   const isDeleted = !!row.deletedAt;
   const author = { id: row.author.id, name: row.author.name, image: row.author.image };
   const reactions = formatReactions(row.reactions ?? []);

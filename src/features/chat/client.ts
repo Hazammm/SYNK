@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import {
@@ -11,75 +11,18 @@ import {
   type ServerEvents,
 } from "../../lib/chat-types";
 
-import { HttpError, messageOf, request } from "../../lib/client-http";
-export { messageOf, request };
+import { HttpError } from "../../lib/client-http";
+import { applyMessageEvent, mergeMessages, messageOf, request, typingText } from "./message-utils";
 
-export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
-  const byId = new Map(current.map(message => [message.id, message]));
-  const optimisticByClient = new Map<string, string>();
-  for (const m of current) {
-    const key = m.clientId || m.clientMessageId;
-    if (key && (m.status === "sending" || m.status === "failed" || m.id.startsWith("opt-"))) {
-      optimisticByClient.set(key, m.id);
-    }
-  }
+export { applyMessageEvent, mergeMessages, messageOf, request, typingText };
 
-  for (const message of incoming) {
-    const key = message.clientId || message.clientMessageId;
-    if (key && optimisticByClient.has(key)) {
-      const optId = optimisticByClient.get(key)!;
-      if (optId !== message.id) {
-        byId.delete(optId);
-      }
-    }
-    if (key) {
-      for (const [id, m] of byId.entries()) {
-        if (id !== message.id && (m.clientId === key || m.clientMessageId === key) && (m.id.startsWith("opt-") || m.status === "sending" || m.status === "failed")) {
-          byId.delete(id);
-        }
-      }
-    }
-    const previous = byId.get(message.id);
-    byId.set(message.id, {
-      ...message,
-      replyCount: Math.max(previous?.replyCount ?? 0, message.replyCount),
-      status: message.status ?? "sent",
-    });
-  }
-  return [...byId.values()].sort((a, b) =>
-    a.createdAt === b.createdAt
-      ? a.id < b.id ? -1 : a.id > b.id ? 1 : 0
-      : a.createdAt < b.createdAt ? -1 : 1
-  );
-}
+type PresenceUpdate = { userId: string; workspaceId: string; online: boolean };
 
-// "Asra is typing…", "Asra and Bilal are typing…", then "Several people are typing…".
-export function typingText(names: string[]) {
-  if (!names.length) return "";
-  if (names.length === 1) return `${names[0]} is typing…`;
-  if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
-  return "Several people are typing…";
-}
-
-function applyEvent(messages: ChatMessage[], event: MessageEvent, parentId: string | null) {
-  const targetParent = event.message.threadRootId ?? event.message.parentId ?? null;
-  if (targetParent === parentId) return mergeMessages(messages, [event.message]);
-  if (parentId === null && targetParent && event.parentReplyCount !== undefined) {
-    return messages.map(message =>
-      message.id === targetParent
-        ? { ...message, replyCount: Math.max(message.replyCount, event.parentReplyCount!) }
-        : message
-    );
-  }
-  return messages;
-}
-
-export type PresenceEvent = { userId: string; workspaceId: string; online: boolean };
-
-// `onPresence` hears when people in the workspace come online or go offline.
-export function useMessages(channelId: string, parentId: string | null, onPresence?: (event: PresenceEvent) => void) {
-  const onPresenceRef = useRef(onPresence);
-  useLayoutEffect(() => { onPresenceRef.current = onPresence; });
+export function useMessages(
+  channelId: string,
+  parentId: string | null,
+  options?: { onPresenceUpdate?: (event: PresenceUpdate) => void }
+) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,6 +35,7 @@ export function useMessages(channelId: string, parentId: string | null, onPresen
   // Who is typing in this channel, by user id, with when their last signal expires.
   const [typing, setTyping] = useState<Record<string, { name: string; until: number }>>({});
   const socketRef = useRef<Socket<ServerEvents, ClientEvents> | null>(null);
+  const onPresenceUpdateRef = useRef(options?.onPresenceUpdate);
   const lastTypingSent = useRef(0);
   const base = `/api/channels/${channelId}/messages`;
 
@@ -126,7 +70,7 @@ export function useMessages(channelId: string, parentId: string | null, onPresen
       try {
         const page = await request<MessagePage>(base + query, { signal: controller.signal });
         if (!active || version !== generation.current) return;
-        setMessages(buffer.reduce((rows, event) => applyEvent(rows, event, parentId), page.messages));
+        setMessages(buffer.reduce((rows, event) => applyMessageEvent(rows, event, parentId), page.messages));
         buffer = [];
         setNextCursor(page.nextCursor);
         setError("");
@@ -156,7 +100,6 @@ export function useMessages(channelId: string, parentId: string | null, onPresen
       });
     });
 
-    socket.on("presence:update", event => onPresenceRef.current?.(event));
     socket.on("typing", event => {
       if (event.channelId !== channelId || parentId) return;
       setTyping(current => ({ ...current, [event.userId]: { name: event.name, until: Date.now() + TYPING_TTL_MS } }));
@@ -167,7 +110,7 @@ export function useMessages(channelId: string, parentId: string | null, onPresen
       const authorId = event.message.authorId ?? event.message.sender.id;
       setTyping(current => Object.fromEntries(Object.entries(current).filter(([userId]) => userId !== authorId)));
       if (synchronizing) buffer.push(event);
-      setMessages(current => applyEvent(current, event, parentId));
+      setMessages(current => applyMessageEvent(current, event, parentId));
       if (document.hasFocus()) markRead();
     };
 
@@ -188,6 +131,10 @@ export function useMessages(channelId: string, parentId: string | null, onPresen
 
     socket.on("reaction:updated", ({ messageId, reactions }) => {
       setMessages(current => current.map(m => (m.id === messageId ? { ...m, reactions } : m)));
+    });
+
+    socket.on("presence:update", event => {
+      onPresenceUpdateRef.current?.(event);
     });
 
     socket.on("access:revoked", () => {
@@ -220,15 +167,18 @@ export function useMessages(channelId: string, parentId: string | null, onPresen
 
     return () => {
       active = false;
-      // A request counter, not a DOM ref: bumping it on cleanup cancels pagination still in flight.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      generation.current++;
+      const generationRef = generation;
+      generationRef.current++;
       controller.abort();
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
     };
   }, [base, channelId, parentId, markRead]);
+
+  useEffect(() => {
+    onPresenceUpdateRef.current = options?.onPresenceUpdate;
+  }, [options?.onPresenceUpdate]);
 
   // Drop typing signals that have run out.
   const typingCount = Object.keys(typing).length;

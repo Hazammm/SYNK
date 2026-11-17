@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -15,6 +15,8 @@ import {
   Quote,
   Code,
   SquareCode,
+  Cloud,
+  Monitor,
   Plus,
   Smile,
   AtSign,
@@ -25,6 +27,7 @@ import {
 import { Button } from "@/components/Primitives";
 import type { ChatMessage } from "@/lib/chat-types";
 import { messageOf, request } from "./client";
+import { DrivePicker, resumeDrivePicker } from "./DrivePicker";
 import styles from "./Chat.module.css";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "🎉", "🚀", "👀", "🔥", "✨", "🙌", "💯"];
@@ -63,11 +66,44 @@ export function RichComposer({
   const [error, setError] = useState("");
   const [stagedFiles, setStagedFiles] = useState<{ id: string; fileName: string; size: number }[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showDrive, setShowDrive] = useState(false);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!resumeDrivePicker(channelId)) return;
+    const id = window.setTimeout(() => setShowDrive(true), 0);
+    return () => window.clearTimeout(id);
+  }, [channelId]);
+
+  useEffect(() => {
+    if (!showAttachMenu) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!attachMenuRef.current?.contains(event.target as Node)) setShowAttachMenu(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setShowAttachMenu(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [showAttachMenu]);
   const onSendRef = useRef<() => void>(() => {});
   const showMentionMenuRef = useRef(showMentionMenu);
   const onEditLastMessageRef = useRef(onEditLastMessage);
+
+  useEffect(() => {
+    showMentionMenuRef.current = showMentionMenu;
+  }, [showMentionMenu]);
+
+  useEffect(() => {
+    onEditLastMessageRef.current = onEditLastMessage;
+  }, [onEditLastMessage]);
 
   // Mention candidates
   const mentionCandidates = useMemo(() => {
@@ -86,6 +122,10 @@ export function RichComposer({
   }, [showMentionMenu, mentionQuery, workspaceMembers]);
 
   const mentionCandidatesRef = useRef(mentionCandidates);
+
+  useEffect(() => {
+    mentionCandidatesRef.current = mentionCandidates;
+  }, [mentionCandidates]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -283,11 +323,7 @@ export function RichComposer({
     }
   };
 
-  // The editor's key handlers are created once, so they read the latest values through these refs.
-  useLayoutEffect(() => {
-    showMentionMenuRef.current = showMentionMenu;
-    onEditLastMessageRef.current = onEditLastMessage;
-    mentionCandidatesRef.current = mentionCandidates;
+  useEffect(() => {
     onSendRef.current = handleSend;
   });
 
@@ -490,17 +526,46 @@ export function RichComposer({
               onChange={e => handleFileUpload(e.target.files)}
             />
 
-            {/* 1. + (attach file) */}
-            <button
-              type="button"
-              className={styles.composerActionBtn}
-              title="Attach file or image"
-              aria-label="Attach file"
-              disabled={disabled || uploading}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Plus size={16} />
-            </button>
+            <div className={styles.attachMenuWrap} ref={attachMenuRef}>
+              <button
+                type="button"
+                className={`${styles.composerActionBtn} ${showAttachMenu ? styles.active : ""}`}
+                title="Attach file or image"
+                aria-label="Attach file"
+                aria-haspopup="menu"
+                aria-expanded={showAttachMenu}
+                disabled={disabled || uploading}
+                onClick={() => setShowAttachMenu(open => !open)}
+              >
+                <Plus size={16} />
+              </button>
+              {showAttachMenu && (
+                <div className={styles.attachMenu} role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      setShowDrive(true);
+                    }}
+                  >
+                    <Cloud size={15} />
+                    Upload from Drive
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <Monitor size={15} />
+                    Browse from the computer
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* 2. Aa (show or hide formatting toolbar) */}
             <button
@@ -549,6 +614,17 @@ export function RichComposer({
           </div>
         </div>
       </div>
+      {showDrive && (
+        <DrivePicker
+          workspaceId={workspaceId}
+          channelId={channelId}
+          onClose={() => setShowDrive(false)}
+          onAttached={file => {
+            setStagedFiles(prev => [...prev, file]);
+            setShowDrive(false);
+          }}
+        />
+      )}
     </div>
   );
 }
