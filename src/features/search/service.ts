@@ -7,7 +7,7 @@ import { searchDocs, snippetOf } from "../docs/service";
 const PER_KIND = 8;
 const MAX_WORDS = 6;
 
-type WorkspaceSearchResult =
+export type WorkspaceSearchResult =
   | { type: "ticket"; id: string; title: string; snippet: string; score: number; key: string; projectId: string; boardId: string; status: string }
   | { type: "doc"; id: string; title: string; snippet: string; score: number; projectId: string; project: string }
   | { type: "message"; id: string; title: string; snippet: string; score: number; channel: string; channelId?: string; sender: string; createdAt: string };

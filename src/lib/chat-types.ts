@@ -65,7 +65,7 @@ export type WorkspaceSummary = { id: string; name: string; role: "ADMIN" | "MEMB
 export type SocketAck<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
 export type Ack = { ok: true } | { ok: false; error: string };
 
-export type SocketCallback<T = any> = (errorOrResult: any, maybeResult?: any) => void;
+export type SocketCallback<T = unknown> = (errorOrResult: unknown, maybeResult?: T) => void;
 
 export type ClientEvents = {
   "channel:join": (data: { channelId: string }, ack?: SocketCallback<SocketAck<{ channelId: string }>>) => void;

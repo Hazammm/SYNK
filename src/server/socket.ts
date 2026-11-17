@@ -6,7 +6,7 @@ import { db } from "../lib/db";
 import { requireChannel } from "../lib/permissions";
 import { idSchema, messageEditSchema, messageSchema, reactionSchema } from "../lib/validation";
 import { setRealtime } from "../lib/realtime";
-import type { ClientEvents, ServerEvents, SocketCallback } from "../lib/chat-types";
+import type { ClientEvents, ServerEvents, SocketAck, SocketCallback } from "../lib/chat-types";
 import { rateLimit } from "../lib/rate-limit";
 import {
   deleteMessage,
@@ -51,7 +51,7 @@ async function identity(request: IncomingMessage) {
   return membership ? { userId: session.userId, sessionId: session.id, workspaceId: membership.workspaceId, name: user?.name ?? "Someone" } : null;
 }
 
-function respond<T>(callback: SocketCallback<T> | undefined, result: { ok: true; data?: any } | { ok: false; error: string }) {
+function respond<Data>(callback: SocketCallback<SocketAck<Data>> | undefined, result: SocketAck<Data>) {
   if (typeof callback === "function") {
     try {
       callback(result);
@@ -131,8 +131,8 @@ export function attachRealtime(http: HttpServer) {
         }
         await socket.join(`channel:${channelId}`);
         respond(ack, { ok: true, data: { channelId } });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "You cannot subscribe to this channel." });
+      } catch (err: unknown) {
+        respond(ack, { ok: false, error: err instanceof Error ? err.message : "You cannot subscribe to this channel." });
       }
     });
 
@@ -160,8 +160,8 @@ export function attachRealtime(http: HttpServer) {
           unreadCount: 0,
           mentionCount: 0,
         });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Failed to mark channel as read." });
+      } catch (err: unknown) {
+        respond(ack, { ok: false, error: err instanceof Error ? err.message : "Failed to mark channel as read." });
       }
     });
 
@@ -173,8 +173,8 @@ export function attachRealtime(http: HttpServer) {
         const parsed = messageSchema.parse(input);
         const message = await sendMessage(socket.data.userId, channelId, parsed);
         respond(ack, { ok: true, data: message });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Unable to send message." });
+      } catch (err: unknown) {
+        respond(ack, { ok: false, error: err instanceof Error ? err.message : "Unable to send message." });
       }
     });
 
@@ -186,8 +186,8 @@ export function attachRealtime(http: HttpServer) {
         const parsed = messageEditSchema.parse(input);
         const message = await editMessage(socket.data.userId, messageId, parsed);
         respond(ack, { ok: true, data: message });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Unable to edit message." });
+      } catch (err: unknown) {
+        respond(ack, { ok: false, error: err instanceof Error ? err.message : "Unable to edit message." });
       }
     });
 
@@ -197,9 +197,9 @@ export function attachRealtime(http: HttpServer) {
         rateLimit(`msg-del:${socket.data.userId}`, 20, 10_000);
         const messageId = idSchema.parse(input?.messageId);
         const result = await deleteMessage(socket.data.userId, messageId);
-        respond(ack, { ok: true, data: result });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Unable to delete message." });
+        respond(ack, { ok: true, data: { messageId: result.id } });
+      } catch (err: unknown) {
+        respond(ack, { ok: false, error: err instanceof Error ? err.message : "Unable to delete message." });
       }
     });
 
@@ -211,8 +211,8 @@ export function attachRealtime(http: HttpServer) {
         const parsed = reactionSchema.parse(input);
         const result = await toggleReaction(socket.data.userId, messageId, parsed);
         respond(ack, { ok: true, data: result });
-      } catch (err: any) {
-        respond(ack, { ok: false, error: err?.message ?? "Unable to toggle reaction." });
+      } catch (err: unknown) {
+        respond(ack, { ok: false, error: err instanceof Error ? err.message : "Unable to toggle reaction." });
       }
     });
 

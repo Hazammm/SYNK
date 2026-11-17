@@ -53,17 +53,26 @@ export const dmChannelSchema = z.object({
 }).strict();
 const driveFileIdSchema = z.string().trim().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/, "Choose a file from Drive.");
 export const driveImportSchema = z.object({ fileId: driveFileIdSchema }).strict();
+
+export type TiptapJsonNode = {
+  type: string;
+  text?: string;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
+  attrs?: Record<string, unknown>;
+  content?: TiptapJsonNode[];
+};
+
 const tiptapMarkSchema = z.object({
   type: z.enum(["bold", "italic", "underline", "strike", "code", "link"]),
-  attrs: z.record(z.string(), z.any()).optional(),
+  attrs: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const tiptapNodeSchema: z.ZodType<any> = z.lazy(() =>
+export const tiptapNodeSchema: z.ZodType<TiptapJsonNode> = z.lazy(() =>
   z.object({
     type: z.string(),
     text: z.string().optional(),
     marks: z.array(tiptapMarkSchema).optional(),
-    attrs: z.record(z.string(), z.any()).optional(),
+    attrs: z.record(z.string(), z.unknown()).optional(),
     content: z.array(tiptapNodeSchema).optional(),
   })
 );
@@ -73,11 +82,12 @@ export const tiptapDocSchema = z.object({
   content: z.array(tiptapNodeSchema).optional(),
 });
 
-export function extractTextFromTiptap(node: any): string {
-  if (!node) return "";
-  if (typeof node.text === "string") return node.text;
-  if (Array.isArray(node.content)) {
-    return node.content.map(extractTextFromTiptap).join("");
+export function extractTextFromTiptap(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const record = node as TiptapJsonNode;
+  if (typeof record.text === "string") return record.text;
+  if (Array.isArray(record.content)) {
+    return record.content.map(extractTextFromTiptap).join("");
   }
   return "";
 }

@@ -26,6 +26,9 @@ import {
 import { Avatar, Button, Input } from "@/components/Primitives";
 import type { ChannelSummary, ChatAttachment, ChatMessage, ChatReaction, WorkspaceSummary } from "@/lib/chat-types";
 import { extractPlainText } from "@/lib/validation";
+import type { WorkspaceSearchResult } from "@/features/search/service";
+
+type MessageSearchResult = Extract<WorkspaceSearchResult, { type: "message" }>;
 import { messageOf, request, useMessages } from "./client";
 import { RichComposer } from "./RichComposer";
 import { TiptapRenderer } from "./TiptapRenderer";
@@ -813,10 +816,6 @@ function ChannelView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [thread, rightPanel]);
 
-  useEffect(() => {
-    setTopicDraft(channel.topic ?? "");
-  }, [channel.topic]);
-
   async function saveTopic(e: React.FormEvent) {
     e.preventDefault();
     setSavingTopic(true);
@@ -878,7 +877,10 @@ function ChannelView({
                 <button
                   type="button"
                   className={styles.topicBtn}
-                  onClick={() => setEditingTopic(true)}
+                  onClick={() => {
+                    setTopicDraft(channel.topic ?? "");
+                    setEditingTopic(true);
+                  }}
                   title="Edit topic"
                 >
                   <span>{channel.topic || "Add a topic"}</span>
@@ -1095,7 +1097,7 @@ function SearchDrawer({
   onJumpToMessage: (channelId: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<MessageSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
 
   async function handleSearch(e: React.FormEvent) {
@@ -1103,8 +1105,10 @@ function SearchDrawer({
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const res = await request<any[]>(`/api/workspaces/${workspaceId}/docs/search?query=${encodeURIComponent(query)}`);
-      setResults(res.filter(r => r.type === "message"));
+      const { results: hits } = await request<{ results: WorkspaceSearchResult[] }>(
+        `/api/workspaces/${workspaceId}/docs/search?query=${encodeURIComponent(query)}`
+      );
+      setResults(hits.filter((r): r is MessageSearchResult => r.type === "message"));
     } catch {
       // ignore
     } finally {
@@ -1160,30 +1164,28 @@ function Feed({
   onThread?: (message: ChatMessage) => void;
   onUserPresenceChange?: (updater: (prev: Set<string>) => Set<string>) => void;
 }) {
-  const feed = useMessages(channel.id, parentId);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
-  const [previousScrollHeight, setPreviousScrollHeight] = useState<number | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const isNearBottomRef = useRef(true);
-
-  // Listen to presence updates via socket
-  useEffect(() => {
-    if (!feed.socket || !onUserPresenceChange) return;
-    const handlePresence = (event: { userId: string; online: boolean }) => {
+  const handlePresenceUpdate = useCallback(
+    (event: { userId: string; online: boolean }) => {
+      if (!onUserPresenceChange) return;
       onUserPresenceChange(prev => {
         const next = new Set(prev);
         if (event.online) next.add(event.userId);
         else next.delete(event.userId);
         return next;
       });
-    };
-    feed.socket.on("presence:update", handlePresence);
-    return () => {
-      feed.socket?.off("presence:update", handlePresence);
-    };
-  }, [feed.socket, onUserPresenceChange]);
+    },
+    [onUserPresenceChange]
+  );
+
+  const feed = useMessages(channel.id, parentId, {
+    onPresenceUpdate: onUserPresenceChange ? handlePresenceUpdate : undefined,
+  });
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  const [previousScrollHeight, setPreviousScrollHeight] = useState<number | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const isNearBottomRef = useRef(true);
 
   // Infinite scroll up preserving position
   const handleScroll = () => {
@@ -1299,7 +1301,7 @@ function Feed({
     });
 
     return items;
-  }, [feed.messages, channel.workspaceId, editingMessageId, feed, onThread]);
+  }, [channel.workspaceId, editingMessageId, feed, onThread]);
 
   return (
     <>
@@ -1419,9 +1421,10 @@ function MessageCard({
   const [editDraft, setEditDraft] = useState(plainBody);
   const [busyEdit, setBusyEdit] = useState(false);
 
-  useEffect(() => {
+  function handleStartEdit() {
     setEditDraft(extractPlainText(message.body));
-  }, [message.body]);
+    onStartEdit?.();
+  }
 
   const ticketKeys = [...new Set(plainBody.match(/\b([A-Z][A-Z0-9]{1,9}-[1-9]\d*)\b/g) ?? [])];
   const isDeleted = !!message.deletedAt;
@@ -1482,7 +1485,7 @@ function MessageCard({
               className={styles.actionBtn}
               title="Edit message"
               aria-label="Edit message"
-              onClick={onStartEdit}
+              onClick={handleStartEdit}
             >
               <Edit2 size={14} />
             </button>

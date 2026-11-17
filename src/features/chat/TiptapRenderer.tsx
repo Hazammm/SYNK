@@ -9,8 +9,8 @@ import styles from "./Chat.module.css";
 type TiptapNode = {
   type: string;
   text?: string;
-  marks?: Array<{ type: string; attrs?: Record<string, any> }>;
-  attrs?: Record<string, any>;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
+  attrs?: Record<string, unknown>;
   content?: TiptapNode[];
 };
 
@@ -66,7 +66,7 @@ function renderNode(node: TiptapNode, index: number, workspaceId: string): React
           content = (
             <a
               key="l"
-              href={mark.attrs?.href || "#"}
+              href={typeof mark.attrs?.href === "string" ? mark.attrs.href : "#"}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.messageLink}

@@ -74,7 +74,13 @@ function applyEvent(messages: ChatMessage[], event: MessageEvent, parentId: stri
   return messages;
 }
 
-export function useMessages(channelId: string, parentId: string | null) {
+type PresenceUpdate = { userId: string; workspaceId: string; online: boolean };
+
+export function useMessages(
+  channelId: string,
+  parentId: string | null,
+  options?: { onPresenceUpdate?: (event: PresenceUpdate) => void }
+) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,6 +93,7 @@ export function useMessages(channelId: string, parentId: string | null) {
   // Who is typing in this channel, by user id, with when their last signal expires.
   const [typing, setTyping] = useState<Record<string, { name: string; until: number }>>({});
   const socketRef = useRef<Socket<ServerEvents, ClientEvents> | null>(null);
+  const onPresenceUpdateRef = useRef(options?.onPresenceUpdate);
   const lastTypingSent = useRef(0);
   const base = `/api/channels/${channelId}/messages`;
 
@@ -184,6 +191,10 @@ export function useMessages(channelId: string, parentId: string | null) {
       setMessages(current => current.map(m => (m.id === messageId ? { ...m, reactions } : m)));
     });
 
+    socket.on("presence:update", event => {
+      onPresenceUpdateRef.current?.(event);
+    });
+
     socket.on("access:revoked", () => {
       if (!active) return;
       generation.current++;
@@ -214,13 +225,18 @@ export function useMessages(channelId: string, parentId: string | null) {
 
     return () => {
       active = false;
-      generation.current++;
+      const generationRef = generation;
+      generationRef.current++;
       controller.abort();
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
     };
   }, [base, channelId, parentId, markRead]);
+
+  useEffect(() => {
+    onPresenceUpdateRef.current = options?.onPresenceUpdate;
+  }, [options?.onPresenceUpdate]);
 
   // Drop typing signals that have run out.
   const typingCount = Object.keys(typing).length;
@@ -336,6 +352,5 @@ export function useMessages(channelId: string, parentId: string | null) {
     edit,
     remove,
     pin,
-    socket: socketRef.current,
   };
 }

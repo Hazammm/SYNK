@@ -95,9 +95,15 @@ export function RichComposer({
   }, [showAttachMenu]);
   const onSendRef = useRef<() => void>(() => {});
   const showMentionMenuRef = useRef(showMentionMenu);
-  showMentionMenuRef.current = showMentionMenu;
   const onEditLastMessageRef = useRef(onEditLastMessage);
-  onEditLastMessageRef.current = onEditLastMessage;
+
+  useEffect(() => {
+    showMentionMenuRef.current = showMentionMenu;
+  }, [showMentionMenu]);
+
+  useEffect(() => {
+    onEditLastMessageRef.current = onEditLastMessage;
+  }, [onEditLastMessage]);
 
   // Mention candidates
   const mentionCandidates = useMemo(() => {
@@ -116,7 +122,10 @@ export function RichComposer({
   }, [showMentionMenu, mentionQuery, workspaceMembers]);
 
   const mentionCandidatesRef = useRef(mentionCandidates);
-  mentionCandidatesRef.current = mentionCandidates;
+
+  useEffect(() => {
+    mentionCandidatesRef.current = mentionCandidates;
+  }, [mentionCandidates]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -314,7 +323,9 @@ export function RichComposer({
     }
   };
 
-  onSendRef.current = handleSend;
+  useEffect(() => {
+    onSendRef.current = handleSend;
+  });
 
   const isEditorEmpty = !editor || editor.isEmpty;
 

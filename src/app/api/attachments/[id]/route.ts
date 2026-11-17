@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/session";
 import { readAttachment } from "@/lib/attachments";
+import { HttpError } from "@/lib/client-http";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -17,10 +18,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         "Cache-Control": "private, max-age=86400",
       },
     });
-  } catch (error: any) {
-    return new NextResponse(error?.message ?? "Attachment not found", {
-      status: error?.status ?? 404,
-    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Attachment not found";
+    const status = error instanceof HttpError ? error.status : 404;
+    return new NextResponse(message, { status });
   }
 }
 
