@@ -72,3 +72,17 @@ export async function readAttachment(userId: string, attachmentId: string) {
   return { attachment, data };
 }
 
+// Only plain images are shown in the browser. Anything else, HTML and SVG included, is downloaded: served inline
+// from Synk's own address, an uploaded page could run script as whoever opens it.
+
+export function attachmentHeaders(attachment: { fileName: string; mimeType: string; size: number }) {
+  const inline = INLINE_ATTACHMENT_TYPES.includes(attachment.mimeType);
+  return {
+    "Content-Type": inline ? attachment.mimeType : "application/octet-stream",
+    "Content-Length": attachment.size.toString(),
+    "Content-Disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(attachment.fileName)}`,
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "private, max-age=86400",
+  };
+}
