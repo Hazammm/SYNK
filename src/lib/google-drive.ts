@@ -1,8 +1,12 @@
 import { db } from "./db";
 import { AppError } from "./errors";
 import { MAX_ATTACHMENT_SIZE_BYTES, saveAttachment } from "./attachments";
-
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+import {
+  driveSearchQuery,
+  googleDriveConfigured,
+  hasDriveScope,
+  safeDriveFileName,
+} from "./google-drive-helpers";
 
 const EXPORTS: Record<string, { mime: string; ext: string }> = {
   "application/vnd.google-apps.document": {
@@ -30,25 +34,7 @@ type StoredAccount = {
   scope: string | null;
 };
 
-export function googleDriveConfigured() {
-  return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
-}
-
-function hasDriveScope(scope: string | null) {
-  return (scope ?? "").split(/[\s,]+/).includes(DRIVE_SCOPE);
-}
-
-function driveSearchQuery(search: string) {
-  const base = "trashed = false and mimeType != 'application/vnd.google-apps.folder'";
-  const cleaned = search.replace(/['\\]/g, "").trim().slice(0, 80);
-  return cleaned ? `${base} and name contains '${cleaned}'` : base;
-}
-
-function safeFileName(name: string, ext: string) {
-  const cleaned = name.replace(/[\\/:*?"<>|]/g, "_").trim().slice(0, 140) || "drive-file";
-  if (ext && !cleaned.toLowerCase().endsWith(ext)) return `${cleaned}${ext}`.slice(0, 150);
-  return cleaned.slice(0, 150);
-}
+export { googleDriveConfigured };
 
 async function refreshGoogle(account: StoredAccount) {
   if (!account.refresh_token) throw new AppError(409, "Connect Google Drive to attach files from Drive.");
@@ -172,7 +158,7 @@ export async function importDriveFile(userId: string, workspaceId: string, fileI
     : `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`;
   const bytes = await readLimited(await driveResponse(token, downloadUrl));
   const mimeType = exported?.mime ?? meta.mimeType;
-  const fileName = safeFileName(meta.name, exported?.ext ?? "");
+  const fileName = safeDriveFileName(meta.name, exported?.ext ?? "");
   const file = new File([new Uint8Array(bytes)], fileName, { type: mimeType || "application/octet-stream" });
   return saveAttachment(userId, workspaceId, file);
 }
