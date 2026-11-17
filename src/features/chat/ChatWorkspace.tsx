@@ -1168,30 +1168,21 @@ function Feed({
   onThread?: (message: ChatMessage) => void;
   onUserPresenceChange?: (updater: (prev: Set<string>) => Set<string>) => void;
 }) {
-  const feed = useMessages(channel.id, parentId);
+  const handlePresence = useCallback((event: { userId: string; online: boolean }) => {
+    onUserPresenceChange?.(prev => {
+      const next = new Set(prev);
+      if (event.online) next.add(event.userId);
+      else next.delete(event.userId);
+      return next;
+    });
+  }, [onUserPresenceChange]);
+  const feed = useMessages(channel.id, parentId, handlePresence);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const [previousScrollHeight, setPreviousScrollHeight] = useState<number | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const isNearBottomRef = useRef(true);
-
-  // Listen to presence updates via socket
-  useEffect(() => {
-    if (!feed.socket || !onUserPresenceChange) return;
-    const handlePresence = (event: { userId: string; online: boolean }) => {
-      onUserPresenceChange(prev => {
-        const next = new Set(prev);
-        if (event.online) next.add(event.userId);
-        else next.delete(event.userId);
-        return next;
-      });
-    };
-    feed.socket.on("presence:update", handlePresence);
-    return () => {
-      feed.socket?.off("presence:update", handlePresence);
-    };
-  }, [feed.socket, onUserPresenceChange]);
 
   // Infinite scroll up preserving position
   const handleScroll = () => {

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import {
@@ -74,7 +74,12 @@ function applyEvent(messages: ChatMessage[], event: MessageEvent, parentId: stri
   return messages;
 }
 
-export function useMessages(channelId: string, parentId: string | null) {
+export type PresenceEvent = { userId: string; workspaceId: string; online: boolean };
+
+// `onPresence` hears when people in the workspace come online or go offline.
+export function useMessages(channelId: string, parentId: string | null, onPresence?: (event: PresenceEvent) => void) {
+  const onPresenceRef = useRef(onPresence);
+  useLayoutEffect(() => { onPresenceRef.current = onPresence; });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,6 +156,7 @@ export function useMessages(channelId: string, parentId: string | null) {
       });
     });
 
+    socket.on("presence:update", event => onPresenceRef.current?.(event));
     socket.on("typing", event => {
       if (event.channelId !== channelId || parentId) return;
       setTyping(current => ({ ...current, [event.userId]: { name: event.name, until: Date.now() + TYPING_TTL_MS } }));
@@ -336,6 +342,5 @@ export function useMessages(channelId: string, parentId: string | null) {
     edit,
     remove,
     pin,
-    socket: socketRef.current,
   };
 }
