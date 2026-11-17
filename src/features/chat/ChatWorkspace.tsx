@@ -26,7 +26,10 @@ import {
 import { Avatar, Button, Input } from "@/components/Primitives";
 import { INLINE_ATTACHMENT_TYPES, type ChannelSummary, type ChatAttachment, type ChatMessage, type ChatReaction, type WorkspaceSummary } from "@/lib/chat-types";
 import { extractPlainText } from "@/lib/validation";
+import type { WorkspaceSearchResult } from "@/features/search/service";
 import { messageOf, request, useMessages } from "./client";
+
+type MessageResult = Extract<WorkspaceSearchResult, { type: "message" }>;
 import { RichComposer } from "./RichComposer";
 import { TiptapRenderer } from "./TiptapRenderer";
 import styles from "./Chat.module.css";
@@ -1095,18 +1098,21 @@ function SearchDrawer({
   onJumpToMessage: (channelId: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<MessageResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const res = await request<any[]>(`/api/workspaces/${workspaceId}/docs/search?query=${encodeURIComponent(query)}`);
-      setResults(res.filter(r => r.type === "message"));
-    } catch {
-      // ignore
+      const { results: found } = await request<{ results: WorkspaceSearchResult[] }>(`/api/workspaces/${workspaceId}/search?query=${encodeURIComponent(query.trim())}`);
+      setResults(found.filter((item): item is MessageResult => item.type === "message"));
+      setError("");
+    } catch (error) {
+      setResults([]);
+      setError(messageOf(error));
     } finally {
       setLoading(false);
     }
