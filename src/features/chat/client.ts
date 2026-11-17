@@ -220,6 +220,8 @@ export function useMessages(channelId: string, parentId: string | null, onPresen
 
     return () => {
       active = false;
+      // A request counter, not a DOM ref: bumping it on cleanup cancels pagination still in flight.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       generation.current++;
       controller.abort();
       socket.removeAllListeners();
