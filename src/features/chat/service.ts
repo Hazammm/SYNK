@@ -521,6 +521,7 @@ export async function editMessage(userId: string, messageId: string, input: unkn
   return message;
 }
 
+// Authors delete their own messages; workspace admins may delete any message in a channel they can read.
 export async function deleteMessage(userId: string, messageId: string): Promise<{ id: string; channelId: string }> {
   return db.$transaction(async tx => {
     const existing = await tx.message.findUnique({
@@ -529,6 +530,7 @@ export async function deleteMessage(userId: string, messageId: string): Promise<
     });
 
     if (!existing) throw new AppError(404, "Message not found.");
+    await requireChannel(userId, existing.channelId, tx);
     const member = await requireWorkspace(userId, existing.channel.workspaceId, "workspace:read", tx);
 
     const isAuthor = existing.authorId === userId;
