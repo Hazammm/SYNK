@@ -83,3 +83,50 @@ test("deleting: authors and admins in the channel; nobody outside it", async () 
   const secret = await post(member, dm.id, "Private");
   await assert.rejects(deleteMessage(admin, secret.id), status(403));
 });
+
+test("a deleted message's attachment is visible only to its uploader again", async () => {
+  const file = await saveAttachment(member, workspaceId, new File(["notes"], "notes.txt", { type: "text/plain" }));
+  uploads.push(file.id);
+  const message = await sendMessage(member, generalId, { body: "Notes attached", clientMessageId: randomUUID(), attachmentIds: [file.id] });
+  assert.equal((await readAttachment(third, file.id)).attachment.id, file.id);
+  await deleteMessage(member, message.id);
+  await assert.rejects(readAttachment(third, file.id), status(404));
+  assert.equal((await readAttachment(member, file.id)).attachment.id, file.id);
+});
+
+test("reactions toggle per person and emoji, for channel members only", async () => {
+  const message = await post(admin, generalId, "React to this");
+  const first = await toggleReaction(member, message.id, { emoji: "👍" });
+  await toggleReaction(third, message.id, { emoji: "👍" });
+  const both = await toggleReaction(third, message.id, { emoji: "🎉" });
+  assert.ok(first.reactions.length >= 1);
+  assert.deepEqual(both.reactions.map(item => [item.emoji, item.count]).sort(), [["🎉", 1], ["👍", 2]]);
+  const removed = await toggleReaction(member, message.id, { emoji: "👍" });
+  assert.deepEqual(removed.reactions.map(item => [item.emoji, item.count]).sort(), [["🎉", 1], ["👍", 1]]);
+
+  const dm = await createDirectMessage(member, workspaceId, { userIds: [third] });
+  const secret = await post(member, dm.id, "No reactions from outside");
+  await assert.rejects(toggleReaction(admin, secret.id, { emoji: "👀" }), status(403));
+  await assert.rejects(toggleReaction(member, message.id, { emoji: "" }));
+});
+
+test("pins toggle and list, for channel members only", async () => {
+  const message = await post(admin, generalId, "Pin me");
+  assert.equal((await togglePin(member, message.id)).pinned, true);
+  assert.ok((await listPins(third, generalId)).some(item => item.id === message.id));
+  assert.equal((await togglePin(member, message.id)).pinned, false);
+  assert.ok(!(await listPins(third, generalId)).some(item => item.id === message.id));
+  const dm = await createDirectMessage(member, workspaceId, { userIds: [third] });
+  await assert.rejects(listPins(admin, dm.id), status(403));
+});
+
+test("channels: topics, reading and leaving", async () => {
+  assert.equal((await updateChannelTopic(member, generalId, "  Weekly updates  ")).topic, "Weekly updates");
+  const { lastReadAt } = await markChannelRead(member, generalId);
+  const row = await db.channelMember.findUniqueOrThrow({ where: { channelId_userId: { channelId: generalId, userId: member } } });
+  assert.equal(row.lastReadAt?.toISOString(), lastReadAt);
+  await assert.rejects(leaveChannel(member, generalId), status(400)); // the default channel
+  const random = await createChannel(member, workspaceId, { name: "random" });
+  assert.deepEqual(await leaveChannel(member, random.id), { left: true });
+  await assert.rejects(leaveChannel(member, "missing-channel"), status(404));
+});
