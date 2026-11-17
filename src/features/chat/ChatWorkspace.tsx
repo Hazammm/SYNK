@@ -1135,7 +1135,8 @@ function SearchDrawer({
       {loading && <p className={styles.role}>Searching…</p>}
       {error && <p role="alert" className={styles.role}>{error}</p>}
       {!loading && results.map(item => (
-        <div
+        <button
+          type="button"
           key={item.id}
           className={styles.pinCard}
           onClick={() => {
@@ -1143,9 +1144,9 @@ function SearchDrawer({
           }}
         >
           <strong>{item.title}</strong>
-          <p style={{ margin: "4px 0", color: "var(--text)" }}>{item.snippet}</p>
+          <span style={{ display: "block", margin: "4px 0", color: "var(--text)" }}>{item.snippet}</span>
           <small style={{ color: "var(--faint)" }}>{formatClockTime(item.createdAt)}</small>
-        </div>
+        </button>
       ))}
       {!loading && !error && !results.length && query && (
         <p className={styles.role}>No matching messages found.</p>

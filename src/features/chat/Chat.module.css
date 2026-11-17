@@ -1359,6 +1359,8 @@
   transition: all var(--d-fast) var(--ease);
 }
 
+button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit; font: inherit; text-align: left; }
+
 .pinCard:hover {
   border-color: var(--border-strong);
   background: var(--fill);
