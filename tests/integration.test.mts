@@ -171,10 +171,16 @@ test("typing signals reach the other people in the channel, and nobody else", as
   watcher.on("typing", event => seen.watcher.push(event));
   outside.on("typing", event => seen.outside.push(event));
 
+  // Wait for the signal itself rather than a fixed time: under coverage the server can take longer than 150 ms.
+  const arrived = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("No typing signal within 5 seconds.")), 5000);
+    watcher.once("typing", () => { clearTimeout(timer); resolve(); });
+  });
   typist.emit("typing", { channelId });
   outside.emit("typing", { channelId }); // not in the channel's room, so ignored
   typist.emit("typing", { channelId: "not a valid id!" });
-  await delay(150);
+  await arrived;
+  await delay(150); // time for any signal that should not arrive
   assert.deepEqual(seen.watcher, [{ channelId, userId: member, name: "Member" }]);
   assert.deepEqual([seen.sameUser.length, seen.outside.length], [0, 0]);
 });
