@@ -6,7 +6,9 @@ services:
       POSTGRES_PASSWORD: synk_local_only
       POSTGRES_DB: synk
     ports:
-      - "127.0.0.1:5434:5432"
+      # 5432 matches .env.example. If that port is taken on your machine, set POSTGRES_PORT (for example 5434)
+      # and use the same port in DATABASE_URL.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - synk_postgres:/var/lib/postgresql/data
     healthcheck:

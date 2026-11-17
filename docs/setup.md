@@ -28,6 +28,7 @@ Development mode needs only `DATABASE_URL`, `NEXTAUTH_URL` and a `NEXTAUTH_SECRE
 Two addresses must be set carefully, especially on Windows:
 
 - **Use `127.0.0.1` in `DATABASE_URL`, not `localhost`.** The Compose database listens on IPv4 only (`127.0.0.1:5432`). On Windows, `localhost` may try IPv6 first, and the delay can make Prisma transactions time out when they start. The value in `.env.example` already uses `127.0.0.1`.
+- **Port 5432 already taken?** Start the database on another port with `POSTGRES_PORT`, for example `POSTGRES_PORT=5434 docker compose up -d postgres` (PowerShell: `$env:POSTGRES_PORT=5434` first), and use that port in `DATABASE_URL`.
 - **`NEXTAUTH_URL` must match the browser origin exactly, including the port.** It stays `http://localhost:3000`, separate from the database address. Browser writes (except Google invite acceptance, which relies on a SameSite=Lax profile cookie) and the Socket.IO server compare the `Origin` header against it. Do not switch between `localhost` and `127.0.0.1` in the browser.
 
 The Compose database password (`synk_local_only`) is for local development only. If you use your own PostgreSQL, set its connection string in `DATABASE_URL`.
