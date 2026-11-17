@@ -5,7 +5,7 @@ import { parse } from "cookie";
 import { db } from "../lib/db";
 import { AppError } from "../lib/errors";
 import { requireChannel } from "../lib/permissions";
-import { idSchema, messageEditSchema, messageSchema, reactionSchema } from "../lib/validation";
+import { idSchema } from "../lib/validation";
 import { setRealtime } from "../lib/realtime";
 import type { ClientEvents, ServerEvents, SocketCallback } from "../lib/chat-types";
 import { rateLimit } from "../lib/rate-limit";
@@ -173,9 +173,10 @@ export function attachRealtime(http: HttpServer) {
     socket.on("message:send", async (input, ack) => {
       try {
         rateLimit(`msg-rate:${socket.data.userId}`, 10, 10_000);
-        const channelId = idSchema.parse(input?.channelId);
-        const parsed = messageSchema.parse(input);
-        const message = await sendMessage(socket.data.userId, channelId, parsed);
+        const { channelId: rawChannelId, ...fields } = input ?? {};
+        const channelId = idSchema.parse(rawChannelId);
+        // The message schema is strict and has no channelId; sendMessage validates the rest.
+        const message = await sendMessage(socket.data.userId, channelId, fields);
         respond(ack, { ok: true, data: message });
       } catch (err) {
         respond(ack, { ok: false, error: failure(err, "Unable to send message.") });
