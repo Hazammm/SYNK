@@ -451,3 +451,16 @@ test("typing indicators name up to two people", async () => {
   assert.equal(typingText(["Asra", "Bilal"]), "Asra and Bilal are typing…");
   assert.equal(typingText(["Asra", "Bilal", "Sara"]), "Several people are typing…");
 });
+
+test("rich-text messages are validated and their plain text is extracted", async () => {
+  const { extractPlainText } = await import("../src/lib/validation");
+  const doc = (content: object[]) => JSON.stringify({ type: "doc", content });
+  const hello = doc([{ type: "paragraph", content: [{ type: "text", text: "Hello " }, { type: "text", text: "SYN-1", marks: [{ type: "bold" }] }] }]);
+  assert.equal(extractPlainText(hello), "Hello SYN-1");
+  assert.equal(extractPlainText("Plain text stays as it is"), "Plain text stays as it is");
+  assert.equal(messageSchema.safeParse({ body: hello, clientMessageId: randomUUID() }).success, true);
+  const badMark = doc([{ type: "paragraph", content: [{ type: "text", text: "x", marks: [{ type: "script" }] }] }]);
+  assert.equal(messageSchema.safeParse({ body: badMark, clientMessageId: randomUUID() }).success, false);
+  const tooLong = doc([{ type: "paragraph", content: [{ type: "text", text: "a".repeat(4001) }] }]);
+  assert.equal(messageSchema.safeParse({ body: tooLong, clientMessageId: randomUUID() }).success, false);
+});
