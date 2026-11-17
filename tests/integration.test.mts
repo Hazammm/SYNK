@@ -73,7 +73,7 @@ async function socketFor(cookieValue?: string, origin = url) {
   await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("connect_error", reject); socket.connect(); });
   return socket;
 }
-const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) => new Promise<Ack>((resolve, reject) => socket.timeout(10_000).emit("channel:join", { channelId: channel }, (error, result) => error ? reject(error) : resolve(result)));
+const subscribe = (socket: Socket<ServerEvents, ClientEvents>, channel: string) => new Promise<Ack>((resolve, reject) => socket.timeout(10_000).emit("channel:join", { channelId: channel }, (error, result) => error ? reject(error) : resolve(result ?? { ok: false, error: "No reply." })));
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 test("workspace creation is atomic, and discovery excludes other tenants", async () => {
@@ -183,6 +183,20 @@ test("typing signals reach the other people in the channel, and nobody else", as
   await delay(150); // time for any signal that should not arrive
   assert.deepEqual(seen.watcher, [{ channelId, userId: member, name: "Member" }]);
   assert.deepEqual([seen.sameUser.length, seen.outside.length], [0, 0]);
+});
+test("editing, reacting and sending work over the socket", async () => {
+  const socket = await socketFor((await cookie(member)).value);
+  const ask = (event: "message:edit" | "reaction:toggle" | "message:send", data: object) =>
+    (socket.timeout(5000) as unknown as { emitWithAck: (event: string, data: object) => Promise<{ ok: boolean; error?: string }> }).emitWithAck(event, data);
+  const message = await sendMessage(member, channelId, input("socket edit target"));
+  assert.deepEqual(await ask("message:edit", { messageId: message.id, body: "edited over the socket" }).then(result => result.ok), true);
+  assert.equal((await db.message.findUniqueOrThrow({ where: { id: message.id } })).body, "edited over the socket");
+  assert.equal((await ask("reaction:toggle", { messageId: message.id, emoji: "👍" })).ok, true);
+  assert.equal(await db.reaction.count({ where: { messageId: message.id, userId: member } }), 1);
+  assert.equal((await ask("message:send", { channelId, body: "sent over the socket", clientId: randomUUID() })).ok, true);
+  // Mistakes come back as a person-readable message, never an internal error.
+  const refused = await ask("message:edit", { messageId: message.id, body: "" });
+  assert.deepEqual([refused.ok, typeof refused.error], [false, "string"]);
 });
 test("same-origin polling can authenticate when the browser omits Origin", async () => {
   const auth = await cookie(admin);
