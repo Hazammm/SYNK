@@ -79,7 +79,7 @@ export const tiptapDocSchema = z.object({
   content: z.array(tiptapNodeSchema).optional(),
 });
 
-export function extractTextFromTiptap(node: any): string {
+export function extractTextFromTiptap(node: TiptapNode | null | undefined): string {
   if (!node) return "";
   if (typeof node.text === "string") return node.text;
   if (Array.isArray(node.content)) {
