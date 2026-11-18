@@ -184,4 +184,4 @@ compose.yaml              PostgreSQL and the agent service for local development
 
 ## License
 
-This repository includes MIT license.
+This repo contains [MIT LICENSE](https://github.com/Hazammm/SYNK/LICENSE) .
