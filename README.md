@@ -166,6 +166,14 @@ docs/                     Setup guide, module design notes, the evaluation repor
 .github/workflows/        CI: agent pytest job and the web verify job
 compose.yaml              PostgreSQL and the agent service for local development
 ```
+## Contribution
+
+We welcome contributions from the community! To get started:
+
+- Fork the repo and create your feature branch (git checkout -b feature/your-feature)
+- Commit your changes (git commit -m 'Add new feature')
+- Push to the branch (git push origin feature/your-feature)
+- Open a Pull Request
 
 ## Documentation
 
