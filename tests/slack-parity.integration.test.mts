@@ -13,6 +13,9 @@ const { createWorkspace, addMember } = await import("../src/features/workspaces/
 const { addChannelMember, createChannel, createDirectMessage, joinChannel, leaveChannel, listChannels, listMessages, sendMessage, toggleReaction, mentionedIn } = await import("../src/features/chat/service");
 const { listNotifications, markNotificationsRead } = await import("../src/features/notifications/service");
 const { listSaved, listThreads, markUnread, removeChannelMember, setChannelMuted, toggleSaved, updateChannelSettings } = await import("../src/features/chat/manage");
+const { getAccount, pauseNotifications, setStatus, updateProfile, currentStatus } = await import("../src/features/account/service");
+const { listPeople } = await import("../src/features/people/service");
+const { readAvatar, removeAvatar, setAvatar } = await import("../src/features/account/avatar");
 
 // admin: workspace admin. asra and bilal: members. outsider: another workspace.
 let admin: string, asra: string, bilal: string, outsider: string, workspaceId: string, otherWorkspaceId: string, generalId: string;
@@ -167,4 +170,41 @@ test("mark as unread, save for later, threads inbox and also-send-to-channel", a
   assert.equal(threads[0].rootId, first.id);
   assert.deepEqual([threads[0].replyCount, threads[0].lastReply.snippet], [2, "Only in the thread"]);
   assert.ok(!(await listThreads(admin, workspaceId)).some(item => item.rootId === first.id)); // admin is not in the thread
+});
+
+test("profile fields, custom status with expiry, away and paused notifications", async () => {
+  await updateProfile(asra, { title: "Frontend developer", phone: "+92 300 1234567", location: "Lahore", timezone: "Asia/Karachi", pronouns: "she/her" });
+  await assert.rejects(updateProfile(asra, { timezone: "Mars/Olympus" }), { name: "ZodError" });
+  await assert.rejects(updateProfile(asra, { phone: "call me" }), { name: "ZodError" });
+  const soon = new Date(Date.now() + 3_600_000).toISOString();
+  assert.deepEqual(await setStatus(asra, { text: "In a meeting", emoji: "📅", expiresAt: soon }), { text: "In a meeting", emoji: "📅", expiresAt: soon, away: false });
+  await assert.rejects(setStatus(asra, { text: "Past", expiresAt: new Date(Date.now() - 1000).toISOString() }), status(400));
+  assert.deepEqual(currentStatus({ statusText: "Gone", statusEmoji: "🌴", statusExpiresAt: new Date(Date.now() - 1000), away: false }), { text: "", emoji: "", expiresAt: null, away: false });
+  await setStatus(asra, { text: "In a meeting", emoji: "📅", expiresAt: soon, away: true });
+
+  await pauseNotifications(asra, { until: soon });
+  await assert.rejects(pauseNotifications(asra, { until: new Date(Date.now() + 9 * 24 * 3_600_000).toISOString() }), status(400));
+  const account = await getAccount(asra, await sessionId(asra));
+  assert.deepEqual(account.profile, { title: "Frontend developer", phone: "+92 300 1234567", location: "Lahore", timezone: "Asia/Karachi", pronouns: "she/her", image: null });
+  assert.equal(account.notificationsPausedUntil, soon);
+  assert.equal(account.status.away, true);
+  await pauseNotifications(asra, { until: null });
+  assert.equal((await getAccount(asra, await sessionId(asra))).notificationsPausedUntil, null);
+
+  const people = await listPeople(bilal, workspaceId);
+  const listed = people.find(person => person.id === asra)!;
+  assert.deepEqual([listed.title, listed.location, listed.status.text, listed.online], ["Frontend developer", "Lahore", "In a meeting", false]);
+  assert.equal(people.length, 3);
+  await assert.rejects(listPeople(outsider, workspaceId), status(403));
+});
+
+test("profile photos: images only, visible to people who share a workspace", async () => {
+  const png = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4c50000000049454e44ae426082", "hex");
+  await assert.rejects(setAvatar(asra, new File(["<svg onload=alert(1)>"], "evil.png", { type: "image/png" })), status(400));
+  const { image } = await setAvatar(asra, new File([png], "me.png", { type: "image/png" }));
+  assert.match(image!, new RegExp(`^/api/users/${asra}/avatar\\?v=`));
+  assert.equal((await readAvatar(bilal, asra)).type, "image/png");
+  await assert.rejects(readAvatar(outsider, asra), status(404));
+  assert.deepEqual(await removeAvatar(asra), { image: null });
+  await assert.rejects(readAvatar(bilal, asra), status(404));
 });
