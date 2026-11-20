@@ -75,6 +75,7 @@ function serializeMessage(row: Record): ChatMessage {
     authorId: row.authorId,
     body: isDeleted ? "This message was deleted" : row.body,
     threadRootId: row.threadRootId,
+    alsoInChannel: row.alsoInChannel,
     clientId: row.clientId,
     editedAt: row.editedAt ? row.editedAt.toISOString() : null,
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
@@ -371,10 +372,10 @@ export async function listMessages(userId: string, channelId: string, input: unk
   const targetParent = threadRootId ?? parentId ?? null;
   await requireChannel(userId, channelId);
 
-  const scope: Prisma.MessageWhereInput = {
-    channelId,
-    threadRootId: targetParent,
-  };
+  // The main feed also shows thread replies that were sent to the channel too.
+  const scope: Prisma.MessageWhereInput = targetParent
+    ? { channelId, threadRootId: targetParent }
+    : { channelId, OR: [{ threadRootId: null }, { alsoInChannel: true }] };
 
   if (targetParent) {
     const root = await db.message.findFirst({ where: { id: targetParent, channelId, threadRootId: null } });
@@ -389,13 +390,12 @@ export async function listMessages(userId: string, channelId: string, input: unk
 
   const rows = await db.message.findMany({
     where: {
-      ...scope,
-      ...(boundary && {
+      AND: [scope, ...(boundary ? [{
         OR: [
           { createdAt: { lt: boundary.createdAt } },
           { createdAt: boundary.createdAt, id: { lt: boundary.id } },
         ],
-      }),
+      }] : [])],
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
@@ -404,7 +404,8 @@ export async function listMessages(userId: string, channelId: string, input: unk
 
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit);
-  return { messages: page.reverse().map(serializeMessage), nextCursor: hasMore ? page[0].id : null };
+  const saved = new Set((await db.savedMessage.findMany({ where: { userId, messageId: { in: page.map(row => row.id) } }, select: { messageId: true } })).map(row => row.messageId));
+  return { messages: page.reverse().map(row => ({ ...serializeMessage(row), saved: saved.has(row.id) })), nextCursor: hasMore ? page[0].id : null };
 }
 
 export async function sendMessage(userId: string, channelId: string, input: unknown): Promise<ChatMessage> {
@@ -444,6 +445,7 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
           channelId,
           authorId: userId,
           threadRootId,
+          alsoInChannel: Boolean(threadRootId && data.alsoInChannel),
           clientId,
         },
         include,
