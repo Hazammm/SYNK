@@ -95,3 +95,52 @@ export function ChannelSettingsModal({ channel, viewerId, onClose, onChanged }: 
     </section>
   </div>;
 }
+
+type Pick = (channelId: string, messageId: string) => void;
+
+// Threads you started or replied in, most recently active first.
+export function ThreadsInbox({ workspaceId, onOpen }: { workspaceId: string; onOpen: Pick }) {
+  const [threads, setThreads] = useState<ThreadSummary[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    request<{ threads: ThreadSummary[] }>(`/api/workspaces/${workspaceId}/threads`).then(result => setThreads(result.threads)).catch(error => setError(messageOf(error)));
+  }, [workspaceId]);
+  return <section className={styles.listView} aria-label="Threads">
+    <header><MessagesSquare size={18} aria-hidden="true" /><h2>Threads</h2><p>Conversations you started or replied to.</p></header>
+    {error && <p role="alert" className={styles.error}>{error}</p>}
+    {!threads && !error && <p role="status" className={styles.role}>Loading threads…</p>}
+    {threads && !threads.length && <p className={styles.role}>No threads yet. Reply to a message to start one.</p>}
+    <ul>{threads?.map(thread => <li key={thread.rootId}>
+      <button type="button" onClick={() => onOpen(thread.channelId, thread.rootId)}>
+        <span className={styles.listPlace}>{thread.place} · {thread.replyCount} {thread.replyCount === 1 ? "reply" : "replies"}</span>
+        <span className={styles.listRow}><Avatar small initials={initialsOf(thread.author.name ?? "")} src={thread.author.image} /><span><strong>{thread.author.name ?? "Member"}</strong> {thread.snippet}</span></span>
+        <span className={styles.listReply}>Latest from {thread.lastReply.author.name ?? "Member"}, {when(thread.lastReply.at)}: {thread.lastReply.snippet}</span>
+      </button>
+    </li>)}</ul>
+  </section>;
+}
+
+// Messages saved for later, newest saved first.
+export function SavedList({ workspaceId, onOpen }: { workspaceId: string; onOpen: Pick }) {
+  const [items, setItems] = useState<SavedItem[] | null>(null);
+  const [error, setError] = useState("");
+  const load = () => request<{ saved: SavedItem[] }>(`/api/workspaces/${workspaceId}/saved`).then(result => setItems(result.saved)).catch(error => setError(messageOf(error)));
+  useEffect(() => { void load(); }, [workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const unsave = async (item: SavedItem) => {
+    try { await request(`/api/messages/${item.messageId}/save`, { method: "POST" }); setItems(current => current?.filter(other => other.messageId !== item.messageId) ?? null); }
+    catch (error) { setError(messageOf(error)); }
+  };
+  return <section className={styles.listView} aria-label="Saved items">
+    <header><Bookmark size={18} aria-hidden="true" /><h2>Saved for later</h2><p>Messages you saved to come back to.</p></header>
+    {error && <p role="alert" className={styles.error}>{error}</p>}
+    {!items && !error && <p role="status" className={styles.role}>Loading saved items…</p>}
+    {items && !items.length && <p className={styles.role}>Nothing saved yet. Use the bookmark on any message to save it here.</p>}
+    <ul>{items?.map(item => <li key={item.messageId} className={styles.listItem}>
+      <button type="button" onClick={() => onOpen(item.channelId, item.threadRootId ?? item.messageId)}>
+        <span className={styles.listPlace}>{item.place} · {when(item.sentAt)}</span>
+        <span className={styles.listRow}><Avatar small initials={initialsOf(item.author.name ?? "")} src={item.author.image} /><span><strong>{item.author.name ?? "Member"}</strong> {item.snippet}</span></span>
+      </button>
+      <Button variant="quiet" aria-label={`Remove “${item.snippet.slice(0, 40)}” from saved items`} onClick={() => void unsave(item)}>Remove</Button>
+    </li>)}</ul>
+  </section>;
+}
