@@ -79,3 +79,11 @@
 .swatch[data-swatch="dark"] { background: #0f1110; border-color: #262b28; }
 .swatch[data-swatch="dark"] i { background: #161918; box-shadow: 0 0 0 1px #262b28; }
 .swatch[data-swatch="dark"] i:last-child { background: #2fb891; box-shadow: none; width: 55%; height: 8px; align-self: start; }
+
+/* Status presets, pause buttons and the emoji + text row */
+.presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.presets button { padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-sm, 13px); cursor: pointer; }
+.presets button:hover:not(:disabled) { border-color: var(--border-strong); background: var(--fill); }
+.row { display: grid; grid-template-columns: 90px 1fr; gap: 12px; }
+.emoji input { text-align: center; }
+.subheading { margin: 16px 0 4px; font-size: 14px; }
