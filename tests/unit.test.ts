@@ -42,6 +42,8 @@ import { parsePullRequestUrl, ticketKeysIn } from "../src/features/integrations/
 import { fullNameSchema, validSignature } from "../src/features/integrations/providers/shared";
 import { github } from "../src/features/integrations/providers/github";
 import { bitbucket } from "../src/features/integrations/providers/bitbucket";
+import { base32Decode, base32Encode, hashRecoveryCode, openSecret, sealSecret, totpCode, verifyTotp } from "../src/lib/totp";
+import { parseSearchQuery } from "../src/features/search/service";
 
 test("ticket keys are found in pull request titles and branch names", () => {
   assert.deepEqual(ticketKeysIn("SYN-12 fix login", "SYN"), ["SYN-12"]);
@@ -678,4 +680,44 @@ test("rich-text messages are validated and their plain text is extracted", async
   assert.equal(messageSchema.safeParse({ body: badMark, clientMessageId: randomUUID() }).success, false);
   const tooLong = doc([{ type: "paragraph", content: [{ type: "text", text: "a".repeat(4001) }] }]);
   assert.equal(messageSchema.safeParse({ body: tooLong, clientMessageId: randomUUID() }).success, false);
+});
+
+test("one-time codes match RFC 6238 and allow one step of clock drift", () => {
+  // RFC 6238 test secret: the ASCII bytes "12345678901234567890".
+  const secret = base32Encode(Buffer.from("12345678901234567890"));
+  assert.equal(secret, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ");
+  assert.equal(totpCode(secret, 59_000, 8), "94287082");
+  assert.equal(totpCode(secret, 1_111_111_109_000, 8), "07081804");
+  assert.equal(totpCode(secret, 59_000), "287082");
+  assert.equal(verifyTotp(secret, "287 082", 59_000), true);
+  assert.equal(verifyTotp(secret, totpCode(secret, 59_000), 59_000 + 30_000), true);
+  assert.equal(verifyTotp(secret, totpCode(secret, 59_000), 59_000 + 90_000), false);
+  assert.equal(verifyTotp(secret, "28708", 59_000), false);
+  assert.deepEqual(base32Decode("gezd gnbv-gy3t qojq"), Buffer.from("1234567890"));
+  assert.throws(() => base32Decode("not base32!"));
+  assert.equal(hashRecoveryCode("ABCDE-12345"), hashRecoveryCode("abcde12345"));
+});
+
+test("two-factor secrets are sealed with authenticated encryption", () => {
+  process.env.NEXTAUTH_SECRET ||= "unit-test-secret";
+  const sealed = sealSecret("JBSWY3DPEHPK3PXP");
+  assert.notEqual(sealed, sealSecret("JBSWY3DPEHPK3PXP"));
+  assert.ok(!sealed.includes("JBSWY3DPEHPK3PXP"));
+  assert.equal(openSecret(sealed), "JBSWY3DPEHPK3PXP");
+  const [iv, tag, data] = sealed.split(".");
+  assert.throws(() => openSecret([iv, tag, data.slice(0, -2) + (data.endsWith("A") ? "BB" : "AA")].join(".")));
+});
+
+test("search modifiers are read from the query and the rest is searched as text", () => {
+  const filters = parseSearchQuery("deploy from:@sam in:#Dev-Ops before:2026-11-01 after:2026-10-01 has:link has:file notes");
+  assert.equal(filters.text, "deploy notes");
+  assert.equal(filters.from, "sam");
+  assert.equal(filters.in, "dev-ops");
+  assert.equal(filters.before?.toISOString(), "2026-11-01T00:00:00.000Z");
+  assert.equal(filters.after?.toISOString(), "2026-10-02T00:00:00.000Z");
+  assert.deepEqual(filters.has, ["link", "file"]);
+  assert.equal(parseSearchQuery("from:\"Asra Khan\" hello").from, "Asra Khan");
+  // Unknown or malformed modifiers stay part of the text.
+  assert.deepEqual(parseSearchQuery("before:yesterday has:emoji http://x").text, "before:yesterday has:emoji http://x");
+  assert.deepEqual(parseSearchQuery("plain words"), { text: "plain words", has: [] });
 });
