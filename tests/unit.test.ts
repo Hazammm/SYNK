@@ -600,6 +600,15 @@ test("client applies thread reply counts from live events", () => {
   assert.equal(merged.length, 1);
   assert.equal(merged[0].id, "child");
 });
+
+test("a thread reply also sent to the channel appears in the channel feed", () => {
+  const parent: ChatMessage = { id: "parent", channelId: "c", body: "root", createdAt: "2026-10-17T00:00:00.000Z", sender: { id: "u", name: "User" }, replyCount: 0 };
+  const reply: ChatMessage = { ...parent, id: "child", createdAt: "2026-10-17T00:00:01.000Z", threadRootId: "parent", parentId: "parent" };
+  assert.deepEqual(applyMessageEvent([parent], { message: reply, parentReplyCount: 1 }, null).map(item => item.id), ["parent"]);
+  const shared = applyMessageEvent([parent], { message: { ...reply, alsoInChannel: true }, parentReplyCount: 1 }, null);
+  assert.deepEqual(shared.map(item => item.id), ["parent", "child"]);
+  assert.equal(shared[0].replyCount, 1);
+});
 test("google profile cookie headers set and clear the pending profile", async () => {
   const { googleProfileCookieHeader, clearGoogleProfileCookieHeader, GOOGLE_PROFILE_COOKIE } = await import("../src/lib/google-profile-cookie");
   assert.match(googleProfileCookieHeader("signed-token"), new RegExp(`${GOOGLE_PROFILE_COOKIE}=signed-token`));

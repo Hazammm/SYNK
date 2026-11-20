@@ -52,12 +52,15 @@ export function typingText(names: string[]) {
 export function applyMessageEvent(messages: ChatMessage[], event: MessageEvent, parentId: string | null) {
   const targetParent = event.message.threadRootId ?? event.message.parentId ?? null;
   if (targetParent === parentId) return mergeMessages(messages, [event.message]);
+  let rows = messages;
   if (parentId === null && targetParent && event.parentReplyCount !== undefined) {
-    return messages.map(message =>
+    rows = rows.map(message =>
       message.id === targetParent
         ? { ...message, replyCount: Math.max(message.replyCount, event.parentReplyCount!) }
         : message
     );
   }
-  return messages;
+  // A thread reply that was also sent to the channel shows in the channel too.
+  if (parentId === null && targetParent && event.message.alsoInChannel) rows = mergeMessages(rows, [event.message]);
+  return rows;
 }
