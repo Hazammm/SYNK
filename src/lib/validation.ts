@@ -142,6 +142,8 @@ export const messageSchema = z.object({
   clientId: z.string().min(1).max(100).optional(),
   clientMessageId: z.string().uuid().optional(),
   attachmentIds: z.array(idSchema).max(10).optional().default([]),
+  // For a thread reply: also show it in the channel.
+  alsoInChannel: z.boolean().optional(),
 }).strict().refine(data => data.clientId !== undefined || data.clientMessageId !== undefined, {
   message: "Client ID is required.",
 });
