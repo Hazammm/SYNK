@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
-  Bell, Check, ChevronsUpDown, Clock3, FileText, Hash, LayoutDashboard, Menu, MessageCircle, Moon,
+  Bell, Check, ChevronsUpDown, Clock3, FileText, LayoutDashboard, Menu, MessageCircle, Moon,
   PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, KanbanSquare, Sun, Users, X,
 } from "lucide-react";
 import { applyTheme, useTheme } from "@/lib/theme";
 import { NOTIFICATIONS_CHANGED } from "@/lib/events";
 import AgentPanel from "@/features/agent/AgentPanel";
+import { useLiveAlerts } from "@/features/notifications/live";
+import QuickSwitcher from "./QuickSwitcher";
 import Logo, { LogoMark } from "./Logo";
 import ProfileMenu, { SettingsLink } from "./ProfileMenu";
 import styles from "./Synk.module.css";
@@ -68,6 +70,7 @@ export default function SynkShell({
   const switcher = useRef<HTMLDivElement>(null);
   const displayName = workspaceName || "Workspace";
   const displayGlyph = displayName[0]?.toUpperCase() || "W";
+  useLiveAlerts(Boolean(workspaceId));
 
   // Ctrl+K or ⌘K jumps to the search box from anywhere.
   useEffect(() => {
@@ -104,10 +107,11 @@ export default function SynkShell({
 
   const nav = [
     { label: "Overview", href: `${base}/overview`, icon: LayoutDashboard, active: pathname.endsWith("/overview") },
-    { label: "Chat", href: `${base}/chat`, icon: MessageCircle, active: pathname.endsWith("/chat") },
+    { label: "Chat", href: `${base}/chat`, icon: MessageCircle, active: pathname.includes("/chat") },
     { label: "Board", href: `${base}/board`, icon: KanbanSquare, active: pathname.includes("/board") || pathname.includes("/tickets/") },
     { label: "Docs", href: `${base}/docs`, icon: FileText, active: pathname.endsWith("/docs") },
     { label: "Time", href: `${base}/time`, icon: Clock3, active: pathname.endsWith("/time") },
+    { label: "People", href: `${base}/people`, icon: Users, active: pathname.endsWith("/people") },
   ];
   const alertsActive = pathname.endsWith("/alerts");
   const flush = pathname.endsWith("/chat") || pathname.endsWith("/docs");
@@ -166,12 +170,6 @@ export default function SynkShell({
             <Bell size={17} aria-hidden="true" /><span>Alerts</span>
             {unread > 0 && <em className={styles.navCount} aria-hidden="true">{unreadLabel}</em>}
           </Link>
-        </nav>
-
-        <div className={styles.sectionLabel}><span>Conversations</span><Link href={`${base}/chat?newChannel=1`} aria-label="Create channel" title="Create channel"><Plus size={15} aria-hidden="true" /></Link></div>
-        <nav className={styles.nav} aria-label="Conversations">
-          <Link href={`${base}/chat`} className={styles.navLink} title="general"><Hash size={17} aria-hidden="true" /><span>general</span></Link>
-          <Link href={`${base}/settings?section=Members`} className={styles.navLink} title="Workspace members"><Users size={17} aria-hidden="true" /><span>Workspace members</span></Link>
         </nav>
 
         <div className={styles.sidebarFoot}>

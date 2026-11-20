@@ -314,32 +314,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sectionLabel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 28px;
-  margin: 16px 0 2px;
-  padding: 0 2px 0 8px;
-  color: var(--faint);
-  font-size: var(--t-xs);
-  font-weight: 500;
-}
-
-.sectionLabel a {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--r-sm);
-  color: var(--faint);
-}
-
-.sectionLabel a:hover {
-  background: var(--fill);
-  color: var(--text);
-}
-
 .sidebarFoot {
   display: flex;
   align-items: center;
@@ -379,7 +353,6 @@
   .app[data-collapsed="true"] .switcherText,
   .app[data-collapsed="true"] .switcher > svg,
   .app[data-collapsed="true"] .navLink > span,
-  .app[data-collapsed="true"] .sectionLabel span,
   .app[data-collapsed="true"] .version {
     display: none;
   }
@@ -417,13 +390,6 @@
     height: 8px;
     padding: 0;
     font-size: 0;
-  }
-
-  .app[data-collapsed="true"] .sectionLabel {
-    justify-content: center;
-    margin-top: 10px;
-    padding: 8px 0 0;
-    border-top: 1px solid var(--border);
   }
 
   .app[data-collapsed="true"] .sidebarFoot {
