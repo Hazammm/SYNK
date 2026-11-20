@@ -43,6 +43,7 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
   const [password, setPassword] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [projectName, setProjectName] = useState("My first project");
+  const [usePurpose, setUsePurpose] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -85,8 +86,8 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
     try {
       // Google mode: no password — the server reads the Google profile from the httpOnly cookie.
       const body = googleMode || signedIn
-        ? { workspaceName, projectName, inviteEmails: skipInvites ? [] : inviteEmails }
-        : { adminName, email, password, workspaceName, projectName, inviteEmails: skipInvites ? [] : inviteEmails };
+        ? { workspaceName, projectName, inviteEmails: skipInvites ? [] : inviteEmails, ...(usePurpose && { usePurpose }) }
+        : { adminName, email, password, workspaceName, projectName, inviteEmails: skipInvites ? [] : inviteEmails, ...(usePurpose && { usePurpose }) };
 
       const result = await request<{
         workspace: { id: string; name: string };
@@ -184,6 +185,14 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
         {step === 1 && <div className={styles.wizardFields}>
           <label className={styles.field}><span>Workspace name</span><div className={styles.inputWrap}><Building2 size={17} /><Input placeholder="Your team name" required maxLength={80} value={workspaceName} onChange={event => setWorkspaceName(event.target.value)} /></div></label>
           <label className={styles.field}><span>First project</span><div className={styles.inputWrap}><FolderKanban size={17} /><Input required maxLength={80} value={projectName} onChange={event => setProjectName(event.target.value)} /></div></label>
+          <fieldset className={styles.purpose}>
+            <legend>What will you use Synk for? <small>(optional)</small></legend>
+            {[["work", "Work"], ["school", "School or university"], ["personal", "Personal project"], ["other", "Something else"]].map(([value, label]) => (
+              <label key={value} className={usePurpose === value ? styles.purposeChosen : undefined}>
+                <input type="radio" name="usePurpose" value={value} checked={usePurpose === value} onChange={() => setUsePurpose(value)} /> {label}
+              </label>
+            ))}
+          </fieldset>
         </div>}
         {step === 2 && <div className={styles.wizardFields}>
           <p className={styles.inviteHint}>Invite teammates now, or skip and invite them later from Settings.</p>

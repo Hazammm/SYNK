@@ -610,3 +610,8 @@
     font-size: var(--t-sm);
   }
 }
+.purpose { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
+.purpose legend { margin-bottom: 8px; color: var(--text); font-size: var(--t-sm); font-weight: 500; }
+.purpose legend small { color: var(--muted); font-weight: 400; }
+.purpose label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--r-pill); color: var(--text); font-size: var(--t-sm); cursor: pointer; }
+.purpose .purposeChosen { border-color: var(--accent); background: var(--accent-soft); }
