@@ -1,5 +1,9 @@
 // Shapes shared by the account API, the settings page and the profile menu.
-export type NotificationPreferences = { assigned: boolean; comments: boolean; mentions: boolean };
+export type NotificationPreferences = { assigned: boolean; comments: boolean; mentions: boolean; replies: boolean; reactions: boolean };
+// Profile details teammates see. `image` is an uploaded photo or the one from Google, GitHub or Bitbucket.
+export type ProfileDetails = { title: string; phone: string; location: string; timezone: string; pronouns: string; image: string | null };
+// A status that has passed its expiry is reported as empty.
+export type PersonStatus = { text: string; emoji: string; expiresAt: string | null; away: boolean };
 export type AccountWorkspace = { id: string; name: string; role: "ADMIN" | "MEMBER"; memberCount: number; adminCount: number };
 export type Account = {
   id: string; name: string; email: string | null; createdAt: string;
@@ -7,9 +11,14 @@ export type Account = {
   hasPassword: boolean;
   providers: string[];
   notifications: NotificationPreferences;
+  profile: ProfileDetails;
+  status: PersonStatus;
+  // Notifications are paused (snoozed or in focus mode) until this time, if set.
+  notificationsPausedUntil: string | null;
+  twoFactorEnabled: boolean;
   // Other signed-in browsers and devices, not counting this one.
   otherSessions: number;
   workspaces: AccountWorkspace[];
 };
-export const SETTINGS_SECTIONS = ["profile", "notifications", "appearance", "security", "workspaces", "members", "assistant"] as const;
+export const SETTINGS_SECTIONS = ["profile", "status", "notifications", "appearance", "security", "workspaces", "members", "admin", "assistant"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
