@@ -9,6 +9,10 @@ export const credentialsSchema = z.object({ email: emailSchema, password: z.stri
 // One password rule for sign-up, invites, resets and changes.
 export const passwordSchema = passwordField;
 const inviteEmailListSchema = z.array(emailSchema).max(50).transform(emails => [...new Set(emails)]);
+// "What will you use Synk for?" at sign-up.
+export const USE_PURPOSES = ["work", "school", "personal", "other"] as const;
+const usePurpose = z.enum(USE_PURPOSES).optional();
+
 export const createWorkspaceSchema = z.object({
   adminName: z.string().trim().min(1).max(80),
   email: emailSchema,
@@ -16,6 +20,7 @@ export const createWorkspaceSchema = z.object({
   workspaceName: z.string().trim().min(1).max(80),
   projectName: z.string().trim().min(1).max(80).default("My first project"),
   inviteEmails: inviteEmailListSchema.default([]),
+  usePurpose,
 }).strict().superRefine((data, ctx) => {
   if (data.inviteEmails.includes(data.email)) {
     ctx.addIssue({ code: "custom", path: ["inviteEmails"], message: "Use a different email address for each teammate." });
@@ -30,6 +35,7 @@ export const createWorkspaceGoogleSchema = z.object({
   workspaceName: z.string().trim().min(1).max(80),
   projectName: z.string().trim().min(1).max(80).default("My first project"),
   inviteEmails: inviteEmailListSchema.default([]),
+  usePurpose,
 }).strict();
 export const inviteEmailsSchema = z.object({
   emails: inviteEmailListSchema.refine(emails => emails.length > 0, "Add at least one teammate email."),
