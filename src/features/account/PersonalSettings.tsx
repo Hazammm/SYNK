@@ -159,3 +159,59 @@ const pauseEnd = (minutes: number, now = new Date()) => {
   const morning = new Date(now); morning.setDate(morning.getDate() + 1); morning.setHours(9, 0, 0, 0);
   return morning;
 };
+
+// Snooze (pause pop-ups for a while) and focus mode (pause and set a "Focusing" status together).
+export function PauseSettings({ account, onSaved }: { account: Account; onSaved: () => void }) {
+  const [until, setUntil] = useState(account.notificationsPausedUntil);
+  const [focusMinutes, setFocusMinutes] = useState(60);
+  const { busy, run, feedback } = useSaving();
+  const pause = (date: Date | null) => run(async () => {
+    const result = await request<{ pausedUntil: string | null }>("/api/me/pause", { method: "PUT", body: JSON.stringify({ until: date?.toISOString() ?? null }) });
+    setUntil(result.pausedUntil); onSaved();
+    return result.pausedUntil ? `Notifications paused until ${new Date(result.pausedUntil).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}.` : "Notifications resumed.";
+  });
+  const focus = () => void run(async () => {
+    const end = pauseEnd(focusMinutes);
+    await request("/api/me/pause", { method: "PUT", body: JSON.stringify({ until: end.toISOString() }) });
+    await request("/api/me/status", { method: "PUT", body: JSON.stringify({ text: "Focusing", emoji: "🎯", expiresAt: end.toISOString() }) });
+    setUntil(end.toISOString()); onSaved();
+    return `Focus mode is on until ${end.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}. Notifications are paused and your status says you're focusing.`;
+  });
+  return <Section title="Pause notifications" description="While paused, alerts still collect under Alerts, but no pop-ups or sounds interrupt you.">
+    <p className={styles.sessions}>{until ? <>Paused until <strong>{new Date(until).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</strong>.</> : "Notifications are on."}</p>
+    <div className={styles.presets} role="group" aria-label="Pause notifications for">
+      {PAUSES.map(option => <button key={option.label} type="button" disabled={busy} onClick={() => void pause(pauseEnd(option.minutes))}>{option.label}</button>)}
+      {until && <button type="button" disabled={busy} onClick={() => void pause(null)}>Resume now</button>}
+    </div>
+    <h3 className={styles.subheading}>Focus mode</h3>
+    <p className={styles.hint}>Pauses notifications and sets your status to “🎯 Focusing” for the time you choose.</p>
+    <div className={styles.actions}>
+      <select aria-label="Focus for" value={focusMinutes} onChange={event => setFocusMinutes(Number(event.target.value))}>
+        {[25, 60, 120, 240].map(minutes => <option key={minutes} value={minutes}>{minutes < 60 ? `${minutes} minutes` : `${minutes / 60} ${minutes === 60 ? "hour" : "hours"}`}</option>)}
+      </select>
+      <Button variant="primary" disabled={busy} onClick={focus}>Start focus mode</Button>
+    </div>
+    {feedback}
+  </Section>;
+}
+
+// Pop-ups from the browser when a new alert arrives and Synk is in the background. Kept per browser.
+export function DesktopNotifications() {
+  const supported = typeof window !== "undefined" && "Notification" in window;
+  const [permission, setPermission] = useState(supported ? Notification.permission : "denied");
+  const [enabled, setEnabled] = useState(supported && window.localStorage.getItem(DESKTOP_KEY) === "on");
+  const turnOn = async () => {
+    const result = permission === "granted" ? "granted" : await Notification.requestPermission();
+    setPermission(result);
+    if (result === "granted") { window.localStorage.setItem(DESKTOP_KEY, "on"); setEnabled(true); new Notification("Synk notifications are on", { body: "You'll see new mentions and messages here." }); }
+  };
+  const turnOff = () => { window.localStorage.removeItem(DESKTOP_KEY); setEnabled(false); };
+  return <Section title="Desktop notifications" description="Show a pop-up from your browser for new mentions, direct messages, replies and ticket alerts while Synk is open in the background.">
+    {!supported ? <p className={styles.notice}>This browser does not support notifications.</p>
+      : permission === "denied" ? <p className={styles.notice}>Notifications are blocked for this site. Allow them in your browser&apos;s site settings, then come back here.</p>
+      : <div className={styles.actions}>
+          {enabled ? <Button onClick={turnOff}>Turn off desktop notifications</Button> : <Button variant="primary" onClick={() => void turnOn()}>Turn on desktop notifications</Button>}
+          <span className={styles.hint}>{enabled ? "On in this browser." : "Off in this browser."}</span>
+        </div>}
+  </Section>;
+}
