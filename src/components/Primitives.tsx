@@ -29,8 +29,13 @@ export function Badge({
 // Six quiet tints. The same person always gets the same one, so faces are recognisable across screens.
 const hueOf = (text: string) => [...text].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 6;
 
-export function Avatar({ initials, small = false }: { initials: string; small?: boolean }) {
-  return <span className={`${styles.avatar} ${small ? styles.avatarSmall : ""}`} data-hue={hueOf(initials)}>{initials}</span>;
+// Shows the photo when there is one, otherwise the initials on a tinted circle. A green dot marks someone online.
+export function Avatar({ initials, small = false, src, online }: { initials: string; small?: boolean; src?: string | null; online?: boolean }) {
+  return <span className={`${styles.avatar} ${small ? styles.avatarSmall : ""}`} data-hue={hueOf(initials)}>
+    {/* eslint-disable-next-line @next/next/no-img-element -- small, authenticated images that next/image cannot optimise */}
+    {src ? <img src={src} alt="" className={styles.avatarImage} /> : initials}
+    {online !== undefined && <i className={styles.presence} data-online={online} aria-hidden="true" />}
+  </span>;
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
