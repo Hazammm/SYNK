@@ -22,6 +22,7 @@ import {
   Trash2,
   Users,
   X,
+  Bell, BellOff, Bookmark, MessagesSquare, Settings2, Archive,
 } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import { INLINE_ATTACHMENT_TYPES, type ChannelSummary, type ChatAttachment, type ChatMessage, type ChatReaction, type WorkspaceSummary } from "@/lib/chat-types";
@@ -31,6 +32,8 @@ import type { WorkspaceSearchResult } from "@/features/search/service";
 type MessageSearchResult = Extract<WorkspaceSearchResult, { type: "message" }>;
 import { messageOf, request, useMessages } from "./client";
 import { RichComposer } from "./RichComposer";
+import type { DirectoryPerson } from "@/lib/people-types";
+import { ChannelSettingsModal, MessageExtraActions, SavedList, ThreadsInbox } from "./ChatExtras";
 import { TiptapRenderer } from "./TiptapRenderer";
 import styles from "./Chat.module.css";
 
@@ -1422,6 +1425,7 @@ function MessageCard({
   onThread?: (message: ChatMessage) => void;
 }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [note, setNote] = useState("");
   const plainBody = extractPlainText(message.body);
   const [editDraft, setEditDraft] = useState(plainBody);
   const [busyEdit, setBusyEdit] = useState(false);
@@ -1484,6 +1488,8 @@ function MessageCard({
           >
             <Pin size={14} />
           </button>
+
+          {message.status !== "sending" && <MessageExtraActions message={message} workspaceId={workspaceId} onStatus={text => { setNote(text); window.setTimeout(() => setNote(""), 3000); }} />}
 
           {onStartEdit && (
             <button
@@ -1562,8 +1568,10 @@ function MessageCard({
               {formatClockTime(message.createdAt)}
             </time>
             {isEdited && <span className={styles.editedBadge}>(edited)</span>}
+            {message.alsoInChannel && message.threadRootId && <span className={styles.editedBadge}>replied to a thread</span>}
           </div>
         )}
+        {note && <p role="status" className={styles.actionNote}>{note}</p>}
 
         {isEditing ? (
           <form onSubmit={handleEditSubmit} className={styles.inlineEditBox}>

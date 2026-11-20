@@ -1685,3 +1685,47 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
     padding: 16px;
   }
 }
+
+/* Message action note, muted and archived channels, read-only composer */
+.actionNote {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: var(--t-xs);
+}
+
+.dimmed {
+  opacity: 0.6;
+}
+
+.archivedBanner,
+.readOnlyNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--sunken);
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+.archivedBanner {
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.alsoSend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  cursor: pointer;
+}
+
+.messages [data-focused="true"] {
+  background: var(--accent-soft);
+  transition: background var(--d-fast) var(--ease);
+}
