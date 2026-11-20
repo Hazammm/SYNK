@@ -71,3 +71,25 @@ export async function setChannelMuted(userId: string, channelId: string, muted: 
   await db.channelMember.update({ where: { channelId_userId: { channelId, userId } }, data: { muted: value } });
   return { muted: value };
 }
+
+// Marks a message and everything after it as unread for this person.
+export async function markUnread(userId: string, messageId: string) {
+  idSchema.parse(messageId);
+  const message = await db.message.findUnique({ where: { id: messageId }, select: { channelId: true, createdAt: true } });
+  if (!message) throw new AppError(404, "Message not found.");
+  await requireChannel(userId, message.channelId);
+  const lastReadAt = new Date(message.createdAt.getTime() - 1);
+  await db.channelMember.update({ where: { channelId_userId: { channelId: message.channelId, userId } }, data: { lastReadAt } });
+  return { channelId: message.channelId, lastReadAt: lastReadAt.toISOString() };
+}
+
+// "Save for later": toggles a bookmark on a message this person can read.
+export async function toggleSaved(userId: string, messageId: string) {
+  idSchema.parse(messageId);
+  const message = await db.message.findUnique({ where: { id: messageId }, select: { channelId: true, deletedAt: true } });
+  if (!message || message.deletedAt) throw new AppError(404, "Message not found.");
+  await requireChannel(userId, message.channelId);
+  const { count } = await db.savedMessage.deleteMany({ where: { userId, messageId } });
+  if (!count) await db.savedMessage.create({ data: { userId, messageId } });
+  return { saved: count === 0 };
+}
