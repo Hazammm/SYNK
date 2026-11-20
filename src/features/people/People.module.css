@@ -1,0 +1,26 @@
+.page { width: 100%; max-width: 1080px; margin: 0 auto; }
+.head h1 { margin: 0; font-size: var(--t-2xl); letter-spacing: -.025em; }
+.head p, .muted { margin: 4px 0 0; color: var(--muted); font-size: var(--t-sm); }
+.error { color: var(--high); font-size: var(--t-sm); }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 20px 0 8px; }
+.filters select { min-height: 38px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-sm); }
+.search { position: relative; flex: 1 1 260px; display: flex; align-items: center; }
+.search svg { position: absolute; left: 10px; color: var(--muted); }
+.search input { width: 100%; padding-left: 32px; }
+.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--t-sm); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 12px 0 0; padding: 0; list-style: none; }
+.card { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-sm); }
+.top { display: flex; gap: 12px; align-items: center; }
+.top div { display: grid; gap: 2px; min-width: 0; }
+.top strong { font-size: var(--t-md, 15px); }
+.top strong small { color: var(--muted); font-weight: 400; }
+.top span { color: var(--muted); font-size: var(--t-sm); }
+.presence { font-size: var(--t-xs, 12px) !important; }
+.status { margin: 0; padding: 6px 10px; border-radius: var(--r-sm); background: var(--sunken); font-size: var(--t-sm); }
+.facts { display: grid; gap: 6px; margin: 0; }
+.facts div { display: flex; align-items: center; gap: 8px; font-size: var(--t-sm); }
+.facts dt { display: grid; color: var(--muted); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.facts a, .message { color: var(--accent-text); }
+.message { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: var(--t-sm); font-weight: 600; text-decoration: none; }
+.message:hover { text-decoration: underline; }
