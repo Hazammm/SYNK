@@ -215,3 +215,54 @@ export function DesktopNotifications() {
         </div>}
   </Section>;
 }
+
+// Two-factor sign-in with an authenticator app, plus one-time recovery codes.
+export function TwoFactor({ account, onChanged }: { account: Account; onChanged: () => void }) {
+  const [setup, setSetup] = useState<{ secret: string; otpauthUrl: string } | null>(null);
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const { busy, run, feedback } = useSaving();
+  const title = "Two-factor sign-in";
+  const description = "After your password, Synk also asks for a code from an authenticator app such as Google Authenticator, Microsoft Authenticator or 1Password.";
+  if (!account.hasPassword) return <Section title={title} description={description}><p className={styles.notice}>You sign in with {account.providers.join(" or ") || "another provider"}. Turn on two-step verification in that account instead.</p></Section>;
+
+  const start = () => void run(async () => { setSetup(await request<{ secret: string; otpauthUrl: string }>("/api/me/two-factor/setup", { method: "POST", body: "{}" })); return ""; });
+  const confirm = (event: React.FormEvent) => {
+    event.preventDefault();
+    void run(async () => {
+      const result = await request<{ recoveryCodes: string[] }>("/api/me/two-factor", { method: "POST", body: JSON.stringify({ code }) });
+      setRecoveryCodes(result.recoveryCodes); setSetup(null); setCode(""); onChanged();
+      return "Two-factor sign-in is on.";
+    });
+  };
+  const disable = (event: React.FormEvent) => {
+    event.preventDefault();
+    void run(async () => {
+      await request("/api/me/two-factor", { method: "DELETE", body: JSON.stringify({ password, code }) });
+      setPassword(""); setCode(""); setRecoveryCodes([]); onChanged();
+      return "Two-factor sign-in is off.";
+    });
+  };
+
+  return <Section title={title} description={description}>
+    {recoveryCodes.length > 0 && <div className={styles.recovery}>
+      <p><strong>Save these recovery codes now.</strong> Each one signs you in once if you lose your phone. They won&apos;t be shown again.</p>
+      <ul>{recoveryCodes.map(item => <li key={item}><code>{item}</code></li>)}</ul>
+      <Button onClick={() => void navigator.clipboard.writeText(recoveryCodes.join("\n"))}>Copy codes</Button>
+    </div>}
+    {account.twoFactorEnabled ? <form className={styles.form} onSubmit={disable}>
+      <p className={styles.notice}>On. You&apos;ll be asked for a code each time you sign in with your password.</p>
+      <label>Password<Input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
+      <label>Code from your app, or a recovery code<Input required inputMode="numeric" autoComplete="one-time-code" maxLength={20} value={code} onChange={event => setCode(event.target.value)} /></label>
+      <div className={styles.actions}><Button disabled={busy}>Turn off two-factor sign-in</Button>{feedback}</div>
+    </form> : setup ? <form className={styles.form} onSubmit={confirm}>
+      <ol className={styles.steps}>
+        <li>In your authenticator app, add an account and enter this key: <code className={styles.secret}>{setup.secret.match(/.{1,4}/g)?.join(" ")}</code> On this phone? <a href={setup.otpauthUrl}>Open it in your app</a>.</li>
+        <li>Type the 6-digit code the app shows.</li>
+      </ol>
+      <label>Code<Input required inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value)} /></label>
+      <div className={styles.actions}><Button variant="primary" disabled={busy}>Turn on</Button><Button type="button" variant="quiet" onClick={() => setSetup(null)}>Cancel</Button>{feedback}</div>
+    </form> : <div className={styles.actions}><Button variant="primary" disabled={busy} onClick={start}>Set up two-factor sign-in</Button>{feedback}</div>}
+  </Section>;
+}
