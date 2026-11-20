@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
-import { Bell, ChevronDown, LogOut, Palette, Settings, Shield, UserRound } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Palette, Settings, Shield, Smile, UserRound } from "lucide-react";
 import type { Account } from "@/lib/account-types";
 import { messageOf, request } from "@/lib/client-http";
 import { Avatar } from "./Primitives";
@@ -20,12 +20,13 @@ export default function ProfileMenu({ userName, settingsHref = "/settings" }: { 
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
 
+  // Loaded at once for the photo and status in the header, and again each time the card opens.
   useEffect(() => {
-    if (!open) return;
     const controller = new AbortController();
     request<{ account: Account }>("/api/me", { signal: controller.signal })
       .then(result => { setAccount(result.account); setError(""); })
       .catch(error => { if (!controller.signal.aborted) setError(messageOf(error)); });
+    if (!open) return () => controller.abort();
     // Close when clicking anywhere else.
     const outside = (event: MouseEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", outside);
@@ -35,6 +36,7 @@ export default function ProfileMenu({ userName, settingsHref = "/settings" }: { 
   const close = () => { setOpen(false); trigger.current?.focus(); };
   const name = account?.name || userName;
   const links = [
+    { section: "status", label: account?.status.text || account?.status.emoji ? "Update your status" : "Set a status", icon: Smile },
     { section: "profile", label: "Edit profile", icon: UserRound },
     { section: "notifications", label: "Notifications", icon: Bell },
     { section: "appearance", label: "Appearance", icon: Palette },
@@ -43,15 +45,16 @@ export default function ProfileMenu({ userName, settingsHref = "/settings" }: { 
 
   return <div ref={root} className={styles.root} onKeyDown={event => { if (event.key === "Escape" && open) { event.stopPropagation(); close(); } }}>
     <button ref={trigger} type="button" className={styles.trigger} aria-expanded={open} aria-haspopup="dialog" aria-controls="profile-card" onClick={() => setOpen(!open)}>
-      <Avatar small initials={initialsOf(userName)} />
-      <span className={styles.name}>{userName}</span>
+      <Avatar small initials={initialsOf(userName)} src={account?.profile.image ?? undefined} />
+      <span className={styles.name}>{userName}{account?.status.emoji && <span aria-label={account.status.text || "Status"}> {account.status.emoji}</span>}</span>
       <ChevronDown size={14} aria-hidden="true" />
     </button>
     {open && <div id="profile-card" role="dialog" aria-label="Your profile" className={styles.card}>
       <div className={styles.identity}>
-        <Avatar initials={initialsOf(name)} />
+        <Avatar initials={initialsOf(name)} src={account?.profile.image ?? undefined} />
         <div><strong>{name}</strong>{account?.email && <span>{account.email}</span>}</div>
       </div>
+      {account && (account.status.text || account.status.emoji || account.status.away) && <p className={styles.status}>{account.status.emoji} {account.status.text}{account.status.away && <small> · Away</small>}</p>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {!account && !error && <p role="status" className={styles.muted}>Loading your profile…</p>}
       {account && <dl className={styles.facts}>

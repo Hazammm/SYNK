@@ -26,3 +26,5 @@
 .signOut svg { color: currentColor; }
 .links { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 @media (max-width: 640px) { .name, .trigger > svg { display: none; } .trigger { padding: 3px; } }
+.status { margin: 0; padding: 0 0 10px; color: var(--text); font-size: var(--t-sm); }
+.status small { color: var(--muted); }
