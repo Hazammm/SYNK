@@ -1220,7 +1220,8 @@ function SearchDrawer({
     <div>
       <form onSubmit={handleSearch} style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
         <Input
-          placeholder="Search channel messages…"
+          placeholder="Search messages, e.g. from:@sam has:link"
+          aria-describedby="search-modifiers"
           value={query}
           onChange={e => setQuery(e.target.value)}
           autoFocus
@@ -1230,6 +1231,7 @@ function SearchDrawer({
         </Button>
       </form>
 
+      <p id="search-modifiers" className={styles.role}>Use from:@name, in:#channel, before:YYYY-MM-DD, after:YYYY-MM-DD, has:link or has:file.</p>
       {loading && <p className={styles.role}>Searching…</p>}
       {error && <p role="alert" className={styles.role}>{error}</p>}
       {!loading && results.map(item => (
