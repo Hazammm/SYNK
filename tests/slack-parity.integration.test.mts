@@ -8,6 +8,9 @@ import nextEnv from "@next/env";
 nextEnv.loadEnvConfig(process.cwd(), true);
 if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a migrated, disposable PostgreSQL database.");
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+// No real email: invites stop at the mailer check.
+for (const name of ["MAILTRAP_HOST", "MAILTRAP_PORT", "MAILTRAP_USER", "MAILTRAP_PASS", "MAILTRAP_API_TOKEN", "MAIL_FROM"]) process.env[name] = "";
+process.env.NEXTAUTH_SECRET ||= "test-secret-for-two-factor";
 const { db } = await import("../src/lib/db");
 const { createWorkspace, addMember } = await import("../src/features/workspaces/service");
 const { addChannelMember, createChannel, createDirectMessage, joinChannel, leaveChannel, listChannels, listMessages, sendMessage, toggleReaction, mentionedIn } = await import("../src/features/chat/service");
@@ -18,6 +21,9 @@ const { listPeople } = await import("../src/features/people/service");
 const { readAvatar, removeAvatar, setAvatar } = await import("../src/features/account/avatar");
 const { checkSecondFactor, confirmTwoFactor, disableTwoFactor, startTwoFactor } = await import("../src/features/account/two-factor");
 const { totpCode } = await import("../src/lib/totp");
+const { searchWorkspace } = await import("../src/features/search/service");
+const { createInvites } = await import("../src/features/workspaces/invites");
+const { exportWorkspace, getWorkspaceSettings, updateWorkspaceSettings, workspaceAnalytics } = await import("../src/features/workspaces/admin");
 const { hash } = await import("bcryptjs");
 
 // admin: workspace admin. asra and bilal: members. outsider: another workspace.
@@ -239,4 +245,52 @@ test("two-factor sign-in: setup, codes, single-use recovery codes and turning it
   await assert.rejects(disableTwoFactor(bilal, { password: "correct horse battery", code: wrong }), status(400));
   await disableTwoFactor(bilal, { password: "correct horse battery", code: recoveryCodes[1] });
   assert.deepEqual(await db.user.findUniqueOrThrow({ where: { id: bilal }, select: { totpSecret: true, totpRecoveryHashes: true } }), { totpSecret: null, totpRecoveryHashes: [] });
+});
+
+test("search modifiers narrow messages by person, channel, date, links and files", async () => {
+  const room = await createChannel(admin, workspaceId, { name: "search-room" });
+  await joinChannel(asra, room.id);
+  await post(asra, room.id, "zebra notes https://example.test/runbook");
+  await post(admin, room.id, "zebra notes without a link");
+  await post(asra, generalId, "zebra notes in general");
+  const hidden = await createChannel(bilal, workspaceId, { name: "zebra-private", isPrivate: true });
+  await post(bilal, hidden.id, "zebra secret");
+  const find = async (query: string) => (await searchWorkspace(asra, workspaceId, { query })).map(item => item.snippet).sort();
+
+  assert.equal((await find("zebra")).length, 3); // never the private channel asra is not in
+  assert.deepEqual(await find("zebra from:@asra"), ["zebra notes https://example.test/runbook", "zebra notes in general"]);
+  assert.deepEqual(await find("zebra in:#search-room has:link"), ["zebra notes https://example.test/runbook"]);
+  assert.deepEqual(await find("from:\"Admin Person\" in:search-room"), ["zebra notes without a link"]);
+  assert.deepEqual(await find("zebra before:2000-01-01"), []);
+  assert.equal((await find("zebra after:2000-01-01")).length, 3);
+  assert.deepEqual(await find("zebra has:file"), []);
+  assert.deepEqual(await find("zebra in:#zebra-private"), []);
+  assert.ok((await searchWorkspace(asra, workspaceId, { query: "zebra from:@asra" })).every(item => item.type === "message"));
+});
+
+test("workspace admin: rename, invite policy, usage and export", async () => {
+  // Members cannot invite until an admin allows it; then the request reaches the mailer.
+  await assert.rejects(createInvites(asra, workspaceId, { emails: ["friend@example.test"] }), status(403));
+  await assert.rejects(updateWorkspaceSettings(asra, workspaceId, { invitePolicy: "EVERYONE" }), status(403));
+  assert.deepEqual(await updateWorkspaceSettings(admin, workspaceId, { name: "Parity HQ", invitePolicy: "EVERYONE" }), { id: workspaceId, name: "Parity HQ", invitePolicy: "EVERYONE" });
+  assert.equal((await getWorkspaceSettings(asra, workspaceId)).invitePolicy, "EVERYONE");
+  await assert.rejects(createInvites(asra, workspaceId, { emails: ["friend@example.test"] }), (error: unknown) => (error as { status?: number }).status !== 403);
+  await assert.rejects(getWorkspaceSettings(outsider, workspaceId), status(403));
+  await updateWorkspaceSettings(admin, workspaceId, { invitePolicy: "ADMINS" });
+
+  await assert.rejects(workspaceAnalytics(asra, workspaceId), status(403));
+  const usage = await workspaceAnalytics(admin, workspaceId);
+  assert.equal(usage.members, 3);
+  assert.ok(usage.messages.week > 0 && usage.messages.month >= usage.messages.week);
+  assert.ok(usage.activeMembers.week >= 2);
+  assert.equal(usage.daily.length, 14);
+  assert.equal(usage.daily.reduce((sum, day) => sum + day.messages, 0), usage.messages.week + (usage.messages.month - usage.messages.week));
+
+  await assert.rejects(exportWorkspace(bilal, workspaceId), status(403));
+  const data = await exportWorkspace(admin, workspaceId);
+  assert.equal(data.workspace.name, "Parity HQ");
+  assert.equal(data.members.length, 3);
+  assert.ok(data.messages.some(message => message.text === "zebra notes without a link"));
+  assert.ok(!data.messages.some(message => message.text === "zebra secret"), "private channels are not exported");
+  assert.ok(!data.channels.some(channel => channel.name === "zebra-private"));
 });
