@@ -275,10 +275,28 @@ export const agentChatSchema = z.object({
   .refine(turn => turn.decision ? Boolean(turn.conversationId) : Boolean(turn.conversationId ?? turn.workspaceId), "Choose a workspace or a conversation.");
 
 // Account settings schemas
+const profileText = (label: string, max: number) => z.string().trim().max(max, `${label} can contain up to ${max} characters.`).optional();
+// IANA names such as Asia/Karachi; the browser checks them before saving.
+const timezoneName = z.string().trim().max(64).refine(value => !value || Intl.supportedValuesOf("timeZone").includes(value), "Choose a time zone from the list.").optional();
 export const profileUpdateSchema = z.object({
   name: z.string().trim().min(1, "Enter your name.").max(80, "Names can contain up to 80 characters.").optional(),
-  notifications: z.object({ assigned: z.boolean().optional(), comments: z.boolean().optional(), mentions: z.boolean().optional() }).strict().optional(),
-}).strict().refine(update => update.name !== undefined || (update.notifications && Object.keys(update.notifications).length > 0), "Nothing to update.");
+  title: profileText("Titles", 80),
+  phone: z.string().trim().max(30).regex(/^[+\d\s()-]*$/, "Use digits, spaces, +, - and brackets for the phone number.").optional(),
+  location: profileText("Locations", 80),
+  timezone: timezoneName,
+  pronouns: profileText("Pronouns", 30),
+  notifications: z.object({
+    assigned: z.boolean().optional(), comments: z.boolean().optional(), mentions: z.boolean().optional(), replies: z.boolean().optional(), reactions: z.boolean().optional(),
+  }).strict().optional(),
+}).strict().refine(update => Object.entries(update).some(([key, value]) => value !== undefined && (key !== "notifications" || Object.keys(value as object).length > 0)), "Nothing to update.");
+export const statusSchema = z.object({
+  text: z.string().trim().max(100, "Statuses can contain up to 100 characters.").default(""),
+  emoji: z.string().trim().max(16).default(""),
+  // When the status clears itself; null keeps it until changed.
+  expiresAt: z.string().datetime({ offset: true }).nullable().default(null),
+  away: z.boolean().optional(),
+}).strict();
+export const pauseSchema = z.object({ until: z.string().datetime({ offset: true }).nullable() }).strict();
 export const passwordChangeSchema = z.object({
   currentPassword: z.string().min(1, "Enter your current password.").max(72),
   newPassword: passwordField,
