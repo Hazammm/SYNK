@@ -181,6 +181,7 @@ export function RichComposer({
       },
     },
     onUpdate: ({ editor }) => {
+      setEmpty(editor.isEmpty);
       const text = editor.getText();
       if (text.trim()) {
         onTyping();
@@ -305,6 +306,7 @@ export function RichComposer({
     const attachmentIds = stagedFiles.map(f => f.id);
     onSent(optimisticMessage);
     editor.commands.clearContent();
+    setEmpty(true);
     setStagedFiles([]);
     setBusy(true);
     setError("");
@@ -335,7 +337,7 @@ export function RichComposer({
     onSendRef.current = handleSend;
   });
 
-  const isEditorEmpty = !editor || editor.isEmpty;
+  const isEditorEmpty = !editor || empty;
 
   return (
     <div className={styles.composer}>
