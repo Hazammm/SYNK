@@ -25,44 +25,66 @@ enum InviteStatus {
 }
 
 model User {
-  id                    String               @id @default(cuid())
-  name                  String?
-  email                 String?              @unique
-  emailVerified         DateTime?
-  image                 String?
-  passwordHash          String?
-  notifyAssigned        Boolean              @default(true)
-  notifyComments        Boolean              @default(true)
-  notifyMentions        Boolean              @default(true)
-  lastActiveWorkspaceId String?
-  createdAt             DateTime             @default(now())
-  accounts              Account[]
-  sessions              Session[]
-  loginSessions         LoginSession[]
-  memberships           Membership[]
-  messages              Message[]            @relation("MessageAuthor")
-  reactions             Reaction[]
-  mentions              Mention[]            @relation("MentionedUser")
-  attachments           Attachment[]         @relation("AttachmentUploader")
-  pins                  Pin[]                @relation("PinnedBy")
-  channelMembers        ChannelMember[]
-  projectAccess         ProjectAccess[]
-  createdChannels       Channel[]
-  createdWorkspaces     Workspace[]          @relation("WorkspaceCreator")
-  sentInvites           Invite[]             @relation("InviteSender")
-  passwordResetTokens   PasswordResetToken[]
-  lastActiveWorkspace   Workspace?           @relation("UserLastActiveWorkspace", fields: [lastActiveWorkspaceId], references: [id], onDelete: SetNull)
-  assignedTickets       Ticket[]             @relation("TicketAssignee")
-  reportedTickets       Ticket[]             @relation("TicketReporter")
-  comments              Comment[]
-  notifications         Notification[]       @relation("NotificationRecipient")
-  sentNotifications     Notification[]       @relation("NotificationActor")
-  conversations         Conversation[]
-  actionLogs            ActionLog[]
-  createdDocs           Doc[]                @relation("DocCreator")
-  editedDocs            Doc[]                @relation("DocEditor")
-  timeEntries           TimeEntry[]
-  repositories          Repository[]
+  id                       String               @id @default(cuid())
+  name                     String?
+  email                    String?              @unique
+  emailVerified            DateTime?
+  image                    String?
+  passwordHash             String?
+  notifyAssigned           Boolean              @default(true)
+  notifyComments           Boolean              @default(true)
+  notifyMentions           Boolean              @default(true)
+  notifyReplies            Boolean              @default(true)
+  notifyReactions          Boolean              @default(true)
+  // Profile shown to teammates.
+  title                    String               @default("")
+  phone                    String               @default("")
+  location                 String               @default("")
+  timezone                 String               @default("")
+  pronouns                 String               @default("")
+  avatarKey                String?
+  // Custom status, cleared when statusExpiresAt passes. "away" shows the person as away even when connected.
+  statusText               String               @default("")
+  statusEmoji              String               @default("")
+  statusExpiresAt          DateTime?
+  away                     Boolean              @default(false)
+  // Notifications are paused (snoozed, focus mode) until this time.
+  notificationsPausedUntil DateTime?
+  usePurpose               String               @default("")
+  // Two-factor sign-in: the secret is stored encrypted; recovery codes as SHA-256 hashes.
+  totpSecret               String?
+  totpPendingSecret        String?
+  totpRecoveryHashes       String[]             @default([])
+  lastActiveWorkspaceId    String?
+  createdAt                DateTime             @default(now())
+  accounts                 Account[]
+  sessions                 Session[]
+  loginSessions            LoginSession[]
+  memberships              Membership[]
+  messages                 Message[]            @relation("MessageAuthor")
+  reactions                Reaction[]
+  mentions                 Mention[]            @relation("MentionedUser")
+  attachments              Attachment[]         @relation("AttachmentUploader")
+  pins                     Pin[]                @relation("PinnedBy")
+  channelMembers           ChannelMember[]
+  projectAccess            ProjectAccess[]
+  createdChannels          Channel[]
+  createdWorkspaces        Workspace[]          @relation("WorkspaceCreator")
+  sentInvites              Invite[]             @relation("InviteSender")
+  passwordResetTokens      PasswordResetToken[]
+  lastActiveWorkspace      Workspace?           @relation("UserLastActiveWorkspace", fields: [lastActiveWorkspaceId], references: [id], onDelete: SetNull)
+  assignedTickets          Ticket[]             @relation("TicketAssignee")
+  reportedTickets          Ticket[]             @relation("TicketReporter")
+  comments                 Comment[]
+  notifications            Notification[]       @relation("NotificationRecipient")
+  sentNotifications        Notification[]       @relation("NotificationActor")
+  conversations            Conversation[]
+  actionLogs               ActionLog[]
+  createdDocs              Doc[]                @relation("DocCreator")
+  editedDocs               Doc[]                @relation("DocEditor")
+  timeEntries              TimeEntry[]
+  repositories             Repository[]
+  savedMessages            SavedMessage[]
 }
 
 enum TicketPriority {
@@ -92,6 +114,19 @@ enum NotificationType {
   TICKET_ASSIGNED
   TICKET_COMMENT
   TICKET_MENTION
+  CHAT_MENTION
+  CHAT_REPLY
+  CHAT_REACTION
+}
+
+enum InvitePolicy {
+  ADMINS
+  EVERYONE
+}
+
+enum PostingPolicy {
+  EVERYONE
+  ADMINS
 }
 
 model Account {
@@ -155,6 +190,7 @@ model PasswordResetToken {
 model Workspace {
   id            String         @id @default(cuid())
   name          String
+  invitePolicy  InvitePolicy   @default(ADMINS)
   createdById   String
   createdAt     DateTime       @default(now())
   createdBy     User           @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: Restrict)
@@ -218,22 +254,23 @@ enum MentionKind {
 }
 
 model Channel {
-  id          String          @id @default(cuid())
-  workspaceId String
-  createdById String
-  name        String?
-  type        ChannelType     @default(PUBLIC)
-  topic       String          @default("")
-  description String          @default("")
-  isDefault   Boolean         @default(false)
-  isPrivate   Boolean         @default(false)
-  archivedAt  DateTime?
-  createdAt   DateTime        @default(now())
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator     User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  members     ChannelMember[]
-  messages    Message[]
-  pins        Pin[]
+  id            String          @id @default(cuid())
+  workspaceId   String
+  createdById   String
+  name          String?
+  type          ChannelType     @default(PUBLIC)
+  topic         String          @default("")
+  description   String          @default("")
+  isDefault     Boolean         @default(false)
+  isPrivate     Boolean         @default(false)
+  postingPolicy PostingPolicy   @default(EVERYONE)
+  archivedAt    DateTime?
+  createdAt     DateTime        @default(now())
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator       User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  members       ChannelMember[]
+  messages      Message[]
+  pins          Pin[]
 
   @@unique([workspaceId, name])
   @@unique([id, workspaceId])
@@ -257,25 +294,28 @@ model ChannelMember {
 }
 
 model Message {
-  id           String       @id @default(cuid())
-  workspaceId  String
-  channelId    String
-  authorId     String
-  body         String       @db.Text
-  threadRootId String?
-  clientId     String
-  editedAt     DateTime?
-  deletedAt    DateTime?
-  createdAt    DateTime     @default(now())
-  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  channel      Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  author       User         @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
-  threadRoot   Message?     @relation("ThreadReplies", fields: [threadRootId], references: [id], onDelete: Cascade)
-  replies      Message[]    @relation("ThreadReplies")
-  reactions    Reaction[]
-  mentions     Mention[]
-  attachments  Attachment[]
-  pins         Pin[]
+  id            String         @id @default(cuid())
+  workspaceId   String
+  channelId     String
+  authorId      String
+  body          String         @db.Text
+  threadRootId  String?
+  alsoInChannel Boolean        @default(false)
+  clientId      String
+  editedAt      DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime       @default(now())
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel       Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author        User           @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  threadRoot    Message?       @relation("ThreadReplies", fields: [threadRootId], references: [id], onDelete: Cascade)
+  replies       Message[]      @relation("ThreadReplies")
+  reactions     Reaction[]
+  mentions      Mention[]
+  attachments   Attachment[]
+  pins          Pin[]
+  notifications Notification[]
+  savedBy       SavedMessage[]
 
   @@unique([authorId, clientId])
   @@index([channelId, createdAt(sort: Desc)])
@@ -478,13 +518,15 @@ model Notification {
   recipientId String
   actorId     String?
   type        NotificationType
-  ticketId    String
+  ticketId    String?
+  messageId   String?
   commentId   String?
   readAt      DateTime?
   createdAt   DateTime         @default(now())
   recipient   User             @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
   actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
-  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket      Ticket?          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message     Message?         @relation(fields: [messageId], references: [id], onDelete: Cascade)
   comment     Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   @@index([recipientId, readAt, createdAt])
@@ -635,4 +677,17 @@ model PullRequest {
 
   @@unique([ticketId, repositoryId, number])
   @@index([repositoryId, number])
+}
+
+// "Save for later": a person's bookmarked messages.
+model SavedMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  messageId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([userId, createdAt])
 }
