@@ -86,11 +86,15 @@ export default function ChatWorkspace({
   initialWorkspaceId,
   initialChannelId,
   startNewChannel = false,
+  focusMessageId,
+  viewerId = "",
 }: {
   initialWorkspaces: WorkspaceSummary[];
   initialWorkspaceId?: string;
   initialChannelId?: string;
   startNewChannel?: boolean;
+  focusMessageId?: string;
+  viewerId?: string;
 }) {
   const router = useRouter();
   const [workspaces, setWorkspaces] = useState(initialWorkspaces);
@@ -174,6 +178,8 @@ export default function ChatWorkspace({
           workspace={workspace}
           initialChannelId={initialChannelId}
           startCreating={startNewChannel}
+          focusMessageId={focusMessageId}
+          viewerId={viewerId}
         />
       )}
     </div>
@@ -184,10 +190,14 @@ function WorkspaceChannels({
   workspace,
   initialChannelId,
   startCreating,
+  focusMessageId,
+  viewerId,
 }: {
   workspace: WorkspaceSummary;
   initialChannelId?: string;
   startCreating: boolean;
+  focusMessageId?: string;
+  viewerId: string;
 }) {
   const router = useRouter();
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
@@ -375,12 +385,13 @@ function WorkspaceChannels({
               return (
                 <button
                   key={item.id}
-                  className={`${styles.channel} ${isActive ? styles.active : ""} ${hasUnread ? styles.hasUnread : ""}`}
+                  className={`${styles.channel} ${isActive ? styles.active : ""} ${hasUnread ? styles.hasUnread : ""} ${item.muted || item.archived ? styles.dimmed : ""}`}
                   onClick={() => selectChannel(item.id)}
                 >
-                  {item.isPrivate ? <LockKeyhole size={15} /> : <Hash size={15} />}
+                  {item.archived ? <Archive size={15} /> : item.isPrivate ? <LockKeyhole size={15} /> : <Hash size={15} />}
                   <span className={styles.channelName}>{item.name}</span>
                   <div className={styles.channelBadges}>
+                    {item.muted && <BellOff size={12} aria-label="Muted" />}
                     {!item.joined && <small className={styles.joinBadge}>Join</small>}
                     {hasMentions && <span className={styles.mentionBadge}>@{item.mentionCount}</span>}
                     {hasUnread && !hasMentions && <span className={styles.unreadBadge}>{item.unreadCount}</span>}
@@ -420,11 +431,11 @@ function WorkspaceChannels({
               return (
                 <button
                   key={item.id}
-                  className={`${styles.dmItem} ${isActive ? styles.active : ""} ${hasUnread ? styles.hasUnread : ""}`}
+                  className={`${styles.dmItem} ${isActive ? styles.active : ""} ${hasUnread ? styles.hasUnread : ""} ${item.muted ? styles.dimmed : ""}`}
                   onClick={() => selectChannel(item.id)}
                 >
                   <div className={styles.dmAvatarWrapper}>
-                    <Avatar small initials={initials(displayName)} />
+                    <Avatar small initials={initials(displayName)} src={item.otherUser?.image} />
                     <span className={styles.presenceDot} data-online={isOnline} />
                   </div>
                   <span className={styles.channelName}>{displayName}</span>
@@ -596,7 +607,10 @@ function WorkspaceChannels({
               onTopicUpdated={handleChannelTopicUpdated}
               onOpenMembers={() => setShowMembers(true)}
               onUserPresenceChange={setOnlineUserIds}
-              onJumpToChannel={selectChannel}
+              onJumpToMessage={openMessage}
+              onChannelChanged={handleChannelChanged}
+              focusMessageId={channel.id === initialChannelId ? focusMessageId : undefined}
+              viewerId={viewerId}
             />
           ) : channel ? (
             <div className={styles.empty}>
@@ -829,15 +843,31 @@ function ChannelView({
   onTopicUpdated,
   onOpenMembers,
   onUserPresenceChange,
-  onJumpToChannel,
+  onJumpToMessage,
+  onChannelChanged,
+  focusMessageId,
+  viewerId,
 }: {
   channel: ChannelSummary;
   workspaceMembers: Member[];
   onTopicUpdated: (updated: ChannelSummary) => void;
   onOpenMembers: () => void;
   onUserPresenceChange: (updater: (prev: Set<string>) => Set<string>) => void;
-  onJumpToChannel: (channelId: string) => void;
+  onJumpToMessage: (channelId: string, messageId: string) => void;
+  onChannelChanged: (updated: ChannelSummary) => void;
+  focusMessageId?: string;
+  viewerId: string;
 }) {
+  const [showSettings, setShowSettings] = useState(false);
+  const isDirect = channel.type === "DM" || channel.type === "GROUP_DM";
+  async function toggleMute() {
+    try {
+      const result = await request<{ muted: boolean }>(`/api/channels/${channel.id}/mute`, { method: "PUT", body: JSON.stringify({ muted: !channel.muted }) });
+      onChannelChanged({ ...channel, muted: result.muted });
+    } catch {
+      // The button keeps its state when the request fails.
+    }
+  }
   const [thread, setThread] = useState<ChatMessage | null>(null);
   const [rightPanel, setRightPanel] = useState<"pins" | "files" | "search" | null>(null);
   const [editingTopic, setEditingTopic] = useState(false);
@@ -932,6 +962,22 @@ function ChannelView({
 
           <div className={styles.channelHeaderRight}>
             <button
+              className={`${styles.iconBtn} ${channel.muted ? styles.active : ""}`}
+              aria-pressed={Boolean(channel.muted)}
+              aria-label={channel.muted ? "Unmute conversation" : "Mute conversation"}
+              title={channel.muted ? "Muted: only mentions alert you. Click to unmute." : "Mute: only mentions will alert you"}
+              onClick={() => void toggleMute()}
+            >
+              {channel.muted ? <BellOff size={16} /> : <Bell size={16} />}
+            </button>
+
+            {!isDirect && channel.canManageMembers && (
+              <button className={styles.iconBtn} aria-label="Channel settings" title="Channel settings" onClick={() => setShowSettings(true)}>
+                <Settings2 size={16} />
+              </button>
+            )}
+
+            <button
               className={`${styles.iconBtn} ${rightPanel === "pins" ? styles.active : ""}`}
               aria-label="Pinned messages"
               title="Pinned messages"
@@ -967,14 +1013,25 @@ function ChannelView({
           </div>
         </header>
 
+        {channel.archived && (
+          <p className={styles.archivedBanner} role="status">
+            <Archive size={14} aria-hidden="true" /> This channel is archived. You can read its history, but no one can post.
+          </p>
+        )}
+
         <Feed
           channel={channel}
           parentId={null}
           workspaceMembers={workspaceMembers}
           onThread={setThread}
           onUserPresenceChange={onUserPresenceChange}
+          focusMessageId={focusMessageId}
         />
       </section>
+
+      {showSettings && (
+        <ChannelSettingsModal channel={channel} viewerId={viewerId} onClose={() => setShowSettings(false)} onChanged={onChannelChanged} />
+      )}
 
       {/* THREAD PANEL */}
       {thread && (
@@ -1053,8 +1110,8 @@ function ChannelView({
             {rightPanel === "search" && (
               <SearchDrawer
                 workspaceId={channel.workspaceId}
-                onJumpToMessage={(targetChannelId) => {
-                  onJumpToChannel(targetChannelId);
+                onJumpToMessage={(targetChannelId, messageId) => {
+                  onJumpToMessage(targetChannelId, messageId);
                   setRightPanel(null);
                 }}
               />
@@ -1134,7 +1191,7 @@ function SearchDrawer({
   onJumpToMessage,
 }: {
   workspaceId: string;
-  onJumpToMessage: (channelId: string) => void;
+  onJumpToMessage: (channelId: string, messageId: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MessageSearchResult[]>([]);
@@ -1181,7 +1238,7 @@ function SearchDrawer({
           key={item.id}
           className={styles.pinCard}
           onClick={() => {
-            if (item.channelId) onJumpToMessage(item.channelId);
+            if (item.channelId) onJumpToMessage(item.channelId, item.threadRootId ?? item.id);
           }}
         >
           <strong>{item.title}</strong>
@@ -1202,12 +1259,14 @@ function Feed({
   workspaceMembers,
   onThread,
   onUserPresenceChange,
+  focusMessageId,
 }: {
   channel: ChannelSummary;
   parentId: string | null;
   workspaceMembers: Member[];
   onThread?: (message: ChatMessage) => void;
   onUserPresenceChange?: (updater: (prev: Set<string>) => Set<string>) => void;
+  focusMessageId?: string;
 }) {
   const handlePresenceUpdate = useCallback(
     (event: { userId: string; online: boolean }) => {
@@ -1264,6 +1323,24 @@ function Feed({
       setShowJumpToBottom(false);
     }
   }, [lastMessageId]);
+
+  // A link to a message (?message=) scrolls to it and highlights it, loading older pages if needed.
+  const focusedRef = useRef("");
+  const olderTries = useRef(0);
+  useEffect(() => {
+    if (!focusMessageId || focusedRef.current === focusMessageId || feed.loading) return;
+    const target = scrollContainerRef.current?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(focusMessageId)}"]`);
+    if (target) {
+      focusedRef.current = focusMessageId;
+      isNearBottomRef.current = false;
+      target.scrollIntoView({ block: "center" });
+      target.dataset.focused = "true";
+      window.setTimeout(() => delete target.dataset.focused, 2500);
+    } else if (feed.nextCursor && !feed.loadingOlder && olderTries.current < 5) {
+      olderTries.current += 1;
+      void feed.loadOlder();
+    }
+  }, [focusMessageId, feed]);
 
   function scrollToBottom() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1421,6 +1498,11 @@ function Feed({
 
       {!parentId && <p className={styles.typing} role="status" aria-live="polite">{feed.typing}</p>}
 
+      {channel.archived || (!parentId && channel.canPost === false) ? (
+        <p className={styles.readOnlyNote} role="status">
+          {channel.archived ? "This channel is archived, so new messages are turned off." : "Only admins and the channel's creator can post here. You can still reply in threads."}
+        </p>
+      ) : (
       <RichComposer
         channelId={channel.id}
         workspaceId={channel.workspaceId}
@@ -1432,6 +1514,7 @@ function Feed({
         onTyping={feed.notifyTyping}
         onEditLastMessage={handleEditLastMessage}
       />
+      )}
     </>
   );
 }
