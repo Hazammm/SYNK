@@ -20,6 +20,9 @@ export default function SprintsView({ project, userId, initial, onProjectChange 
   const [revision, setRevision] = useState(0);
   const [creating, setCreating] = useState(false);
   const [openTicket, setOpenTicket] = useState(initial.ticket ?? "");
+  // A later link to a ticket arrives as a new prop while this view stays mounted.
+  const [linkedTicket, setLinkedTicket] = useState(initial.ticket);
+  if (linkedTicket !== initial.ticket) { setLinkedTicket(initial.ticket); if (initial.ticket) setOpenTicket(initial.ticket); }
   const [busy, setBusy] = useState("");
   const canWrite = project.level === "WRITE";
   const columns = new Map(project.boards.flatMap(board => board.columns.map(column => [column.id, column] as const)));
