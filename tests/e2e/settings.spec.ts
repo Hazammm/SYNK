@@ -27,15 +27,15 @@ test("profile menu and settings: details, rename, notifications, theme and sessi
   const mentions = page.getByRole("switch", { name: /Mentions/ });
   await expect(mentions).toBeChecked();
   await mentions.uncheck();
-  await expect(page.getByText("Mentions turned off.")).toBeVisible();
+  await expect(page.getByText("Mentions and direct messages turned off.")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("switch", { name: /Mentions/ })).not.toBeChecked(); // saved on the server
 
   // Renaming updates the header without signing in again.
   await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Profile" }).click();
   await page.getByLabel("Display name").fill("Settings Renamed");
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Your name was saved.")).toBeVisible();
+  await page.getByRole("button", { name: "Save profile" }).click();
+  await expect(page.getByText("Your profile was saved.")).toBeVisible();
   await expect(trigger).toContainText("Settings Renamed");
 
   // Theme choice applies at once.
