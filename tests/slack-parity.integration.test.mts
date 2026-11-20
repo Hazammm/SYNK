@@ -16,6 +16,9 @@ const { listSaved, listThreads, markUnread, removeChannelMember, setChannelMuted
 const { getAccount, pauseNotifications, setStatus, updateProfile, currentStatus } = await import("../src/features/account/service");
 const { listPeople } = await import("../src/features/people/service");
 const { readAvatar, removeAvatar, setAvatar } = await import("../src/features/account/avatar");
+const { checkSecondFactor, confirmTwoFactor, disableTwoFactor, startTwoFactor } = await import("../src/features/account/two-factor");
+const { totpCode } = await import("../src/lib/totp");
+const { hash } = await import("bcryptjs");
 
 // admin: workspace admin. asra and bilal: members. outsider: another workspace.
 let admin: string, asra: string, bilal: string, outsider: string, workspaceId: string, otherWorkspaceId: string, generalId: string;
@@ -207,4 +210,33 @@ test("profile photos: images only, visible to people who share a workspace", asy
   await assert.rejects(readAvatar(outsider, asra), status(404));
   assert.deepEqual(await removeAvatar(asra), { image: null });
   await assert.rejects(readAvatar(bilal, asra), status(404));
+});
+
+test("two-factor sign-in: setup, codes, single-use recovery codes and turning it off", async () => {
+  await assert.rejects(startTwoFactor(bilal), status(400)); // no Synk password
+  await db.user.update({ where: { id: bilal }, data: { passwordHash: await hash("correct horse battery", 4) } });
+  const { secret, otpauthUrl } = await startTwoFactor(bilal);
+  assert.match(otpauthUrl, /^otpauth:\/\/totp\/Synk%3A.*issuer=Synk/);
+  assert.equal((await db.user.findUniqueOrThrow({ where: { id: bilal } })).totpSecret, null); // not on until confirmed
+  assert.equal(await checkSecondFactor(bilal, "anything"), true);
+
+  const wrong = String((Number(totpCode(secret)) + 500_000) % 1_000_000).padStart(6, "0");
+  await assert.rejects(confirmTwoFactor(bilal, { code: wrong }), status(400));
+  const { recoveryCodes } = await confirmTwoFactor(bilal, { code: totpCode(secret) });
+  assert.equal(recoveryCodes.length, 8);
+  const stored = await db.user.findUniqueOrThrow({ where: { id: bilal } });
+  assert.ok(stored.totpSecret && !stored.totpSecret.includes(secret), "the secret is stored encrypted");
+  assert.ok(!stored.totpRecoveryHashes.includes(recoveryCodes[0]), "recovery codes are stored hashed");
+  assert.equal((await getAccount(bilal, await sessionId(bilal))).twoFactorEnabled, true);
+
+  assert.equal(await checkSecondFactor(bilal, totpCode(secret)), true);
+  assert.equal(await checkSecondFactor(bilal, wrong), false);
+  assert.equal(await checkSecondFactor(bilal, recoveryCodes[0].toUpperCase()), true);
+  assert.equal(await checkSecondFactor(bilal, recoveryCodes[0]), false, "a recovery code works once");
+  await assert.rejects(startTwoFactor(bilal), status(409));
+
+  await assert.rejects(disableTwoFactor(bilal, { password: "wrong password", code: totpCode(secret) }), status(400));
+  await assert.rejects(disableTwoFactor(bilal, { password: "correct horse battery", code: wrong }), status(400));
+  await disableTwoFactor(bilal, { password: "correct horse battery", code: recoveryCodes[1] });
+  assert.deepEqual(await db.user.findUniqueOrThrow({ where: { id: bilal }, select: { totpSecret: true, totpRecoveryHashes: true } }), { totpSecret: null, totpRecoveryHashes: [] });
 });
