@@ -176,7 +176,7 @@ test("tickets: filters by assignee, priority, status column and sprint", async (
 test("comments: assignees and mentioned people are notified once, and only if they can open the ticket", async () => {
   const created = await createTicket(admin, ticket("Notify me", { assigneeId: writer }));
   const own = await createTicket(writer, ticket("Self-assigned", { assigneeId: writer }));
-  const types = async (userId: string, ticketId = created.id) => (await listNotifications(userId)).notifications.filter(item => item.ticket.id === ticketId).map(item => item.type).sort();
+  const types = async (userId: string, ticketId = created.id) => (await listNotifications(userId)).notifications.filter(item => item.ticket?.id === ticketId).map(item => item.type).sort();
   assert.deepEqual(await types(writer), ["TICKET_ASSIGNED"]);
   assert.deepEqual(await types(writer, own.id), []); // assigning yourself is not news
   const comment = await addComment(admin, created.id, { body: "  @Reader please review  ", mentionIds: [reader, bystander, outsider, admin, "missing-user"] });
@@ -195,7 +195,7 @@ test("comments: assignees and mentioned people are notified once, and only if th
   assert.deepEqual(await types(reader), ["TICKET_ASSIGNED", "TICKET_MENTION"]);
 
   const inbox = await listNotifications(reader);
-  const mention = inbox.notifications.find(item => item.type === "TICKET_MENTION" && item.ticket.id === created.id)!;
+  const mention = inbox.notifications.find(item => item.type === "TICKET_MENTION" && item.ticket?.id === created.id)!;
   assert.equal(mention.excerpt, "@Reader please review"); assert.equal(mention.actor?.name, "Admin"); assert.equal(mention.read, false);
   // Marking someone else's notification does nothing.
   assert.equal((await markNotificationsRead(writer, { ids: [mention.id] })).updated, 0);
@@ -229,7 +229,7 @@ test("access removal hides notifications and unassigns tickets", async () => {
 test("tickets: deleting needs edit access, removes comments and alerts, and never reuses the key", async () => {
   const doomed = await createTicket(admin, ticket("Delete me", { assigneeId: writer }));
   await addComment(admin, doomed.id, { body: "Soon gone" });
-  assert.equal((await listNotifications(writer)).notifications.filter(item => item.ticket.id === doomed.id).length, 2);
+  assert.equal((await listNotifications(writer)).notifications.filter(item => item.ticket?.id === doomed.id).length, 2);
 
   await rejects(deleteTicket(reader, doomed.id), 403);
   await rejects(deleteTicket(bystander, doomed.id), 404);
@@ -239,7 +239,7 @@ test("tickets: deleting needs edit access, removes comments and alerts, and neve
   await rejects(getTicket(admin, doomed.id), 404);
   await rejects(deleteTicket(admin, doomed.id), 404);
   assert.equal(await db.comment.count({ where: { ticketId: doomed.id } }), 0);
-  assert.equal((await listNotifications(writer)).notifications.some(item => item.ticket.id === doomed.id), false);
+  assert.equal((await listNotifications(writer)).notifications.some(item => item.ticket?.id === doomed.id), false);
   const next = await createTicket(admin, ticket("After the delete"));
   assert.notEqual(next.key, doomed.key);
 });

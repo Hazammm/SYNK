@@ -20,9 +20,11 @@ export type TicketSummary = {
 export type TicketComment = { id: string; body: string; createdAt: string; author: Person };
 export type TicketDetail = TicketSummary & { description: string; reporter: Person | null; createdAt: string; updatedAt: string; comments: TicketComment[] };
 
-export type NotificationType = "TICKET_ASSIGNED" | "TICKET_COMMENT" | "TICKET_MENTION";
+export type NotificationType = "TICKET_ASSIGNED" | "TICKET_COMMENT" | "TICKET_MENTION" | "CHAT_MENTION" | "CHAT_REPLY" | "CHAT_REACTION";
 export type NotificationItem = {
   id: string; type: NotificationType; createdAt: string; read: boolean; actor: Person | null;
-  ticket: { id: string; key: string; title: string; projectId: string; boardId: string; workspaceId: string };
+  // Exactly one of ticket and message is set.
+  ticket: { id: string; key: string; title: string; projectId: string; boardId: string; workspaceId: string } | null;
+  message: { id: string; channelId: string; workspaceId: string; threadRootId: string | null; channelName: string | null; direct: boolean } | null;
   excerpt: string | null;
 };
