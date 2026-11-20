@@ -93,3 +93,55 @@ export async function toggleSaved(userId: string, messageId: string) {
   if (!count) await db.savedMessage.create({ data: { userId, messageId } });
   return { saved: count === 0 };
 }
+
+const author = { select: { id: true, name: true, image: true } } as const;
+const snippet = (body: string) => extractPlainText(body).slice(0, 200);
+const placeOf = (channel: { name: string | null; type: string }) => channel.type === "DM" || channel.type === "GROUP_DM" ? "Direct message" : `#${channel.name}`;
+
+// Saved messages in one workspace, newest saved first, still limited to channels the person can read.
+export async function listSaved(userId: string, workspaceId: string): Promise<SavedItem[]> {
+  await requireWorkspace(userId, workspaceId);
+  const rows = await db.savedMessage.findMany({
+    where: { userId, message: { workspaceId, deletedAt: null, channel: { members: { some: { userId } } } } },
+    orderBy: { createdAt: "desc" }, take: 200,
+    include: { message: { select: { id: true, body: true, channelId: true, threadRootId: true, createdAt: true, author, channel: { select: { name: true, type: true } } } } },
+  });
+  return rows.map(({ message, createdAt }) => ({
+    messageId: message.id, channelId: message.channelId, threadRootId: message.threadRootId, place: placeOf(message.channel),
+    author: message.author, snippet: snippet(message.body), sentAt: message.createdAt.toISOString(), savedAt: createdAt.toISOString(),
+  }));
+}
+
+// The Threads inbox: threads this person started or replied in, most recently active first.
+export async function listThreads(userId: string, workspaceId: string): Promise<ThreadSummary[]> {
+  await requireWorkspace(userId, workspaceId);
+  const roots = await db.message.findMany({
+    where: {
+      workspaceId, threadRootId: null, deletedAt: null, replies: { some: {} },
+      channel: { members: { some: { userId } } },
+      OR: [{ authorId: userId }, { replies: { some: { authorId: userId } } }],
+    },
+    take: 50,
+    select: {
+      id: true, body: true, channelId: true, createdAt: true, author, channel: { select: { name: true, type: true } },
+      replies: { orderBy: { createdAt: "desc" }, take: 1, select: { body: true, createdAt: true, author } },
+      _count: { select: { replies: true } },
+    },
+  });
+  return roots
+    .map(root => ({
+      rootId: root.id, channelId: root.channelId, place: placeOf(root.channel), author: root.author, snippet: snippet(root.body),
+      replyCount: root._count.replies, lastReply: { author: root.replies[0].author, snippet: snippet(root.replies[0].body), at: root.replies[0].createdAt.toISOString() },
+    }))
+    .sort((a, b) => b.lastReply.at.localeCompare(a.lastReply.at));
+}
+
+// The people in a channel, for its members.
+export async function listChannelMembers(userId: string, channelId: string) {
+  await requireChannel(userId, channelId);
+  const rows = await db.channelMember.findMany({
+    where: { channelId }, orderBy: { joinedAt: "asc" },
+    select: { membership: { select: { role: true } }, user: { select: { id: true, name: true, email: true } } },
+  });
+  return rows.map(row => ({ role: row.membership.role, user: row.user }));
+}
