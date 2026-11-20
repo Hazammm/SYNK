@@ -13,6 +13,10 @@ export type Realtime = {
   publishChannelUpdated?: (workspaceId: string, channel: ChannelSummary) => Promise<void>;
   publishUnreadUpdate?: (userId: string, event: { channelId: string; unreadCount: number; mentionCount: number }) => Promise<void>;
   publishPresence?: (workspaceId: string, userId: string, online: boolean) => Promise<void>;
+  // A new alert for this person: refresh the count, and show a pop-up when `announcement` is set.
+  notifyUser?: (userId: string, announcement: { title: string; body: string; url: string } | null) => Promise<void>;
+  // Who has Synk open right now.
+  onlineUserIds?: () => Set<string>;
   disconnectSession: (sessionId: string) => void;
   revokeUser: (userId: string) => void;
 };

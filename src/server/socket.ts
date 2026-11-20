@@ -325,6 +325,14 @@ export function attachRealtime(http: HttpServer) {
       io.to(`workspace:${workspaceId}`).emit("channel:updated", { channel });
     },
 
+    onlineUserIds() {
+      return new Set([...presenceTracker].filter(([, record]) => record.socketIds.size > 0).map(([userId]) => userId));
+    },
+
+    async notifyUser(userId, announcement) {
+      io.to(`user:${userId}`).emit("notification:new", { announcement });
+    },
+
     async publishUnreadUpdate(userId, event) {
       io.to(`user:${userId}`).emit("unread:update", event);
     },
