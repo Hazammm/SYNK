@@ -20,7 +20,7 @@ test.afterEach(async () => {
   await db.$disconnect();
 });
 
-test("shell: the header search finds a ticket, and the + next to Conversations opens a new channel", async ({ page }) => {
+test("shell: Ctrl+K jumps to channels and pages, and searches everything", async ({ page }) => {
   const nonce = randomUUID().slice(0, 8);
   testEmail = `shell-${nonce}@example.test`;
   const errors: string[] = [];
@@ -33,10 +33,12 @@ test("shell: the header search finds a ticket, and the + next to Conversations o
   await page.getByRole("dialog", { name: "New ticket" }).getByRole("button", { name: "Create ticket" }).click();
   await expect(page.getByRole("button", { name: `Fix the zebra ${nonce} crash`, exact: true })).toBeVisible();
 
-  // Ctrl+K jumps to the search box; Enter shows the results page.
+  // Ctrl+K opens the quick switcher; with no page or channel matching, Enter searches everything.
   await page.keyboard.press("Control+k");
-  await expect(page.getByRole("searchbox", { name: "Search Synk" })).toBeFocused();
+  const switcher = page.getByRole("dialog", { name: "Jump to" });
+  await expect(switcher.getByRole("combobox")).toBeFocused();
   await page.keyboard.type(`zebra ${nonce}`);
+  await expect(switcher.getByRole("option", { name: /Search everything/ })).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/w\/[^/]+\/search\?q=zebra/);
   const tickets = page.getByRole("region", { name: "Tickets" });
@@ -46,9 +48,15 @@ test("shell: the header search finds a ticket, and the + next to Conversations o
   await page.goto(page.url().replace(/\/board.*/, "/search?q=nothing-matches-this"));
   await expect(page.getByText("Nothing matched.")).toBeVisible();
 
-  // The + next to Conversations opens chat with the new-channel form showing.
-  await page.getByRole("link", { name: "Create channel" }).click();
-  await expect(page).toHaveURL(/\/chat\?newChannel=1/);
-  await expect(page.getByLabel("Channel name")).toBeVisible();
+  // It also jumps straight to a channel or a page by name.
+  await page.keyboard.press("Control+k");
+  await page.keyboard.type("#gen");
+  await expect(page.getByRole("dialog", { name: "Jump to" }).getByRole("option", { name: /general/ })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/chat\/[^/?]+$/);
+  await page.keyboard.press("Control+k");
+  await page.keyboard.type("people");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "People", level: 1 })).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -66,20 +66,21 @@ export default function SynkShell({
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const base = workspaceId ? `/w/${workspaceId}` : "";
-  const search = useRef<HTMLInputElement>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
   const switcher = useRef<HTMLDivElement>(null);
   const displayName = workspaceName || "Workspace";
   const displayGlyph = displayName[0]?.toUpperCase() || "W";
   useLiveAlerts(Boolean(workspaceId));
 
-  // Ctrl+K or ⌘K jumps to the search box from anywhere.
+  // Ctrl+K or ⌘K opens the quick switcher from anywhere in a workspace.
   useEffect(() => {
-    const focusSearch = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && search.current) { event.preventDefault(); search.current.focus(); }
+    if (!workspaceId) return;
+    const openSwitcher = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setQuickOpen(open => !open); }
     };
-    window.addEventListener("keydown", focusSearch);
-    return () => window.removeEventListener("keydown", focusSearch);
-  }, []);
+    window.addEventListener("keydown", openSwitcher);
+    return () => window.removeEventListener("keydown", openSwitcher);
+  }, [workspaceId]);
 
   useEffect(() => {
     if (!switcherOpen) return;
@@ -188,8 +189,8 @@ export default function SynkShell({
           {workspaceId
             ? <form role="search" action={`${base}/search`} className={styles.search}>
                 <Search size={15} aria-hidden="true" />
-                <input ref={search} type="search" name="q" required minLength={2} maxLength={200} aria-label="Search Synk" placeholder="Search tickets, pages and messages" />
-                <kbd>Ctrl K</kbd>
+                <input type="search" name="q" required minLength={2} maxLength={200} aria-label="Search Synk" placeholder="Search tickets, pages and messages" />
+                <button type="button" className={styles.kbdButton} onClick={() => setQuickOpen(true)} aria-label="Open the quick switcher" title="Jump to a page, channel or person"><kbd>Ctrl K</kbd></button>
               </form>
             : <span className={styles.searchSpacer} />}
           <div className={styles.topbarActions}>
@@ -202,6 +203,7 @@ export default function SynkShell({
             <ProfileMenu userName={userName} settingsHref={`${base}/settings`} />
           </div>
         </header>
+        {quickOpen && workspaceId && <QuickSwitcher workspaceId={workspaceId} onClose={() => setQuickOpen(false)} />}
         <main id="synk-main" className={`${styles.main} ${flush ? styles.mainFlush : ""}`} tabIndex={-1}>{children}</main>
       </div>
     </div>
