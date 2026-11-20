@@ -202,6 +202,7 @@ function WorkspaceChannels({
   const [revision, setRevision] = useState(0);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [workspaceMembers, setWorkspaceMembers] = useState<Member[]>([]);
+  const [view, setView] = useState<"threads" | "saved" | null>(null);
 
   // Split into Channels vs Direct Messages
   const textChannels = useMemo(
@@ -218,6 +219,7 @@ function WorkspaceChannels({
   // Sync selected channel to URL
   const selectChannel = useCallback(
     (channelId: string) => {
+      setView(null);
       setSelected(channelId);
       router.push(`/w/${workspace.id}/chat/${channelId}`, { scroll: false });
     },
@@ -254,6 +256,26 @@ function WorkspaceChannels({
       });
     return () => controller.abort();
   }, [workspace.id, revision, initialChannelId]);
+
+  useEffect(() => {
+    request<{ people: DirectoryPerson[] }>(`/api/workspaces/${workspace.id}/people`)
+      .then(res => setOnlineUserIds(new Set(res.people.filter(person => person.online).map(person => person.id))))
+      .catch(() => {});
+  }, [workspace.id]);
+
+  // Opens a message from the Threads or Saved view in its channel.
+  const openMessage = useCallback(
+    (channelId: string, messageId: string) => {
+      setView(null);
+      setSelected(channelId);
+      router.push(`/w/${workspace.id}/chat/${channelId}?message=${messageId}`, { scroll: false });
+    },
+    [router, workspace.id]
+  );
+
+  function handleChannelChanged(updated: ChannelSummary) {
+    setChannels(current => current.map(c => (c.id === updated.id ? { ...c, ...updated } : c)));
+  }
 
   useEffect(() => {
     request<{ members: Member[] }>(`/api/workspaces/${workspace.id}/members`)
@@ -308,6 +330,17 @@ function WorkspaceChannels({
     <>
       <div className={styles.columns}>
         <aside className={styles.channels}>
+          <div className={styles.section}>
+            <button className={`${styles.channel} ${view === "threads" ? styles.active : ""}`} aria-pressed={view === "threads"} onClick={() => setView("threads")}>
+              <MessagesSquare size={15} />
+              <span className={styles.channelName}>Threads</span>
+            </button>
+            <button className={`${styles.channel} ${view === "saved" ? styles.active : ""}`} aria-pressed={view === "saved"} onClick={() => setView("saved")}>
+              <Bookmark size={15} />
+              <span className={styles.channelName}>Saved for later</span>
+            </button>
+          </div>
+
           {/* CHANNELS SECTION */}
           <div className={styles.section}>
             <div className={styles.sideHeading}>
@@ -335,7 +368,7 @@ function WorkspaceChannels({
             {loading && <p className={styles.role}>Loading channels…</p>}
 
             {textChannels.map(item => {
-              const isActive = selected === item.id;
+              const isActive = !view && selected === item.id;
               const hasUnread = !isActive && (item.unreadCount ?? 0) > 0;
               const hasMentions = !isActive && (item.mentionCount ?? 0) > 0;
 
@@ -378,7 +411,7 @@ function WorkspaceChannels({
             </div>
 
             {directMessages.map(item => {
-              const isActive = selected === item.id;
+              const isActive = !view && selected === item.id;
               const displayName = item.otherUser?.name ?? item.name ?? "Direct Message";
               const isOnline = item.otherUser ? onlineUserIds.has(item.otherUser.id) : false;
               const hasUnread = !isActive && (item.unreadCount ?? 0) > 0;
@@ -551,7 +584,11 @@ function WorkspaceChannels({
           )}
 
           {/* ACTIVE CHANNEL VIEW OR EMPTY/JOIN VIEW */}
-          {channel?.joined ? (
+          {view === "threads" ? (
+            <ThreadsInbox workspaceId={workspace.id} onOpen={openMessage} />
+          ) : view === "saved" ? (
+            <SavedList workspaceId={workspace.id} onOpen={openMessage} />
+          ) : channel?.joined ? (
             <ChannelView
               key={channel.id}
               channel={channel}

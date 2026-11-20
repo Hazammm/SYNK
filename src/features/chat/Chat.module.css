@@ -1729,3 +1729,144 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   background: var(--accent-soft);
   transition: background var(--d-fast) var(--ease);
 }
+
+/* Channel settings */
+.setup .settingsRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.setup .settingsRow label {
+  flex: 1;
+}
+
+.setup .settingsToggle,
+.settingsAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settingsToggle span,
+.settingsAction span {
+  display: grid;
+  gap: 2px;
+}
+
+.settingsToggle small,
+.settingsAction small,
+.settingsMembers small {
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-weight: 400;
+}
+
+.settingsHeading {
+  margin: 4px 0 0;
+  font-size: var(--t-sm);
+}
+
+.settingsMembers {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.settingsMembers li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settingsMembers li > span {
+  display: grid;
+  flex: 1;
+}
+
+.setup .settingsNotice {
+  min-height: 1em;
+  color: var(--accent-text);
+  font-size: var(--t-sm);
+}
+
+/* Threads and Saved views */
+.listView {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.listView header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.listView header h2 {
+  margin: 0;
+  font-size: var(--t-lg);
+}
+
+.listView header p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+.listView ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listView li > button,
+.listItem > button {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.listView li > button:hover {
+  border-color: var(--border-strong);
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.listPlace,
+.listReply {
+  color: var(--muted);
+  font-size: var(--t-xs);
+}
+
+.listRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--t-sm);
+}
