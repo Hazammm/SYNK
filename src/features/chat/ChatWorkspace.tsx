@@ -1504,6 +1504,7 @@ function Feed({
         </p>
       ) : (
       <RichComposer
+        alsoToLabel={channel.type === "DM" || channel.type === "GROUP_DM" ? "the conversation" : `#${channel.name}`}
         channelId={channel.id}
         workspaceId={channel.workspaceId}
         parentId={parentId}

@@ -47,6 +47,7 @@ export function RichComposer({
   onUpdateStatus,
   onTyping,
   onEditLastMessage,
+  alsoToLabel,
 }: {
   channelId: string;
   workspaceId: string;
@@ -57,7 +58,12 @@ export function RichComposer({
   onUpdateStatus: (clientId: string, status: "sending" | "failed" | "sent", confirmed?: ChatMessage) => void;
   onTyping: () => void;
   onEditLastMessage?: () => void;
+  // In a thread: where "Also send to" posts the reply, such as #general.
+  alsoToLabel?: string;
 }) {
+  const [alsoInChannel, setAlsoInChannel] = useState(false);
+  // Tiptap does not re-render on each keystroke, so emptiness is kept in state for the Send button.
+  const [empty, setEmpty] = useState(true);
   const [showToolbar, setShowToolbar] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMentionMenu, setShowMentionMenu] = useState(false);
@@ -289,6 +295,7 @@ export function RichComposer({
       replyCount: 0,
       threadRootId: parentId,
       parentId,
+      alsoInChannel: Boolean(parentId && alsoInChannel),
       clientId,
       clientMessageId: clientId,
       status: "sending",
@@ -312,6 +319,7 @@ export function RichComposer({
           clientId,
           clientMessageId: clientId,
           attachmentIds,
+          ...(parentId && alsoInChannel && { alsoInChannel: true }),
         }),
       });
       onUpdateStatus(clientId, "sent", result.message);
@@ -602,6 +610,12 @@ export function RichComposer({
           </div>
 
           <div className={styles.composerRightTools}>
+            {parentId && alsoToLabel && (
+              <label className={styles.alsoSend}>
+                <input type="checkbox" checked={alsoInChannel} onChange={event => setAlsoInChannel(event.target.checked)} />
+                Also send to {alsoToLabel}
+              </label>
+            )}
             <Button
               aria-label={parentId ? "Send reply" : "Send message"}
               variant="primary"
