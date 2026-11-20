@@ -87,3 +87,75 @@ export function ProfileDetails({ account, onSaved }: { account: Account; onSaved
     </form>
   </Section>;
 }
+
+// Presets like Slack's. Each sets the text, an emoji and when it clears.
+const PRESETS: { text: string; emoji: string; clears: string }[] = [
+  { text: "In a meeting", emoji: "📅", clears: "1h" },
+  { text: "Commuting", emoji: "🚌", clears: "30m" },
+  { text: "Working from home", emoji: "🏠", clears: "today" },
+  { text: "On vacation", emoji: "🌴", clears: "week" },
+  { text: "Out sick", emoji: "🤒", clears: "today" },
+  { text: "Not available", emoji: "⛔", clears: "4h" },
+];
+const CLEAR_OPTIONS = [
+  { id: "never", label: "Don't clear" }, { id: "30m", label: "In 30 minutes" }, { id: "1h", label: "In 1 hour" },
+  { id: "4h", label: "In 4 hours" }, { id: "today", label: "At the end of today" }, { id: "week", label: "In a week" },
+];
+export function clearTime(option: string, now = new Date()): string | null {
+  const minutes = { "30m": 30, "1h": 60, "4h": 240, week: 7 * 24 * 60 }[option as "30m"];
+  if (minutes) return new Date(now.getTime() + minutes * 60_000).toISOString();
+  if (option === "today") { const end = new Date(now); end.setHours(23, 59, 0, 0); return end.toISOString(); }
+  return null;
+}
+
+export function StatusSettings({ account, onSaved }: { account: Account; onSaved: () => void }) {
+  const [status, setStatus] = useState<PersonStatus>(account.status);
+  const [draft, setDraft] = useState({ text: account.status.text, emoji: account.status.emoji, clears: account.status.expiresAt ? "keep" : "never" });
+  const { busy, run, feedback } = useSaving();
+  const save = (body: object, message: string) => void run(async () => {
+    const result = await request<{ status: PersonStatus }>("/api/me/status", { method: "PUT", body: JSON.stringify(body) });
+    setStatus(result.status); onSaved();
+    return message;
+  });
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const expiresAt = draft.clears === "keep" ? status.expiresAt : clearTime(draft.clears);
+    save({ text: draft.text, emoji: draft.emoji, expiresAt, away: status.away }, draft.text || draft.emoji ? "Your status was set." : "Your status was cleared.");
+  };
+  return <Section title="Status" description="Let teammates know what you're up to. It shows next to your name in chat and in the people directory.">
+    <p className={styles.sessions}>
+      {status.emoji || status.text ? <><span aria-hidden="true">{status.emoji}</span> <strong>{status.text}</strong>{status.expiresAt && <small> · clears {new Date(status.expiresAt).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</small>}</> : "No status set."}
+    </p>
+    <div className={styles.presets} role="group" aria-label="Status presets">
+      {PRESETS.map(preset => <button key={preset.text} type="button" disabled={busy} onClick={() => setDraft({ text: preset.text, emoji: preset.emoji, clears: preset.clears })}>
+        <span aria-hidden="true">{preset.emoji}</span> {preset.text}
+      </button>)}
+    </div>
+    <form className={styles.form} onSubmit={submit}>
+      <div className={styles.row}>
+        <label className={styles.emoji}>Emoji<Input maxLength={16} value={draft.emoji} onChange={event => setDraft({ ...draft, emoji: event.target.value })} placeholder="🙂" /></label>
+        <label>Status<Input maxLength={100} value={draft.text} onChange={event => setDraft({ ...draft, text: event.target.value })} placeholder="What's your status?" /></label>
+      </div>
+      <label>Clear after<select value={draft.clears} onChange={event => setDraft({ ...draft, clears: event.target.value })}>
+        {draft.clears === "keep" && <option value="keep">Keep the current time</option>}
+        {CLEAR_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+      </select></label>
+      <div className={styles.actions}>
+        <Button variant="primary" disabled={busy}>Save status</Button>
+        <Button type="button" variant="quiet" disabled={busy || !(status.text || status.emoji)} onClick={() => { setDraft({ text: "", emoji: "", clears: "never" }); save({ text: "", emoji: "", expiresAt: null }, "Your status was cleared."); }}>Clear status</Button>
+      </div>
+    </form>
+    <ul className={styles.toggles}><li>
+      <label><span><strong>Set yourself as away</strong><small>Teammates see you as away even while Synk is open.</small></span>
+        <input type="checkbox" role="switch" checked={status.away} disabled={busy} onChange={event => save({ text: status.text, emoji: status.emoji, expiresAt: status.expiresAt, away: event.target.checked }, event.target.checked ? "You now show as away." : "You now show as active.")} /></label>
+    </li></ul>
+    {feedback}
+  </Section>;
+}
+
+const PAUSES = [{ minutes: 30, label: "30 minutes" }, { minutes: 60, label: "1 hour" }, { minutes: 120, label: "2 hours" }, { minutes: 0, label: "Until tomorrow 9:00" }];
+const pauseEnd = (minutes: number, now = new Date()) => {
+  if (minutes) return new Date(now.getTime() + minutes * 60_000);
+  const morning = new Date(now); morning.setDate(morning.getDate() + 1); morning.setHours(9, 0, 0, 0);
+  return morning;
+};
