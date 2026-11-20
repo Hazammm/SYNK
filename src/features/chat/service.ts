@@ -97,11 +97,11 @@ function serializeMessage(row: Record): ChatMessage {
 export async function listChannels(userId: string, workspaceId: string): Promise<ChannelSummary[]> {
   const member = await requireWorkspace(userId, workspaceId);
   const channels = await db.channel.findMany({
+    // Archived channels stay listed for their members, read-only, so they can be found and unarchived.
     where: {
       workspaceId,
-      archivedAt: null,
       OR: [
-        { type: "PUBLIC" },
+        { type: "PUBLIC", archivedAt: null },
         { members: { some: { userId } } },
       ],
     },
@@ -110,6 +110,7 @@ export async function listChannels(userId: string, workspaceId: string): Promise
         select: {
           userId: true,
           lastReadAt: true,
+          muted: true,
           role: true,
           user: { select: { id: true, name: true, image: true } },
         },
@@ -172,6 +173,10 @@ export async function listChannels(userId: string, workspaceId: string): Promise
       unreadCount,
       mentionCount,
       otherUser,
+      muted: userMembership?.muted ?? false,
+      archived: channel.archivedAt !== null,
+      postingPolicy: channel.postingPolicy,
+      canPost: !channel.archivedAt && (channel.postingPolicy === "EVERYONE" || channel.createdById === userId || member.role === "ADMIN"),
     };
   }));
 }
@@ -437,6 +442,7 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
         const parent = await tx.message.findFirst({ where: { id: threadRootId, channelId, threadRootId: null } });
         if (!parent) throw new AppError(400, "Reply to a top-level message in this channel.");
       }
+      await assertCanPost(tx, userId, channel, Boolean(threadRootId));
 
       const created = await tx.message.create({
         data: {
@@ -712,6 +718,7 @@ export async function getChannel(userId: string, channelId: string): Promise<Cha
           userId: true,
           lastReadAt: true,
           role: true,
+          muted: true,
           user: { select: { id: true, name: true, image: true } },
         },
       },
@@ -720,7 +727,8 @@ export async function getChannel(userId: string, channelId: string): Promise<Cha
   });
 
   if (!channel) throw new AppError(404, "Channel not found.");
-  await requireWorkspace(userId, channel.workspaceId);
+  const member = await requireWorkspace(userId, channel.workspaceId);
+  const manager = channel.createdById === userId || member.role === "ADMIN";
 
   const userMembership = channel.members.find(m => m.userId === userId);
   const joined = !!userMembership;
@@ -746,7 +754,11 @@ export async function getChannel(userId: string, channelId: string): Promise<Cha
     isPrivate: channel.type !== "PUBLIC",
     joined,
     memberCount: channel._count.members,
-    canManageMembers: channel.createdById === userId,
+    canManageMembers: manager,
     otherUser,
+    muted: userMembership?.muted ?? false,
+    archived: Boolean(channel.archivedAt),
+    postingPolicy: channel.postingPolicy,
+    canPost: !channel.archivedAt && (channel.postingPolicy === "EVERYONE" || manager),
   };
 }
