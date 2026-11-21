@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AtSign, FileText, Hash, LockKeyhole, Search } from "lucide-react";
 import type { ChannelSummary } from "@/lib/chat-types";
 import type { DirectoryPerson } from "@/lib/people-types";
+import Modal from "./Modal";
 import styles from "./Synk.module.css";
 
 type Item = { id: string; label: string; hint: string; href: string; kind: "page" | "channel" | "private" | "person" };
@@ -66,8 +67,8 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
   };
 
   return (
-    <div className={styles.quickBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className={styles.quick} role="dialog" aria-modal="true" aria-label="Jump to">
+    <Modal label="Jump to" className={styles.quickDialog} onClose={onClose}>
+      <div className={styles.quick}>
         <div className={styles.quickSearch}>
           <Search size={16} aria-hidden="true" />
           <input
@@ -81,8 +82,7 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
             value={query}
             onChange={event => { setQuery(event.target.value); setActive(0); }}
             onKeyDown={event => {
-              if (event.key === "Escape") onClose();
-              else if (event.key === "ArrowDown" && total) { event.preventDefault(); setActive(current => (current + 1) % total); }
+              if (event.key === "ArrowDown" && total) { event.preventDefault(); setActive(current => (current + 1) % total); }
               else if (event.key === "ArrowUp" && total) { event.preventDefault(); setActive(current => (current - 1 + total) % total); }
               else if (event.key === "Enter" && total) { event.preventDefault(); choose(Math.min(active, total - 1)); }
             }}
@@ -106,6 +106,6 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
         </ul>
         <p className={styles.quickHint}>↑ ↓ to move · Enter to open · Esc to close</p>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -961,15 +961,18 @@
   cursor: pointer;
 }
 
-.quickBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 12vh 16px 16px;
-  background: rgb(0 0 0 / 0.35);
+.quickDialog {
+  width: min(560px, calc(100% - 32px));
+  max-width: none;
+  margin: 12vh auto auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.quickDialog::backdrop {
+  background: var(--overlay);
 }
 
 .quick {
