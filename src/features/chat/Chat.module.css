@@ -1002,7 +1002,7 @@
 .slackComposerBox {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--field-border);
   border-radius: var(--r-md);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
