@@ -114,7 +114,8 @@
   /* Type */
   --font-ui: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-code: var(--font-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --t-xs: 11px;
+  /* 12px is the smallest readable size; xs and sm are kept as separate names for intent. */
+  --t-xs: 12px;
   --t-sm: 12px;
   --t-base: 13px;
   --t-md: 14px;
