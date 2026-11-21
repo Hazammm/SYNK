@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AtSign, CheckCheck, MessageSquare, MessagesSquare, SmilePlus, UserPlus } from "lucide-react";
-import { Button } from "@/components/Primitives";
+import { Button, SkeletonList } from "@/components/Primitives";
 import type { NotificationItem, NotificationType } from "@/lib/ticket-types";
 import { messageOf, request } from "@/lib/client-http";
 import { NOTIFICATIONS_CHANGED } from "@/lib/events";
@@ -84,7 +84,7 @@ export default function AlertsList() {
         </button>)}
       </div>
       {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Retry</button></p>}
-      {!items && !error && <p role="status" className={styles.loading}>Loading alerts…</p>}
+      {!items && !error && <SkeletonList label="Loading alerts…" height={64} />}
       {items && !shown.length && <div className={styles.empty}><CheckCheck size={32} /><h2>{filter !== "all" && items.length ? "Nothing here" : "No alerts yet"}</h2><p>You will be notified here when someone mentions you, messages you, replies to your thread, reacts to your message, or assigns you a ticket.</p></div>}
       {shown.length > 0 && <ul>{shown.map(item => {
         const { href, text } = describe(item);
