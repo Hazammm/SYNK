@@ -1738,7 +1738,16 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   }
 }
 
-/* Message action note, muted and archived channels, read-only composer */
+/* Message action note, send state, muted and archived channels, read-only composer */
+.sendingNote {
+  color: var(--faint);
+}
+
+.failedNote {
+  color: var(--high);
+  font-weight: 600;
+}
+
 .actionNote {
   margin: 4px 0 0;
   color: var(--muted);

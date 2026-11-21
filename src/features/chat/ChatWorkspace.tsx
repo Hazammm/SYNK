@@ -1799,10 +1799,8 @@ function MessageCard({
         )}
 
         <div className={styles.cardFooter}>
-          {message.status === "sending" && <small style={{ color: "var(--faint)" }}>Sending…</small>}
-          {message.status === "failed" && (
-            <small style={{ color: "var(--high)", fontWeight: 600 }}>Failed to send</small>
-          )}
+          {message.status === "sending" && <small className={styles.sendingNote}>Sending…</small>}
+          {message.status === "failed" && <small className={styles.failedNote}>Failed to send</small>}
 
           {onThread && !isDeleted && message.replyCount > 0 && (
             <button className={styles.replyBtn} onClick={() => onThread(message)}>
