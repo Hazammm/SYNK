@@ -81,7 +81,7 @@ export function ProfileDetails({ account, onSaved }: { account: Account; onSaved
       <label>Time zone<select value={form.timezone} onChange={set("timezone")} aria-describedby="timezone-hint">
         <option value="">Not set</option>{TIME_ZONES.map(zone => <option key={zone} value={zone}>{zone.replace(/_/g, " ")}</option>)}
       </select></label>
-      <p className={styles.hint}>Teammates see your local time next to your name.</p>
+      <p id="timezone-hint" className={styles.hint}>Teammates see your local time next to your name.{!form.timezone && <> <button type="button" className={styles.linkButton} onClick={() => setForm({ ...form, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })}>Use this device&apos;s time zone</button></>}</p>
       <label>Email<Input value={account.email ?? ""} disabled readOnly /></label>
       <div className={styles.actions}><Button variant="primary" disabled={details.busy || !form.name.trim()}>{details.busy ? "Saving…" : "Save profile"}</Button>{details.feedback}</div>
     </form>
