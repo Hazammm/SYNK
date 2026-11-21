@@ -659,7 +659,8 @@
   position: absolute;
   top: -14px;
   right: 14px;
-  display: none;
+  display: flex;
+  visibility: hidden;
   align-items: center;
   gap: 2px;
   padding: 3px 6px;
@@ -670,8 +671,13 @@
   z-index: 10;
 }
 
-.messageCard:hover .actionToolbar {
-  display: flex;
+.messageCard:hover .actionToolbar,
+.messageCard:focus-within .actionToolbar {
+  visibility: visible;
+}
+
+.messageCard:focus-visible {
+  outline-offset: -2px;
 }
 
 .actionBtn {

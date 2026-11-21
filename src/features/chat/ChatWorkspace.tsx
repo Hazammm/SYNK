@@ -1579,6 +1579,7 @@ function MessageCard({
         message.status === "sending" ? styles.sending : message.status === "failed" ? styles.failed : ""
       }`}
       data-message-id={message.id}
+      tabIndex={-1}
     >
       {/* HOVER ACTION TOOLBAR */}
       {!isDeleted && !isEditing && (
