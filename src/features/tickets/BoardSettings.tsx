@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
 import { Button, Input } from "@/components/Primitives";
 import type { BoardSummary, ProjectDetail } from "@/lib/ticket-types";
 import { messageOf, request } from "@/lib/client-http";
-import Modal from "./Modal";
+import Modal from "@/components/Modal";
 import styles from "./Tracker.module.css";
 
 // `rowId` is a stable React key; `id` exists only for columns already saved on the board.

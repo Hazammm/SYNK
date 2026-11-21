@@ -7,7 +7,7 @@ import type { BoardSummary, ProjectDetail, ProjectMember, TicketComment, TicketD
 import { messageOf, request } from "@/lib/client-http";
 import { TIMER_CHANGED, type TimerStart } from "@/lib/time-types";
 import PullRequests from "@/features/integrations/PullRequests";
-import Modal from "./Modal";
+import Modal from "@/components/Modal";
 import { formatDateTime, initials, PRIORITIES } from "./ui";
 import styles from "./Tracker.module.css";
 
