@@ -18,7 +18,7 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [loaded, setLoaded] = useState<Item[]>([]);
+  const [loaded, setLoaded] = useState<Item[] | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const base = `/w/${workspaceId}`;
 
@@ -50,7 +50,7 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
   const items = useMemo(() => {
     const pages = PAGES.map(([label, path]): Item => ({ id: path, label, hint: "Page", href: `${base}/${path}`, kind: "page" }));
     const text = query.trim().toLowerCase().replace(/^[#@]/, "");
-    const all = [...pages, ...loaded];
+    const all = [...pages, ...(loaded ?? [])];
     if (!text) return all.slice(0, 12);
     return all
       .filter(item => item.label.toLowerCase().includes(text))
@@ -102,7 +102,8 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
               <Search size={15} aria-hidden="true" /><span>Search everything for “{query.trim()}”</span><small>Enter</small>
             </li>
           )}
-          {!total && <li className={styles.quickEmpty}>Nothing matches.</li>}
+          {!loaded && <li className={styles.quickEmpty} role="status">Loading channels and people…</li>}
+          {loaded && !total && <li className={styles.quickEmpty}>Nothing matches.</li>}
         </ul>
         <p className={styles.quickHint}>↑ ↓ to move · Enter to open · Esc to close</p>
       </div>
