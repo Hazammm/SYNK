@@ -73,7 +73,7 @@ export function ChannelSettingsModal({ channel, viewerId, onClose, onChanged }: 
         <Button variant="primary" disabled={busy || !name || name === channel.name}>Rename</Button>
       </form>
       <label className={styles.settingsToggle}>
-        <span><Megaphone size={15} aria-hidden="true" /> <strong>Announcement-only</strong><small>Only workspace admins and the channel&apos;s creator can post. Everyone can still reply in threads.</small></span>
+        <span><strong><Megaphone size={15} aria-hidden="true" /> Announcement-only</strong><small>Only workspace admins and the channel&apos;s creator can post. Everyone can still reply in threads.</small></span>
         <input type="checkbox" role="switch" checked={channel.postingPolicy === "ADMINS"} disabled={busy} onChange={event => void save({ postingPolicy: event.target.checked ? "ADMINS" : "EVERYONE" }, event.target.checked ? "Only admins can post now." : "Everyone can post now.")} />
       </label>
       {channel.type === "PUBLIC" && !channel.isDefault && <div className={styles.settingsAction}>
@@ -81,14 +81,14 @@ export function ChannelSettingsModal({ channel, viewerId, onClose, onChanged }: 
         <Button disabled={busy} onClick={() => { if (window.confirm(`Make #${channel.name} private? This can't be undone.`)) void save({ private: true }, "The channel is now private."); }}>Make private</Button>
       </div>}
       {!channel.isDefault && <div className={styles.settingsAction}>
-        <span><Archive size={15} aria-hidden="true" /> <strong>{channel.archived ? "Unarchive" : "Archive"}</strong><small>{channel.archived ? "Reopens the channel for new messages." : "Keeps the history but stops new messages. You can unarchive it later."}</small></span>
+        <span><strong><Archive size={15} aria-hidden="true" /> {channel.archived ? "Unarchive" : "Archive"}</strong><small>{channel.archived ? "Reopens the channel for new messages." : "Keeps the history but stops new messages. You can unarchive it later."}</small></span>
         <Button disabled={busy} onClick={() => void save({ archived: !channel.archived }, channel.archived ? "The channel is open again." : "The channel is archived.")}>{channel.archived ? "Unarchive" : "Archive channel"}</Button>
       </div>}
       <h3 className={styles.settingsHeading}>Members</h3>
       {!members && !error && <SkeletonList label="Loading members…" rows={2} height={36} />}
       <ul className={styles.settingsMembers}>{members?.map(member => <li key={member.user.id}>
         <Avatar small initials={initialsOf(member.user.name ?? "")} />
-        <span><strong>{member.user.name ?? "Member"}</strong><small>{member.user.email}</small></span>
+        <span className={styles.settingsMember}><strong>{member.user.name ?? "Member"}</strong><small>{member.user.email}</small></span>
         {!channel.isDefault && member.user.id !== viewerId && <Button variant="quiet" disabled={busy} onClick={() => void remove(member)}>Remove</Button>}
       </li>)}</ul>
       {error && <p role="alert" className={styles.error}>{error}</p>}

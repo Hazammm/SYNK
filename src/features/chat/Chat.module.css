@@ -1875,6 +1875,13 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   gap: 2px;
 }
 
+.settingsToggle strong,
+.settingsAction strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .settingsToggle small,
 .settingsAction small,
 .settingsMembers small {
@@ -1904,7 +1911,7 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   gap: 8px;
 }
 
-.settingsMembers li > span {
+.settingsMember {
   display: grid;
   flex: 1;
 }
