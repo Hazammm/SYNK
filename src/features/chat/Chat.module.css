@@ -1677,7 +1677,20 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
     min-height: 380px;
   }
   .channelHeader {
+    flex-wrap: wrap;
+    gap: 6px 12px;
     padding: 8px 14px;
+  }
+  .channelHeaderRight {
+    flex: 1 0 100%;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .workspaceName {
+    display: none;
+  }
+  .workspaceName + button {
+    margin-left: auto;
   }
   .composer {
     padding: 0 14px 12px;
