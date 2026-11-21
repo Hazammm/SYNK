@@ -32,6 +32,7 @@ import type { WorkspaceSearchResult } from "@/features/search/service";
 type MessageSearchResult = Extract<WorkspaceSearchResult, { type: "message" }>;
 import { messageOf, request, useMessages } from "./client";
 import { RichComposer } from "./RichComposer";
+import Modal from "@/components/Modal";
 import type { DirectoryPerson } from "@/lib/people-types";
 import { ChannelSettingsModal, MessageExtraActions, SavedList, ThreadsInbox } from "./ChatExtras";
 import { TiptapRenderer } from "./TiptapRenderer";
@@ -138,7 +139,7 @@ export default function ChatWorkspace({
         </Button>
       </div>
       {creating && (
-        <div className={styles.modalBackdrop}>
+        <Modal label={workspaces.length ? "Create a workspace" : "Bring your team together"} className={styles.dialog} onClose={() => { if (workspaces.length) setCreating(false); }}>
           <form onSubmit={create} className={styles.setup}>
             <div className={styles.setupHeader}>
               <h2>{workspaces.length ? "Create a workspace" : "Bring your team together"}</h2>
@@ -170,7 +171,7 @@ export default function ChatWorkspace({
               </p>
             )}
           </form>
-        </div>
+        </Modal>
       )}
       {workspace && (
         <WorkspaceChannels
@@ -469,7 +470,7 @@ function WorkspaceChannels({
 
           {/* CREATE CHANNEL MODAL */}
           {creating && (
-            <div className={styles.modalBackdrop}>
+            <Modal label="Create a channel" className={styles.dialog} onClose={() => setCreating(false)}>
               <form onSubmit={createChannelSubmit} className={styles.setup}>
                 <div className={styles.setupHeader}>
                   <h2>Create a channel</h2>
@@ -504,12 +505,12 @@ function WorkspaceChannels({
                   </Button>
                 </div>
               </form>
-            </div>
+            </Modal>
           )}
 
           {/* BROWSE CHANNELS MODAL */}
           {browsing && (
-            <div className={styles.modalBackdrop}>
+            <Modal label="Browse channels" className={styles.dialog} onClose={() => setBrowsing(false)}>
               <div className={styles.setup}>
                 <div className={styles.setupHeader}>
                   <h2>Browse channels</h2>
@@ -556,7 +557,7 @@ function WorkspaceChannels({
                   ))}
                 </ul>
               </div>
-            </div>
+            </Modal>
           )}
 
           {/* START A DIRECT MESSAGE MODAL */}
@@ -576,14 +577,14 @@ function WorkspaceChannels({
 
           {/* WORKSPACE MEMBERS MODAL */}
           {showMembers && (
-            <div className={styles.modalBackdrop}>
+            <Modal label="Members" className={styles.dialog} onClose={() => setShowMembers(false)}>
               <Members
                 workspace={workspace}
                 channel={channel}
                 onClose={() => setShowMembers(false)}
                 onAdded={() => setRevision(value => value + 1)}
               />
-            </div>
+            </Modal>
           )}
 
           {/* ACTIVE CHANNEL VIEW OR EMPTY/JOIN VIEW */}
@@ -671,7 +672,7 @@ function StartDmModal({
   }
 
   return (
-    <div className={styles.modalBackdrop}>
+    <Modal label="Direct messages" className={styles.dialog} onClose={onClose}>
       <div className={styles.setup}>
         <div className={styles.setupHeader}>
           <h2>Direct Messages</h2>
@@ -706,7 +707,7 @@ function StartDmModal({
           )}
         </ul>
       </div>
-    </div>
+    </Modal>
   );
 }
 

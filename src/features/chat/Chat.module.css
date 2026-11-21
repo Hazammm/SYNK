@@ -1511,14 +1511,24 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
 }
 
 /* Modal / Setup dialogs */
-.modalBackdrop {
-  position: fixed;
-  inset: 0;
+.dialog {
+  width: min(540px, calc(100% - 28px));
+  max-width: none;
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.dialog::backdrop {
   background: var(--overlay);
-  display: grid;
-  place-items: center;
-  z-index: 100;
-  padding: 20px;
+}
+
+.dialog .setup {
+  max-width: none;
 }
 
 .setup {
@@ -1781,7 +1791,6 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
     padding: 0 14px 12px;
   }
   .setup {
-    margin: 14px;
     padding: 16px;
   }
 }
