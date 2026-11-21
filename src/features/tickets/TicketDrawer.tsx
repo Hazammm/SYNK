@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Send, Timer, Trash2, X } from "lucide-react";
-import { Avatar, Button, Input } from "@/components/Primitives";
+import { Avatar, Button, Input, SkeletonList } from "@/components/Primitives";
 import type { BoardSummary, ProjectDetail, ProjectMember, TicketComment, TicketDetail } from "@/lib/ticket-types";
 import { messageOf, request } from "@/lib/client-http";
 import { TIMER_CHANGED, type TimerStart } from "@/lib/time-types";
 import PullRequests from "@/features/integrations/PullRequests";
-import Modal from "./Modal";
+import Modal from "@/components/Modal";
 import { formatDateTime, initials, PRIORITIES } from "./ui";
 import styles from "./Tracker.module.css";
 
@@ -51,7 +51,7 @@ export default function TicketDrawer({ target, project, board, userId, canWrite,
       <button type="button" className={styles.iconButton} aria-label="Close ticket" onClick={() => { if (mayClose()) onClose(); }}><X size={18} /></button>
     </header>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {ticketId && !ticket && !error && <p role="status" className={styles.loading}>Loading ticket…</p>}
+    {ticketId && !ticket && !error && <SkeletonList label="Loading ticket…" />}
     {ticketBoard && (ticket || !ticketId) && <Editor key={ticket ? `${ticket.id}:${formVersion}` : "new"} ticket={ticket} project={project} board={ticketBoard} canWrite={canWrite}
       startColumnId={"columnId" in target ? target.columnId : undefined} onDirty={value => { dirty.current = value; }}
       onSaved={update} onCreated={created => onCreated?.(created)} onDeleted={onDeleted} />}

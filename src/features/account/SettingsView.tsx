@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { BarChart3, Bell, Bot, Building2, Palette, Shield, Smile, UserRound, Users } from "lucide-react";
-import { Button, Input } from "@/components/Primitives";
+import { Button, Input, SkeletonList } from "@/components/Primitives";
 import { applyTheme, THEMES, useTheme } from "@/lib/theme";
 import { messageOf, request } from "@/lib/client-http";
 import WorkspaceMembers from "@/features/workspaces/WorkspaceMembers";
@@ -69,7 +69,7 @@ export default function SettingsView({ initialSection, workspace, inviteDelivery
       <div className={styles.body}>
         {welcomeEmailFailed && <p role="alert" className={styles.error}>Your account is ready, but the welcome email could not be sent.</p>}
         {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={reload}>Retry</button></p>}
-        {!account && !error && <p role="status" className={styles.muted}>Loading your settings…</p>}
+        {!account && !error && <SkeletonList label="Loading your settings…" rows={2} height={160} />}
         {account && <>
           {section === "profile" && <ProfileDetails account={account} onSaved={reload} />}
           {section === "status" && <StatusSettings account={account} onSaved={reload} />}

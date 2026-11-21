@@ -32,6 +32,7 @@ import type { WorkspaceSearchResult } from "@/features/search/service";
 type MessageSearchResult = Extract<WorkspaceSearchResult, { type: "message" }>;
 import { messageOf, request, useMessages } from "./client";
 import { RichComposer } from "./RichComposer";
+import Modal from "@/components/Modal";
 import type { DirectoryPerson } from "@/lib/people-types";
 import { ChannelSettingsModal, MessageExtraActions, SavedList, ThreadsInbox } from "./ChatExtras";
 import { TiptapRenderer } from "./TiptapRenderer";
@@ -138,7 +139,7 @@ export default function ChatWorkspace({
         </Button>
       </div>
       {creating && (
-        <div className={styles.modalBackdrop}>
+        <Modal label={workspaces.length ? "Create a workspace" : "Bring your team together"} className={styles.dialog} onClose={() => { if (workspaces.length) setCreating(false); }}>
           <form onSubmit={create} className={styles.setup}>
             <div className={styles.setupHeader}>
               <h2>{workspaces.length ? "Create a workspace" : "Bring your team together"}</h2>
@@ -170,7 +171,7 @@ export default function ChatWorkspace({
               </p>
             )}
           </form>
-        </div>
+        </Modal>
       )}
       {workspace && (
         <WorkspaceChannels
@@ -437,6 +438,7 @@ function WorkspaceChannels({
                   <div className={styles.dmAvatarWrapper}>
                     <Avatar small initials={initials(displayName)} src={item.otherUser?.image} />
                     <span className={styles.presenceDot} data-online={isOnline} />
+                    <span className="sr-only">{isOnline ? "online" : "offline"}</span>
                   </div>
                   <span className={styles.channelName}>{displayName}</span>
                   <div className={styles.channelBadges}>
@@ -455,15 +457,6 @@ function WorkspaceChannels({
             )}
           </div>
 
-          {/* SIDEBAR FOOTER */}
-          <div className={styles.sidebarFooter}>
-            <Button aria-expanded={showMembers} onClick={() => setShowMembers(!showMembers)}>
-              <Users size={15} /> Workspace members
-            </Button>
-            <small className={styles.role}>
-              {workspace.role === "ADMIN" ? "Workspace admin" : "Workspace member"}
-            </small>
-          </div>
         </aside>
 
         {/* MAIN CHAT CONTENT */}
@@ -477,7 +470,7 @@ function WorkspaceChannels({
 
           {/* CREATE CHANNEL MODAL */}
           {creating && (
-            <div className={styles.modalBackdrop}>
+            <Modal label="Create a channel" className={styles.dialog} onClose={() => setCreating(false)}>
               <form onSubmit={createChannelSubmit} className={styles.setup}>
                 <div className={styles.setupHeader}>
                   <h2>Create a channel</h2>
@@ -512,12 +505,12 @@ function WorkspaceChannels({
                   </Button>
                 </div>
               </form>
-            </div>
+            </Modal>
           )}
 
           {/* BROWSE CHANNELS MODAL */}
           {browsing && (
-            <div className={styles.modalBackdrop}>
+            <Modal label="Browse channels" className={styles.dialog} onClose={() => setBrowsing(false)}>
               <div className={styles.setup}>
                 <div className={styles.setupHeader}>
                   <h2>Browse channels</h2>
@@ -564,7 +557,7 @@ function WorkspaceChannels({
                   ))}
                 </ul>
               </div>
-            </div>
+            </Modal>
           )}
 
           {/* START A DIRECT MESSAGE MODAL */}
@@ -584,14 +577,14 @@ function WorkspaceChannels({
 
           {/* WORKSPACE MEMBERS MODAL */}
           {showMembers && (
-            <div className={styles.modalBackdrop}>
+            <Modal label="Members" className={styles.dialog} onClose={() => setShowMembers(false)}>
               <Members
                 workspace={workspace}
                 channel={channel}
                 onClose={() => setShowMembers(false)}
                 onAdded={() => setRevision(value => value + 1)}
               />
-            </div>
+            </Modal>
           )}
 
           {/* ACTIVE CHANNEL VIEW OR EMPTY/JOIN VIEW */}
@@ -679,7 +672,7 @@ function StartDmModal({
   }
 
   return (
-    <div className={styles.modalBackdrop}>
+    <Modal label="Direct messages" className={styles.dialog} onClose={onClose}>
       <div className={styles.setup}>
         <div className={styles.setupHeader}>
           <h2>Direct Messages</h2>
@@ -714,7 +707,7 @@ function StartDmModal({
           )}
         </ul>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1142,8 +1135,8 @@ function PinnedMessagesList({ channelId }: { channelId: string }) {
       {pins.map(pin => (
         <div key={pin.id} className={styles.pinCard}>
           <strong>{pin.sender?.name ?? "Member"}</strong>
-          <p style={{ margin: "4px 0", color: "var(--text)" }}>{pin.body}</p>
-          <small style={{ color: "var(--faint)" }}>{formatClockTime(pin.createdAt)}</small>
+          <p>{pin.body}</p>
+          <small>{formatClockTime(pin.createdAt)}</small>
         </div>
       ))}
     </>
@@ -1179,7 +1172,7 @@ function ChannelFilesList({ channelId }: { channelId: string }) {
             <span className={styles.fileName}>{file.fileName}</span>
             <span className={styles.fileSize}>{formatFileSize(file.size)}</span>
           </div>
-          <Download size={15} style={{ marginLeft: "auto" }} />
+          <Download size={15} className={styles.fileDownload} aria-hidden="true" />
         </a>
       ))}
     </>
@@ -1218,7 +1211,7 @@ function SearchDrawer({
 
   return (
     <div>
-      <form onSubmit={handleSearch} style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
+      <form onSubmit={handleSearch} className={styles.drawerSearch}>
         <Input
           placeholder="Search messages, e.g. from:@sam has:link"
           aria-describedby="search-modifiers"
@@ -1244,8 +1237,8 @@ function SearchDrawer({
           }}
         >
           <strong>{item.title}</strong>
-          <span style={{ display: "block", margin: "4px 0", color: "var(--text)" }}>{item.snippet}</span>
-          <small style={{ color: "var(--faint)" }}>{formatClockTime(item.createdAt)}</small>
+          <span>{item.snippet}</span>
+          <small>{formatClockTime(item.createdAt)}</small>
         </button>
       ))}
       {!loading && !error && !results.length && query && (
@@ -1343,6 +1336,16 @@ function Feed({
       void feed.loadOlder();
     }
   }, [focusMessageId, feed]);
+
+  // Up and down arrows move between messages; Tab from a message reaches its actions.
+  function moveBetweenMessages(event: React.KeyboardEvent<HTMLDivElement>) {
+    const from = event.target as HTMLElement;
+    if ((event.key !== "ArrowUp" && event.key !== "ArrowDown") || (from !== event.currentTarget && from.tagName !== "ARTICLE")) return;
+    const cards = [...event.currentTarget.querySelectorAll<HTMLElement>("article[data-message-id]")];
+    const current = cards.indexOf(from);
+    const next = cards[current < 0 ? cards.length - 1 : current + (event.key === "ArrowDown" ? 1 : -1)];
+    if (next) { event.preventDefault(); next.focus(); }
+  }
 
   function scrollToBottom() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1442,8 +1445,8 @@ function Feed({
       )}
 
       {linkedTickets.length > 0 && (
-        <div style={{ display: "flex", gap: "6px", padding: "6px 20px", background: "var(--sunken)", borderBottom: "1px solid var(--border)" }}>
-          <span style={{ fontSize: "var(--t-xs)", color: "var(--faint)", alignSelf: "center", fontWeight: 600 }}>TICKETS:</span>
+        <div className={styles.ticketBar}>
+          <span>Tickets</span>
           {linkedTickets.map(key => (
             <Link
               key={key}
@@ -1456,6 +1459,7 @@ function Feed({
         </div>
       )}
 
+      <p id={`${channel.id}-${parentId ?? "main"}-keys`} className="sr-only">Use the up and down arrow keys to move between messages, then Tab to reach a message&apos;s actions.</p>
       <div className={styles.messagesScrollWrapper}>
         <div
           ref={scrollContainerRef}
@@ -1464,6 +1468,9 @@ function Feed({
           aria-label={parentId ? "Thread replies" : "Channel messages"}
           aria-live="polite"
           aria-busy={feed.loading}
+          aria-describedby={`${channel.id}-${parentId ?? "main"}-keys`}
+          tabIndex={0}
+          onKeyDown={moveBetweenMessages}
           onScroll={handleScroll}
         >
           {feed.loading && <p className={styles.role}>Loading messages…</p>}
@@ -1579,6 +1586,7 @@ function MessageCard({
         message.status === "sending" ? styles.sending : message.status === "failed" ? styles.failed : ""
       }`}
       data-message-id={message.id}
+      tabIndex={-1}
     >
       {/* HOVER ACTION TOOLBAR */}
       {!isDeleted && !isEditing && (
@@ -1658,7 +1666,7 @@ function MessageCard({
           <button
             className={styles.iconBtn}
             onClick={() => setShowEmojiPicker(false)}
-            style={{ width: "20px", height: "20px" }}
+            aria-label="Close emoji picker"
           >
             <X size={12} />
           </button>
@@ -1694,6 +1702,7 @@ function MessageCard({
             {message.alsoInChannel && message.threadRootId && <span className={styles.editedBadge}>replied to a thread</span>}
           </div>
         )}
+        {isGrouped && message.alsoInChannel && message.threadRootId && <span className={styles.editedBadge}>replied to a thread</span>}
         {note && <p role="status" className={styles.actionNote}>{note}</p>}
 
         {isEditing ? (
@@ -1726,7 +1735,7 @@ function MessageCard({
 
         {/* Embedded Ticket Cards */}
         {!isDeleted && !isEditing && ticketKeys.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          <div className={styles.ticketCards}>
             {ticketKeys.map(key => (
               <Link
                 key={key}
@@ -1765,7 +1774,7 @@ function MessageCard({
                     <span className={styles.fileName}>{att.fileName}</span>
                     <span className={styles.fileSize}>{formatFileSize(att.size)}</span>
                   </div>
-                  <Download size={14} style={{ marginLeft: "auto" }} />
+                  <Download size={14} className={styles.fileDownload} aria-hidden="true" />
                 </a>
               );
             })}
@@ -1792,17 +1801,13 @@ function MessageCard({
         )}
 
         <div className={styles.cardFooter}>
-          {message.status === "sending" && <small style={{ color: "var(--faint)" }}>Sending…</small>}
-          {message.status === "failed" && (
-            <small style={{ color: "var(--high)", fontWeight: 600 }}>Failed to send</small>
-          )}
+          {message.status === "sending" && <small className={styles.sendingNote}>Sending…</small>}
+          {message.status === "failed" && <small className={styles.failedNote}>Failed to send</small>}
 
-          {onThread && !isDeleted && (
+          {onThread && !isDeleted && message.replyCount > 0 && (
             <button className={styles.replyBtn} onClick={() => onThread(message)}>
-              <MessageCircle size={13} />
-              <span>
-                {message.replyCount} {message.replyCount === 1 ? "reply" : "replies"} · Reply
-              </span>
+              <MessageCircle size={13} aria-hidden="true" />
+              <span>{message.replyCount} {message.replyCount === 1 ? "reply" : "replies"}</span>
             </button>
           )}
         </div>

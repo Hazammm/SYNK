@@ -76,12 +76,12 @@ export function ProfileDetails({ account, onSaved }: { account: Account; onSaved
       <label>Display name<Input required maxLength={80} value={form.name} onChange={set("name")} autoComplete="name" /></label>
       <label>Title or role<Input maxLength={80} value={form.title} onChange={set("title")} placeholder="e.g. Frontend developer" autoComplete="organization-title" /></label>
       <label>Pronouns<Input maxLength={30} value={form.pronouns} onChange={set("pronouns")} placeholder="e.g. she/her" /></label>
-      <label>Phone<Input type="tel" maxLength={30} value={form.phone} onChange={set("phone")} placeholder="+92 300 1234567" autoComplete="tel" /></label>
-      <label>Location<Input maxLength={80} value={form.location} onChange={set("location")} placeholder="e.g. Lahore, Pakistan" /></label>
-      <label>Time zone<select value={form.timezone} onChange={set("timezone")}>
+      <label>Phone<Input type="tel" maxLength={30} value={form.phone} onChange={set("phone")} placeholder="+92 300 1234567" autoComplete="tel" pattern="[+0-9 \(\)\-]*" title="Digits, spaces, +, - and brackets only" /></label>
+      <label>Location<Input maxLength={80} value={form.location} onChange={set("location")} placeholder="e.g. Lahore, Pakistan" autoComplete="address-level2" /></label>
+      <label>Time zone<select value={form.timezone} onChange={set("timezone")} aria-describedby="timezone-hint">
         <option value="">Not set</option>{TIME_ZONES.map(zone => <option key={zone} value={zone}>{zone.replace(/_/g, " ")}</option>)}
       </select></label>
-      <p className={styles.hint}>Teammates see your local time next to your name.</p>
+      <p id="timezone-hint" className={styles.hint}>Teammates see your local time next to your name.{!form.timezone && <> <button type="button" className={styles.linkButton} onClick={() => setForm({ ...form, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })}>Use this device&apos;s time zone</button></>}</p>
       <label>Email<Input value={account.email ?? ""} disabled readOnly /></label>
       <div className={styles.actions}><Button variant="primary" disabled={details.busy || !form.name.trim()}>{details.busy ? "Saving…" : "Save profile"}</Button>{details.feedback}</div>
     </form>
@@ -141,7 +141,7 @@ export function StatusSettings({ account, onSaved }: { account: Account; onSaved
         {CLEAR_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
       </select></label>
       <div className={styles.actions}>
-        <Button variant="primary" disabled={busy}>Save status</Button>
+        <Button variant="primary" disabled={busy}>{busy ? "Saving…" : "Save status"}</Button>
         <Button type="button" variant="quiet" disabled={busy || !(status.text || status.emoji)} onClick={() => { setDraft({ text: "", emoji: "", clears: "never" }); save({ text: "", emoji: "", expiresAt: null }, "Your status was cleared."); }}>Clear status</Button>
       </div>
     </form>
@@ -255,14 +255,14 @@ export function TwoFactor({ account, onChanged }: { account: Account; onChanged:
       <p className={styles.notice}>On. You&apos;ll be asked for a code each time you sign in with your password.</p>
       <label>Password<Input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
       <label>Code from your app, or a recovery code<Input required inputMode="numeric" autoComplete="one-time-code" maxLength={20} value={code} onChange={event => setCode(event.target.value)} /></label>
-      <div className={styles.actions}><Button disabled={busy}>Turn off two-factor sign-in</Button>{feedback}</div>
+      <div className={styles.actions}><Button disabled={busy}>{busy ? "Turning off…" : "Turn off two-factor sign-in"}</Button>{feedback}</div>
     </form> : setup ? <form className={styles.form} onSubmit={confirm}>
       <ol className={styles.steps}>
         <li>In your authenticator app, add an account and enter this key: <code className={styles.secret}>{setup.secret.match(/.{1,4}/g)?.join(" ")}</code> On this phone? <a href={setup.otpauthUrl}>Open it in your app</a>.</li>
         <li>Type the 6-digit code the app shows.</li>
       </ol>
       <label>Code<Input required inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value)} /></label>
-      <div className={styles.actions}><Button variant="primary" disabled={busy}>Turn on</Button><Button type="button" variant="quiet" onClick={() => setSetup(null)}>Cancel</Button>{feedback}</div>
+      <div className={styles.actions}><Button variant="primary" disabled={busy}>{busy ? "Checking…" : "Turn on"}</Button><Button type="button" variant="quiet" onClick={() => setSetup(null)}>Cancel</Button>{feedback}</div>
     </form> : <div className={styles.actions}><Button variant="primary" disabled={busy} onClick={start}>Set up two-factor sign-in</Button>{feedback}</div>}
   </Section>;
 }

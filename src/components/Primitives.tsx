@@ -50,3 +50,8 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
 export function Skeleton({ width = "100%", height = 12 }: { width?: number | string; height?: number }) {
   return <span className={styles.skeleton} style={{ width, height }} aria-hidden="true" />;
 }
+
+// Placeholder rows shaped like the list that is loading; screen readers hear the label instead.
+export function SkeletonList({ label, rows = 3, height = 56 }: { label: string; rows?: number; height?: number }) {
+  return <div role="status" className={styles.skeletonList}><span className="sr-only">{label}</span>{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
+}

@@ -2,8 +2,10 @@
 .head h1 { margin: 0; font-size: var(--t-2xl); letter-spacing: -.025em; }
 .head p, .muted { margin: 4px 0 0; color: var(--muted); font-size: var(--t-sm); }
 .error { color: var(--high); font-size: var(--t-sm); }
+.none { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; padding: 20px; border: 1px dashed var(--border-strong); border-radius: var(--r-md); color: var(--muted); }
+.none p { margin: 0; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 20px 0 8px; }
-.filters select { min-height: 38px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-sm); }
+.filters select { min-height: 38px; padding: 6px 10px; border: 1px solid var(--field-border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-sm); }
 .search { position: relative; flex: 1 1 260px; display: flex; align-items: center; }
 .search svg { position: absolute; left: 10px; color: var(--muted); }
 .search input { width: 100%; padding-left: 32px; }

@@ -262,20 +262,13 @@
   height: 8px;
   border: 2px solid var(--surface);
   border-radius: 50%;
-  background: var(--faint);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--faint);
 }
 
 .presenceDot[data-online="true"] {
   background: var(--done);
-}
-
-.sidebarFooter {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .role {
@@ -381,7 +374,9 @@
   font-size: var(--t-md);
   font-weight: 600;
   color: var(--text);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Editable topic */
@@ -657,7 +652,8 @@
   position: absolute;
   top: -14px;
   right: 14px;
-  display: none;
+  display: flex;
+  visibility: hidden;
   align-items: center;
   gap: 2px;
   padding: 3px 6px;
@@ -668,8 +664,13 @@
   z-index: 10;
 }
 
-.messageCard:hover .actionToolbar {
-  display: flex;
+.messageCard:hover .actionToolbar,
+.messageCard:focus-within .actionToolbar {
+  visibility: visible;
+}
+
+.messageCard:focus-visible {
+  outline-offset: -2px;
 }
 
 .actionBtn {
@@ -1002,7 +1003,7 @@
 .slackComposerBox {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--field-border);
   border-radius: var(--r-md);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
@@ -1437,6 +1438,61 @@
   gap: 8px;
 }
 
+.pinCard p,
+.pinCard > span {
+  display: block;
+  margin: 4px 0;
+  color: var(--text);
+}
+
+.pinCard small,
+.mentionKind {
+  color: var(--faint);
+}
+
+.mentionKind,
+.fileDownload {
+  margin-left: auto;
+}
+
+.drawerSearch {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ticketBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--sunken);
+}
+
+.ticketBar > span {
+  color: var(--faint);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ticketCards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stagedRemove {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
 .pinCard {
   padding: 10px;
   border: 1px solid var(--border);
@@ -1455,14 +1511,24 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
 }
 
 /* Modal / Setup dialogs */
-.modalBackdrop {
-  position: fixed;
-  inset: 0;
+.dialog {
+  width: min(540px, calc(100% - 28px));
+  max-width: none;
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.dialog::backdrop {
   background: var(--overlay);
-  display: grid;
-  place-items: center;
-  z-index: 100;
-  padding: 20px;
+}
+
+.dialog .setup {
+  max-width: none;
 }
 
 .setup {
@@ -1622,6 +1688,26 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   white-space: nowrap;
 }
 
+/* Touch screens: icon buttons get a 44px tap area. */
+@media (pointer: coarse) {
+  .iconBtn {
+    width: 44px;
+    height: 44px;
+  }
+  /* Eight actions fit across a phone-width message when the bar spans the card. */
+  .actionBtn {
+    width: 40px;
+    height: 40px;
+  }
+  .actionToolbar {
+    top: -24px;
+    left: 8px;
+    right: 8px;
+    justify-content: space-between;
+    overflow-x: auto;
+  }
+}
+
 /* Media queries */
 @media (max-width: 1100px) {
   .withThread, .withRightPanel {
@@ -1660,6 +1746,20 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   .sideHeading {
     display: none;
   }
+  /* One scrolling row of chips: Threads, Saved, channels, then direct messages. */
+  .section {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+  }
+  .channel,
+  .dmItem {
+    white-space: nowrap;
+  }
   .channel {
     flex: 0 0 auto;
     width: auto;
@@ -1667,26 +1767,44 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
     border: 1px solid var(--border);
     border-radius: var(--r-pill);
   }
-  .sidebarFooter {
-    display: none;
-  }
   .mainFeed, .thread, .rightDrawer {
     height: calc(100dvh - var(--topbar-h) - 108px);
     min-height: 380px;
   }
   .channelHeader {
+    flex-wrap: wrap;
+    gap: 6px 12px;
     padding: 8px 14px;
+  }
+  .channelHeaderRight {
+    flex: 1 0 100%;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .workspaceName {
+    display: none;
+  }
+  .workspaceName + button {
+    margin-left: auto;
   }
   .composer {
     padding: 0 14px 12px;
   }
   .setup {
-    margin: 14px;
     padding: 16px;
   }
 }
 
-/* Message action note, muted and archived channels, read-only composer */
+/* Message action note, send state, muted and archived channels, read-only composer */
+.sendingNote {
+  color: var(--faint);
+}
+
+.failedNote {
+  color: var(--high);
+  font-weight: 600;
+}
+
 .actionNote {
   margin: 4px 0 0;
   color: var(--muted);
@@ -1757,6 +1875,13 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   gap: 2px;
 }
 
+.settingsToggle strong,
+.settingsAction strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .settingsToggle small,
 .settingsAction small,
 .settingsMembers small {
@@ -1786,7 +1911,7 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   gap: 8px;
 }
 
-.settingsMembers li > span {
+.settingsMember {
   display: grid;
   flex: 1;
 }

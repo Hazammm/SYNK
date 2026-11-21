@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Clock3, Mail, MapPin, MessageCircle, Phone, Search } from "lucide-react";
-import { Avatar, Input } from "@/components/Primitives";
+import { Avatar, Button, Input, SkeletonList } from "@/components/Primitives";
 import { initialsOf } from "@/components/ProfileMenu";
 import { messageOf, request } from "@/lib/client-http";
 import type { DirectoryPerson } from "@/lib/people-types";
@@ -39,6 +39,8 @@ export default function PeopleDirectory({ workspaceId, viewerId }: { workspaceId
     (!needle || [person.name, person.email, person.title, person.location, person.status.text].some(value => value?.toLowerCase().includes(needle)))
     && (!title || person.title === title) && (!location || person.location === location) && (!onlineOnly || person.online));
 
+  const clearFilters = () => { setQuery(""); setTitle(""); setLocation(""); setOnlineOnly(false); };
+
   return <div className={styles.page}>
     <header className={styles.head}>
       <div><h1>People</h1><p>Everyone in this workspace, with their role, location, local time and status.</p></div>
@@ -50,8 +52,9 @@ export default function PeopleDirectory({ workspaceId, viewerId }: { workspaceId
       <label className={styles.check}><input type="checkbox" checked={onlineOnly} onChange={event => setOnlineOnly(event.target.checked)} /> Online now</label>
     </div>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {!people && !error && <p role="status" className={styles.muted}>Loading people…</p>}
+    {!people && !error && <SkeletonList label="Loading people…" rows={3} height={150} />}
     {people && <p role="status" className={styles.muted}>{shown.length} of {people.length} {people.length === 1 ? "person" : "people"}</p>}
+    {people && people.length > 0 && !shown.length && <div className={styles.none}><p>No one matches these filters.</p><Button variant="quiet" onClick={clearFilters}>Clear filters</Button></div>}
     <ul className={styles.grid}>{shown.map(person => {
       const time = localTime(person.timezone, now);
       return <li key={person.id} className={styles.card} aria-label={person.name ?? person.email ?? "Member"}>

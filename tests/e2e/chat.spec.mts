@@ -107,11 +107,12 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await expect(member.getByRole("button", { name: /#general/ }).filter({ hasText: nonce })).toBeVisible();
     await member.getByRole("button", { name: "Search messages" }).click();
     await expect(admin.getByRole("log", { name: "Channel messages" }).locator("article")).toHaveCount(1);
-    await member.getByRole("button", { name: "0 replies · Reply" }).click();
+    await member.getByRole("log", { name: "Channel messages" }).locator("article").first().hover();
+    await member.getByRole("button", { name: "Reply in thread" }).click();
     await member.getByLabel("Reply to thread").fill("Thread reply persisted");
     await member.getByRole("button", { name: "Send reply", exact: true }).click();
-    await expect(admin.getByRole("button", { name: "1 reply · Reply" })).toBeVisible();
-    await admin.getByRole("button", { name: "1 reply · Reply" }).click();
+    await expect(admin.getByRole("button", { name: "1 reply" })).toBeVisible();
+    await admin.getByRole("button", { name: "1 reply" }).click();
     await expect(admin.getByRole("log", { name: "Thread replies" }).getByText("Thread reply persisted")).toBeVisible();
     await admin.getByRole("button", { name: "Close thread" }).click();
     await member.reload();

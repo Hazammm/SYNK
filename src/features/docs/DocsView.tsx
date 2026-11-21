@@ -10,6 +10,7 @@ import { syncUrl } from "../tickets/ui";
 import ProjectDocs, { OPEN_DOC } from "./ProjectDocs";
 import SearchBox from "./SearchBox";
 import styles from "./Docs.module.css";
+import { SkeletonList } from "@/components/Primitives";
 
 type Selection = { workspaceId?: string; projectId?: string; doc?: string };
 type Props = { initialWorkspaces: WorkspaceSummary[]; initial: Selection };
@@ -46,7 +47,7 @@ function Workspace({ workspaceId, initial }: { workspaceId: string; initial: Sel
   const project = projects?.find(item => item.id === projectId);
 
   if (error) return <p role="alert" className={styles.error}>{error}</p>;
-  if (!projects) return <p role="status" className={styles.loading}>Loading projects…</p>;
+  if (!projects) return <SkeletonList label="Loading projects…" />;
   if (!project) return <div className={styles.empty}><FileText size={32} /><h2>No projects to write in yet</h2><p>Pages belong to a project. Create a project on the board, or ask a workspace admin for access to one.</p><Link href={`/board?workspaceId=${workspaceId}`}>Go to the board</Link></div>;
   return <>
     <div className={styles.subnav}>

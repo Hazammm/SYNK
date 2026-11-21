@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Archive, Bookmark, BookmarkCheck, Link2, MailOpen, Megaphone, MessagesSquare, X } from "lucide-react";
-import { Avatar, Button, Input } from "@/components/Primitives";
+import { Avatar, Button, Input, SkeletonList } from "@/components/Primitives";
+import Modal from "@/components/Modal";
 import { initialsOf } from "@/components/ProfileMenu";
 import type { ChannelSummary, ChatMessage, SavedItem, ThreadSummary } from "@/lib/chat-types";
 import { messageOf, request } from "./client";
@@ -64,15 +65,15 @@ export function ChannelSettingsModal({ channel, viewerId, onClose, onChanged }: 
     } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
   };
 
-  return <div className={styles.modalBackdrop} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className={styles.setup} role="dialog" aria-modal="true" aria-label={`Settings for #${channel.name}`}>
+  return <Modal label={`Settings for #${channel.name}`} className={styles.dialog} onClose={onClose}>
+    <section className={styles.setup}>
       <div className={styles.setupHeader}><h2>#{channel.name} settings</h2><button type="button" className={styles.iconBtn} aria-label="Close settings" onClick={onClose}><X size={18} /></button></div>
       <form className={styles.settingsRow} onSubmit={event => { event.preventDefault(); void save({ name }, "Channel renamed."); }}>
         <label>Channel name<Input value={name} maxLength={60} pattern="[a-z0-9]+(-[a-z0-9]+)*" title="Lowercase letters, numbers and hyphens" onChange={event => setName(event.target.value.toLowerCase().replace(/\s+/g, "-"))} /></label>
         <Button variant="primary" disabled={busy || !name || name === channel.name}>Rename</Button>
       </form>
       <label className={styles.settingsToggle}>
-        <span><Megaphone size={15} aria-hidden="true" /> <strong>Announcement-only</strong><small>Only workspace admins and the channel&apos;s creator can post. Everyone can still reply in threads.</small></span>
+        <span><strong><Megaphone size={15} aria-hidden="true" /> Announcement-only</strong><small>Only workspace admins and the channel&apos;s creator can post. Everyone can still reply in threads.</small></span>
         <input type="checkbox" role="switch" checked={channel.postingPolicy === "ADMINS"} disabled={busy} onChange={event => void save({ postingPolicy: event.target.checked ? "ADMINS" : "EVERYONE" }, event.target.checked ? "Only admins can post now." : "Everyone can post now.")} />
       </label>
       {channel.type === "PUBLIC" && !channel.isDefault && <div className={styles.settingsAction}>
@@ -80,20 +81,20 @@ export function ChannelSettingsModal({ channel, viewerId, onClose, onChanged }: 
         <Button disabled={busy} onClick={() => { if (window.confirm(`Make #${channel.name} private? This can't be undone.`)) void save({ private: true }, "The channel is now private."); }}>Make private</Button>
       </div>}
       {!channel.isDefault && <div className={styles.settingsAction}>
-        <span><Archive size={15} aria-hidden="true" /> <strong>{channel.archived ? "Unarchive" : "Archive"}</strong><small>{channel.archived ? "Reopens the channel for new messages." : "Keeps the history but stops new messages. You can unarchive it later."}</small></span>
+        <span><strong><Archive size={15} aria-hidden="true" /> {channel.archived ? "Unarchive" : "Archive"}</strong><small>{channel.archived ? "Reopens the channel for new messages." : "Keeps the history but stops new messages. You can unarchive it later."}</small></span>
         <Button disabled={busy} onClick={() => void save({ archived: !channel.archived }, channel.archived ? "The channel is open again." : "The channel is archived.")}>{channel.archived ? "Unarchive" : "Archive channel"}</Button>
       </div>}
       <h3 className={styles.settingsHeading}>Members</h3>
-      {!members && !error && <p role="status">Loading members…</p>}
+      {!members && !error && <SkeletonList label="Loading members…" rows={2} height={36} />}
       <ul className={styles.settingsMembers}>{members?.map(member => <li key={member.user.id}>
         <Avatar small initials={initialsOf(member.user.name ?? "")} />
-        <span><strong>{member.user.name ?? "Member"}</strong><small>{member.user.email}</small></span>
+        <span className={styles.settingsMember}><strong>{member.user.name ?? "Member"}</strong><small>{member.user.email}</small></span>
         {!channel.isDefault && member.user.id !== viewerId && <Button variant="quiet" disabled={busy} onClick={() => void remove(member)}>Remove</Button>}
       </li>)}</ul>
       {error && <p role="alert" className={styles.error}>{error}</p>}
       <p role="status" className={styles.settingsNotice}>{notice}</p>
     </section>
-  </div>;
+  </Modal>;
 }
 
 type Pick = (channelId: string, messageId: string) => void;
@@ -108,8 +109,8 @@ export function ThreadsInbox({ workspaceId, onOpen }: { workspaceId: string; onO
   return <section className={styles.listView} aria-label="Threads">
     <header><MessagesSquare size={18} aria-hidden="true" /><h2>Threads</h2><p>Conversations you started or replied to.</p></header>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {!threads && !error && <p role="status" className={styles.role}>Loading threads…</p>}
-    {threads && !threads.length && <p className={styles.role}>No threads yet. Reply to a message to start one.</p>}
+    {!threads && !error && <SkeletonList label="Loading threads…" height={84} />}
+    {threads && !threads.length && <div className={styles.empty}><MessagesSquare aria-hidden="true" /><h3>No threads yet</h3><p>Reply to a message in any channel and the conversation shows up here.</p></div>}
     <ul>{threads?.map(thread => <li key={thread.rootId}>
       <button type="button" onClick={() => onOpen(thread.channelId, thread.rootId)}>
         <span className={styles.listPlace}>{thread.place} · {thread.replyCount} {thread.replyCount === 1 ? "reply" : "replies"}</span>
@@ -133,8 +134,8 @@ export function SavedList({ workspaceId, onOpen }: { workspaceId: string; onOpen
   return <section className={styles.listView} aria-label="Saved items">
     <header><Bookmark size={18} aria-hidden="true" /><h2>Saved for later</h2><p>Messages you saved to come back to.</p></header>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {!items && !error && <p role="status" className={styles.role}>Loading saved items…</p>}
-    {items && !items.length && <p className={styles.role}>Nothing saved yet. Use the bookmark on any message to save it here.</p>}
+    {!items && !error && <SkeletonList label="Loading saved items…" height={64} />}
+    {items && !items.length && <div className={styles.empty}><Bookmark aria-hidden="true" /><h3>Nothing saved yet</h3><p>Hover a message and choose the bookmark to keep it here for later.</p></div>}
     <ul>{items?.map(item => <li key={item.messageId} className={styles.listItem}>
       <button type="button" onClick={() => onOpen(item.channelId, item.threadRootId ?? item.messageId)}>
         <span className={styles.listPlace}>{item.place} · {when(item.sentAt)}</span>
