@@ -710,6 +710,12 @@
   color: var(--muted);
 }
 
+.skeletonList {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+
 .skeleton {
   display: block;
   border-radius: var(--r-xs);
