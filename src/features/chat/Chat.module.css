@@ -1630,6 +1630,26 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   white-space: nowrap;
 }
 
+/* Touch screens: icon buttons get a 44px tap area. */
+@media (pointer: coarse) {
+  .iconBtn {
+    width: 44px;
+    height: 44px;
+  }
+  /* Eight actions fit across a phone-width message when the bar spans the card. */
+  .actionBtn {
+    width: 40px;
+    height: 40px;
+  }
+  .actionToolbar {
+    top: -24px;
+    left: 8px;
+    right: 8px;
+    justify-content: space-between;
+    overflow-x: auto;
+  }
+}
+
 /* Media queries */
 @media (max-width: 1100px) {
   .withThread, .withRightPanel {
