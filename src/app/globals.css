@@ -24,6 +24,7 @@
   /* Lines */
   --border: #e3e7e4;
   --border-strong: #c7cec9;
+  --field-border: #878f8b;  /* 3.3:1 on surface: form controls must be visible (WCAG 1.4.11) */
 
   /* Text */
   --text: #19201d;
@@ -72,6 +73,7 @@
 
   --border: #262b28;
   --border-strong: #3c433f;
+  --field-border: #6f7873;  /* 3.6:1 on raised */
 
   --text: #eceeed;
   --muted: #9ea6a2;
