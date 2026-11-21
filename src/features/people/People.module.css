@@ -3,7 +3,7 @@
 .head p, .muted { margin: 4px 0 0; color: var(--muted); font-size: var(--t-sm); }
 .error { color: var(--high); font-size: var(--t-sm); }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 20px 0 8px; }
-.filters select { min-height: 38px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-sm); }
+.filters select { min-height: 38px; padding: 6px 10px; border: 1px solid var(--field-border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-sm); }
 .search { position: relative; flex: 1 1 260px; display: flex; align-items: center; }
 .search svg { position: absolute; left: 10px; color: var(--muted); }
 .search input { width: 100%; padding-left: 32px; }

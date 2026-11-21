@@ -28,7 +28,7 @@
 .identity span { color: var(--muted); font-size: var(--t-base); overflow-wrap: anywhere; }
 .form { display: grid; gap: 12px; max-width: 460px; }
 .form label { display: grid; gap: 6px; color: var(--muted); font-size: var(--t-sm); font-weight: 500; }
-.form select { border: 1px solid var(--border); border-radius: var(--r-md); background-color: var(--surface); color: var(--text); }
+.form select { border: 1px solid var(--field-border); border-radius: var(--r-md); background-color: var(--surface); color: var(--text); }
 .form input:disabled { color: var(--muted); cursor: not-allowed; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .danger { border-color: var(--high); color: var(--high); }

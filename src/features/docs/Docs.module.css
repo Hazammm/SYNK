@@ -1,6 +1,6 @@
 /* Docs: page tree, editor and rendered pages. Colours come from the theme variables in globals.css. */
 .page { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); width: 100%; min-width: 0; min-height: calc(100dvh - var(--topbar-h)); }
-.page select { border: 1px solid var(--border); border-radius: var(--r-md); background-color: var(--surface); color: var(--text); font-size: var(--t-base); }
+.page select { border: 1px solid var(--field-border); border-radius: var(--r-md); background-color: var(--surface); color: var(--text); font-size: var(--t-base); }
 .page button:focus-visible, .page select:focus-visible, .page input:focus-visible, .page textarea:focus-visible, .page a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .bar { display: flex; align-items: center; min-height: 52px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--border); }
 .bar h1 { margin: 0; font-size: var(--t-lg); letter-spacing: -.015em; }
