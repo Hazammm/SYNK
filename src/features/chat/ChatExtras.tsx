@@ -85,7 +85,7 @@ export function ChannelSettingsModal({ channel, viewerId, onClose, onChanged }: 
         <Button disabled={busy} onClick={() => void save({ archived: !channel.archived }, channel.archived ? "The channel is open again." : "The channel is archived.")}>{channel.archived ? "Unarchive" : "Archive channel"}</Button>
       </div>}
       <h3 className={styles.settingsHeading}>Members</h3>
-      {!members && !error && <p role="status">Loading members…</p>}
+      {!members && !error && <SkeletonList label="Loading members…" rows={2} height={36} />}
       <ul className={styles.settingsMembers}>{members?.map(member => <li key={member.user.id}>
         <Avatar small initials={initialsOf(member.user.name ?? "")} />
         <span><strong>{member.user.name ?? "Member"}</strong><small>{member.user.email}</small></span>
@@ -109,8 +109,8 @@ export function ThreadsInbox({ workspaceId, onOpen }: { workspaceId: string; onO
   return <section className={styles.listView} aria-label="Threads">
     <header><MessagesSquare size={18} aria-hidden="true" /><h2>Threads</h2><p>Conversations you started or replied to.</p></header>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {!threads && !error && <p role="status" className={styles.role}>Loading threads…</p>}
-    {threads && !threads.length && <p className={styles.role}>No threads yet. Reply to a message to start one.</p>}
+    {!threads && !error && <SkeletonList label="Loading threads…" height={84} />}
+    {threads && !threads.length && <div className={styles.empty}><MessagesSquare aria-hidden="true" /><h3>No threads yet</h3><p>Reply to a message in any channel and the conversation shows up here.</p></div>}
     <ul>{threads?.map(thread => <li key={thread.rootId}>
       <button type="button" onClick={() => onOpen(thread.channelId, thread.rootId)}>
         <span className={styles.listPlace}>{thread.place} · {thread.replyCount} {thread.replyCount === 1 ? "reply" : "replies"}</span>
@@ -134,8 +134,8 @@ export function SavedList({ workspaceId, onOpen }: { workspaceId: string; onOpen
   return <section className={styles.listView} aria-label="Saved items">
     <header><Bookmark size={18} aria-hidden="true" /><h2>Saved for later</h2><p>Messages you saved to come back to.</p></header>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {!items && !error && <p role="status" className={styles.role}>Loading saved items…</p>}
-    {items && !items.length && <p className={styles.role}>Nothing saved yet. Use the bookmark on any message to save it here.</p>}
+    {!items && !error && <SkeletonList label="Loading saved items…" height={64} />}
+    {items && !items.length && <div className={styles.empty}><Bookmark aria-hidden="true" /><h3>Nothing saved yet</h3><p>Hover a message and choose the bookmark to keep it here for later.</p></div>}
     <ul>{items?.map(item => <li key={item.messageId} className={styles.listItem}>
       <button type="button" onClick={() => onOpen(item.channelId, item.threadRootId ?? item.messageId)}>
         <span className={styles.listPlace}>{item.place} · {when(item.sentAt)}</span>
