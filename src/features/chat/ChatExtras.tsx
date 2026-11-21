@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Archive, Bookmark, BookmarkCheck, Link2, MailOpen, Megaphone, MessagesSquare, X } from "lucide-react";
-import { Avatar, Button, Input } from "@/components/Primitives";
+import { Avatar, Button, Input, SkeletonList } from "@/components/Primitives";
+import Modal from "@/components/Modal";
 import { initialsOf } from "@/components/ProfileMenu";
 import type { ChannelSummary, ChatMessage, SavedItem, ThreadSummary } from "@/lib/chat-types";
 import { messageOf, request } from "./client";
@@ -64,8 +65,8 @@ export function ChannelSettingsModal({ channel, viewerId, onClose, onChanged }: 
     } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
   };
 
-  return <div className={styles.modalBackdrop} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className={styles.setup} role="dialog" aria-modal="true" aria-label={`Settings for #${channel.name}`}>
+  return <Modal label={`Settings for #${channel.name}`} className={styles.dialog} onClose={onClose}>
+    <section className={styles.setup}>
       <div className={styles.setupHeader}><h2>#{channel.name} settings</h2><button type="button" className={styles.iconBtn} aria-label="Close settings" onClick={onClose}><X size={18} /></button></div>
       <form className={styles.settingsRow} onSubmit={event => { event.preventDefault(); void save({ name }, "Channel renamed."); }}>
         <label>Channel name<Input value={name} maxLength={60} pattern="[a-z0-9]+(-[a-z0-9]+)*" title="Lowercase letters, numbers and hyphens" onChange={event => setName(event.target.value.toLowerCase().replace(/\s+/g, "-"))} /></label>
@@ -93,7 +94,7 @@ export function ChannelSettingsModal({ channel, viewerId, onClose, onChanged }: 
       {error && <p role="alert" className={styles.error}>{error}</p>}
       <p role="status" className={styles.settingsNotice}>{notice}</p>
     </section>
-  </div>;
+  </Modal>;
 }
 
 type Pick = (channelId: string, messageId: string) => void;
