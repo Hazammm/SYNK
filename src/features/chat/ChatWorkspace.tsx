@@ -1812,12 +1812,10 @@ function MessageCard({
             <small style={{ color: "var(--high)", fontWeight: 600 }}>Failed to send</small>
           )}
 
-          {onThread && !isDeleted && (
+          {onThread && !isDeleted && message.replyCount > 0 && (
             <button className={styles.replyBtn} onClick={() => onThread(message)}>
-              <MessageCircle size={13} />
-              <span>
-                {message.replyCount} {message.replyCount === 1 ? "reply" : "replies"} · Reply
-              </span>
+              <MessageCircle size={13} aria-hidden="true" />
+              <span>{message.replyCount} {message.replyCount === 1 ? "reply" : "replies"}</span>
             </button>
           )}
         </div>
