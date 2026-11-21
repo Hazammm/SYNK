@@ -455,15 +455,6 @@ function WorkspaceChannels({
             )}
           </div>
 
-          {/* SIDEBAR FOOTER */}
-          <div className={styles.sidebarFooter}>
-            <Button aria-expanded={showMembers} onClick={() => setShowMembers(!showMembers)}>
-              <Users size={15} /> Workspace members
-            </Button>
-            <small className={styles.role}>
-              {workspace.role === "ADMIN" ? "Workspace admin" : "Workspace member"}
-            </small>
-          </div>
         </aside>
 
         {/* MAIN CHAT CONTENT */}

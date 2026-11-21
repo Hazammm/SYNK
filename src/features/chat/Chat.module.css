@@ -1709,9 +1709,6 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
     border: 1px solid var(--border);
     border-radius: var(--r-pill);
   }
-  .sidebarFooter {
-    display: none;
-  }
   .mainFeed, .thread, .rightDrawer {
     height: calc(100dvh - var(--topbar-h) - 108px);
     min-height: 380px;
