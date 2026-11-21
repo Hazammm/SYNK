@@ -381,7 +381,9 @@
   font-size: var(--t-md);
   font-weight: 600;
   color: var(--text);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Editable topic */
