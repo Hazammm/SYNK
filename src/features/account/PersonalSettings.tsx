@@ -141,7 +141,7 @@ export function StatusSettings({ account, onSaved }: { account: Account; onSaved
         {CLEAR_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
       </select></label>
       <div className={styles.actions}>
-        <Button variant="primary" disabled={busy}>Save status</Button>
+        <Button variant="primary" disabled={busy}>{busy ? "Saving…" : "Save status"}</Button>
         <Button type="button" variant="quiet" disabled={busy || !(status.text || status.emoji)} onClick={() => { setDraft({ text: "", emoji: "", clears: "never" }); save({ text: "", emoji: "", expiresAt: null }, "Your status was cleared."); }}>Clear status</Button>
       </div>
     </form>
@@ -255,14 +255,14 @@ export function TwoFactor({ account, onChanged }: { account: Account; onChanged:
       <p className={styles.notice}>On. You&apos;ll be asked for a code each time you sign in with your password.</p>
       <label>Password<Input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
       <label>Code from your app, or a recovery code<Input required inputMode="numeric" autoComplete="one-time-code" maxLength={20} value={code} onChange={event => setCode(event.target.value)} /></label>
-      <div className={styles.actions}><Button disabled={busy}>Turn off two-factor sign-in</Button>{feedback}</div>
+      <div className={styles.actions}><Button disabled={busy}>{busy ? "Turning off…" : "Turn off two-factor sign-in"}</Button>{feedback}</div>
     </form> : setup ? <form className={styles.form} onSubmit={confirm}>
       <ol className={styles.steps}>
         <li>In your authenticator app, add an account and enter this key: <code className={styles.secret}>{setup.secret.match(/.{1,4}/g)?.join(" ")}</code> On this phone? <a href={setup.otpauthUrl}>Open it in your app</a>.</li>
         <li>Type the 6-digit code the app shows.</li>
       </ol>
       <label>Code<Input required inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value)} /></label>
-      <div className={styles.actions}><Button variant="primary" disabled={busy}>Turn on</Button><Button type="button" variant="quiet" onClick={() => setSetup(null)}>Cancel</Button>{feedback}</div>
+      <div className={styles.actions}><Button variant="primary" disabled={busy}>{busy ? "Checking…" : "Turn on"}</Button><Button type="button" variant="quiet" onClick={() => setSetup(null)}>Cancel</Button>{feedback}</div>
     </form> : <div className={styles.actions}><Button variant="primary" disabled={busy} onClick={start}>Set up two-factor sign-in</Button>{feedback}</div>}
   </Section>;
 }
