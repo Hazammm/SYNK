@@ -1709,6 +1709,7 @@ function MessageCard({
             {message.alsoInChannel && message.threadRootId && <span className={styles.editedBadge}>replied to a thread</span>}
           </div>
         )}
+        {isGrouped && message.alsoInChannel && message.threadRootId && <span className={styles.editedBadge}>replied to a thread</span>}
         {note && <p role="status" className={styles.actionNote}>{note}</p>}
 
         {isEditing ? (
