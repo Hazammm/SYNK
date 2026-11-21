@@ -262,20 +262,13 @@
   height: 8px;
   border: 2px solid var(--surface);
   border-radius: 50%;
-  background: var(--faint);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--faint);
 }
 
 .presenceDot[data-online="true"] {
   background: var(--done);
-}
-
-.sidebarFooter {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .role {

@@ -437,6 +437,7 @@ function WorkspaceChannels({
                   <div className={styles.dmAvatarWrapper}>
                     <Avatar small initials={initials(displayName)} src={item.otherUser?.image} />
                     <span className={styles.presenceDot} data-online={isOnline} />
+                    <span className="sr-only">{isOnline ? "online" : "offline"}</span>
                   </div>
                   <span className={styles.channelName}>{displayName}</span>
                   <div className={styles.channelBadges}>
