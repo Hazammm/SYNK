@@ -1664,7 +1664,7 @@ function MessageCard({
           <button
             className={styles.iconBtn}
             onClick={() => setShowEmojiPicker(false)}
-            style={{ width: "20px", height: "20px" }}
+            aria-label="Close emoji picker"
           >
             <X size={12} />
           </button>
