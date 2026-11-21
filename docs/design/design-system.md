@@ -38,7 +38,8 @@ Calm, dense and border-led. Chrome stays quiet so the content (tickets, messages
 | `--raised` | `#ffffff` | `#1c201e` | Menus, dialogs, popovers |
 | `--sunken` | `#f1f4f2` | `#121514` | Board columns, wells, code |
 | `--fill` / `--fill-strong` | `#eef1ef` / `#e2e7e4` | `#212523` / `#2b302e` | Hover, selected, tracks |
-| `--border` / `--border-strong` | `#e3e7e4` / `#c7cec9` | `#262b28` / `#3c433f` | Hairlines, field borders |
+| `--border` / `--border-strong` | `#e3e7e4` / `#c7cec9` | `#262b28` / `#3c433f` | Hairlines and dividers |
+| `--field-border` | `#878f8b` | `#6f7873` | Inputs, selects and the composer: at least 3:1 against their background |
 | `--text` / `--muted` / `--faint` | `#19201d` / `#5d6662` / `#656e69` | `#eceeed` / `#9ea6a2` / `#858e8a` | Text levels |
 | `--ink` / `--on-ink` | `#19201d` / `#ffffff` | `#eceeed` / `#0f1110` | Primary buttons |
 | `--accent` / `--accent-text` / `--accent-soft` | `#17785f` / `#136b55` / `#e2f4ed` | `#2fb891` / `#4fcfa9` / `#10291f` | Accent fill, accent text, accent tint |
@@ -88,4 +89,4 @@ Two themes: `light` and `dark`. The choice is saved in `localStorage` under `syn
 - `npm run lint`, `npm run typecheck`, `npm test` (39), `npm run test:integration` (106), `npm run test:e2e` (8) and `npm run build` all pass.
 - Every page was captured at 1440, 820 and 390 px wide in both themes with no console errors and no horizontal page scroll.
 - Contrast (WCAG 2.1): body text 15.7:1 light and 16.3:1 dark; muted text at least 5.2:1; faint text at least 4.4:1; accent text at least 5.6:1; status text on its tint at least 4.8:1.
-- Known gap: field borders (`--border-strong`) are about 1.6:1 against the surface, below the 3:1 that WCAG 1.4.11 asks for control boundaries. Fields are still identified by label, placeholder and focus ring.
+- Field borders use `--field-border`: 3.3:1 on the light surface and 3.6:1 or more on dark surfaces, meeting WCAG 1.4.11 for control boundaries (the earlier `--border-strong` borders were 1.6:1).
