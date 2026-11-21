@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FolderKanban, GitPullRequest, Plus, ShieldCheck } from "lucide-react";
-import { Avatar, Button, Input } from "@/components/Primitives";
+import { Avatar, Button, Input, SkeletonList } from "@/components/Primitives";
 import type { WorkspaceSummary } from "@/lib/chat-types";
 import type { AccessEntry, ProjectDetail, ProjectLevel, ProjectSummary } from "@/lib/ticket-types";
 import { messageOf, request } from "@/lib/client-http";
@@ -96,7 +96,7 @@ function ProjectArea({ project, view, userId, initial }: { project: ProjectSumma
   }, [project.id, revision]);
   const reload = () => setRevision(value => value + 1);
   if (error) return <p role="alert" className={styles.error}>{error} <button type="button" onClick={reload}>Retry</button></p>;
-  if (!detail) return <p role="status" className={styles.loading}>Loading {project.name}…</p>;
+  if (!detail) return <SkeletonList label={`Loading ${project.name}…`} />;
   if (view === "reports") return <ReportsView project={detail} initialSprintId={initial.sprintId} />;
   return view === "board"
     ? <BoardView project={detail} userId={userId} initial={initial} onProjectChange={reload} />
