@@ -38,12 +38,14 @@ export default function WorkspaceAdmin({ workspaceId }: { workspaceId: string })
   if (error) return <p role="alert" className={styles.error}>{error}</p>;
   if (!settings) return <SkeletonList label="Loading workspace settings…" height={140} />;
   const peak = Math.max(1, ...(analytics?.daily.map(day => day.messages) ?? [0]));
+  const busiest = analytics?.daily.reduce((top, day) => (day.messages > top.messages ? day : top), analytics.daily[0]);
+  const dayName = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   return <>
     <Section title="Workspace name" description="Shown in the sidebar, in invitations and to everyone in the workspace.">
       <form className={styles.form} onSubmit={event => { event.preventDefault(); save({ name }, "Workspace renamed.", rename); }}>
         <label>Name<Input required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
-        <div className={styles.actions}><Button variant="primary" disabled={rename.busy || !name.trim() || name.trim() === settings.name}>Rename</Button>{rename.feedback}</div>
+        <div className={styles.actions}><Button variant="primary" disabled={rename.busy || !name.trim() || name.trim() === settings.name}>{rename.busy ? "Renaming…" : "Rename"}</Button>{rename.feedback}</div>
       </form>
     </Section>
     <Section title="Who can invite people" description="Admins can always invite. You can let every member invite teammates too.">
@@ -63,9 +65,9 @@ export default function WorkspaceAdmin({ workspaceId }: { workspaceId: string })
           <div><dt>Tickets in 30 days</dt><dd>{analytics.tickets.created}</dd><small>{analytics.tickets.completed} completed</small></div>
           <div><dt>Open channels</dt><dd>{analytics.channels}</dd></div>
         </dl>
-        <figure className={styles.daily} aria-label="Messages per day for the last 14 days">
-          <div>{analytics.daily.map(day => <span key={day.date} title={`${day.date}: ${day.messages} messages`} style={{ height: `${Math.round((day.messages / peak) * 100)}%` }} />)}</div>
-          <figcaption>Messages per day, last 14 days</figcaption>
+        <figure className={styles.daily}>
+          <div aria-hidden="true">{analytics.daily.map(day => <span key={day.date} title={`${dayName(day.date)}: ${day.messages} messages`} style={{ height: `${Math.round((day.messages / peak) * 100)}%` }} />)}</div>
+          <figcaption>Messages per day, last 14 days. {busiest && busiest.messages > 0 ? `Busiest: ${dayName(busiest.date)}, ${busiest.messages} ${busiest.messages === 1 ? "message" : "messages"}.` : "No messages yet."}</figcaption>
         </figure>
       </>}
     </Section>
