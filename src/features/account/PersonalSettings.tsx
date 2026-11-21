@@ -76,9 +76,9 @@ export function ProfileDetails({ account, onSaved }: { account: Account; onSaved
       <label>Display name<Input required maxLength={80} value={form.name} onChange={set("name")} autoComplete="name" /></label>
       <label>Title or role<Input maxLength={80} value={form.title} onChange={set("title")} placeholder="e.g. Frontend developer" autoComplete="organization-title" /></label>
       <label>Pronouns<Input maxLength={30} value={form.pronouns} onChange={set("pronouns")} placeholder="e.g. she/her" /></label>
-      <label>Phone<Input type="tel" maxLength={30} value={form.phone} onChange={set("phone")} placeholder="+92 300 1234567" autoComplete="tel" /></label>
-      <label>Location<Input maxLength={80} value={form.location} onChange={set("location")} placeholder="e.g. Lahore, Pakistan" /></label>
-      <label>Time zone<select value={form.timezone} onChange={set("timezone")}>
+      <label>Phone<Input type="tel" maxLength={30} value={form.phone} onChange={set("phone")} placeholder="+92 300 1234567" autoComplete="tel" pattern="[+0-9 \(\)\-]*" title="Digits, spaces, +, - and brackets only" /></label>
+      <label>Location<Input maxLength={80} value={form.location} onChange={set("location")} placeholder="e.g. Lahore, Pakistan" autoComplete="address-level2" /></label>
+      <label>Time zone<select value={form.timezone} onChange={set("timezone")} aria-describedby="timezone-hint">
         <option value="">Not set</option>{TIME_ZONES.map(zone => <option key={zone} value={zone}>{zone.replace(/_/g, " ")}</option>)}
       </select></label>
       <p className={styles.hint}>Teammates see your local time next to your name.</p>
