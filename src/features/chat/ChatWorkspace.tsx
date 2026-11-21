@@ -1344,6 +1344,16 @@ function Feed({
     }
   }, [focusMessageId, feed]);
 
+  // Up and down arrows move between messages; Tab from a message reaches its actions.
+  function moveBetweenMessages(event: React.KeyboardEvent<HTMLDivElement>) {
+    const from = event.target as HTMLElement;
+    if ((event.key !== "ArrowUp" && event.key !== "ArrowDown") || (from !== event.currentTarget && from.tagName !== "ARTICLE")) return;
+    const cards = [...event.currentTarget.querySelectorAll<HTMLElement>("article[data-message-id]")];
+    const current = cards.indexOf(from);
+    const next = cards[current < 0 ? cards.length - 1 : current + (event.key === "ArrowDown" ? 1 : -1)];
+    if (next) { event.preventDefault(); next.focus(); }
+  }
+
   function scrollToBottom() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     setShowJumpToBottom(false);
@@ -1456,6 +1466,7 @@ function Feed({
         </div>
       )}
 
+      <p id={`${channel.id}-${parentId ?? "main"}-keys`} className="sr-only">Use the up and down arrow keys to move between messages, then Tab to reach a message&apos;s actions.</p>
       <div className={styles.messagesScrollWrapper}>
         <div
           ref={scrollContainerRef}
@@ -1464,6 +1475,9 @@ function Feed({
           aria-label={parentId ? "Thread replies" : "Channel messages"}
           aria-live="polite"
           aria-busy={feed.loading}
+          aria-describedby={`${channel.id}-${parentId ?? "main"}-keys`}
+          tabIndex={0}
+          onKeyDown={moveBetweenMessages}
           onScroll={handleScroll}
         >
           {feed.loading && <p className={styles.role}>Loading messages…</p>}
