@@ -4,9 +4,21 @@ import { AppError } from "../../lib/errors";
 import { rateLimit } from "../../lib/rate-limit";
 import { realtime } from "../../lib/realtime";
 import { requireWorkspace } from "../../lib/permissions";
-import { idSchema, passwordChangeSchema, profileUpdateSchema } from "../../lib/validation";
+import { idSchema, passwordChangeSchema, pauseSchema, profileUpdateSchema, statusSchema } from "../../lib/validation";
 import { revokeProjectAccess } from "../projects/service";
-import type { Account } from "../../lib/account-types";
+import type { Account, PersonStatus } from "../../lib/account-types";
+
+// An uploaded photo wins over the one from a sign-in provider. The key in the address makes a new upload show at once.
+export const avatarUrl = (user: { id: string; avatarKey: string | null; image: string | null }) =>
+  user.avatarKey ? `/api/users/${user.id}/avatar?v=${encodeURIComponent(user.avatarKey)}` : user.image;
+
+// A status past its expiry reads as no status.
+export function currentStatus(user: { statusText: string; statusEmoji: string; statusExpiresAt: Date | null; away: boolean }, now = new Date()): PersonStatus {
+  const expired = user.statusExpiresAt !== null && user.statusExpiresAt <= now;
+  return { text: expired ? "" : user.statusText, emoji: expired ? "" : user.statusEmoji, expiresAt: expired ? null : user.statusExpiresAt?.toISOString() ?? null, away: user.away };
+}
+export const statusFields = { statusText: true, statusEmoji: true, statusExpiresAt: true, away: true } as const;
+export const profileFields = { title: true, phone: true, location: true, timezone: true, pronouns: true, avatarKey: true, image: true } as const;
 
 const PROVIDER_NAMES: Record<string, string> = { google: "Google", github: "GitHub", bitbucket: "Bitbucket" };
 
@@ -15,7 +27,11 @@ export async function getAccount(userId: string, currentSessionId: string): Prom
   const [user, otherSessions, memberships] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { id: true, name: true, email: true, createdAt: true, passwordHash: true, notifyAssigned: true, notifyComments: true, notifyMentions: true, accounts: { select: { provider: true } } },
+      select: {
+        id: true, name: true, email: true, createdAt: true, passwordHash: true, accounts: { select: { provider: true } },
+        notifyAssigned: true, notifyComments: true, notifyMentions: true, notifyReplies: true, notifyReactions: true,
+        ...profileFields, ...statusFields, notificationsPausedUntil: true, totpSecret: true,
+      },
     }),
     db.loginSession.count({ where: { userId, id: { not: currentSessionId }, expiresAt: { gt: new Date() } } }),
     db.membership.findMany({
@@ -27,7 +43,11 @@ export async function getAccount(userId: string, currentSessionId: string): Prom
     id: user.id, name: user.name ?? "", email: user.email, createdAt: user.createdAt.toISOString(),
     hasPassword: Boolean(user.passwordHash),
     providers: [...new Set(user.accounts.map(account => PROVIDER_NAMES[account.provider] ?? account.provider))],
-    notifications: { assigned: user.notifyAssigned, comments: user.notifyComments, mentions: user.notifyMentions },
+    notifications: { assigned: user.notifyAssigned, comments: user.notifyComments, mentions: user.notifyMentions, replies: user.notifyReplies, reactions: user.notifyReactions },
+    profile: { title: user.title, phone: user.phone, location: user.location, timezone: user.timezone, pronouns: user.pronouns, image: avatarUrl(user) },
+    status: currentStatus(user),
+    notificationsPausedUntil: user.notificationsPausedUntil && user.notificationsPausedUntil > new Date() ? user.notificationsPausedUntil.toISOString() : null,
+    twoFactorEnabled: Boolean(user.totpSecret),
     otherSessions,
     workspaces: memberships.map(({ role, workspace }) => ({
       id: workspace.id, name: workspace.name, role, memberCount: workspace.memberships.length,
@@ -37,17 +57,46 @@ export async function getAccount(userId: string, currentSessionId: string): Prom
 }
 
 export async function updateProfile(userId: string, input: unknown) {
-  const { name, notifications } = profileUpdateSchema.parse(input);
+  const { name, notifications, title, phone, location, timezone, pronouns } = profileUpdateSchema.parse(input);
   await db.user.update({
     where: { id: userId },
     data: {
       ...(name !== undefined && { name }),
+      ...(title !== undefined && { title }),
+      ...(phone !== undefined && { phone }),
+      ...(location !== undefined && { location }),
+      ...(timezone !== undefined && { timezone }),
+      ...(pronouns !== undefined && { pronouns }),
+      ...(notifications?.replies !== undefined && { notifyReplies: notifications.replies }),
+      ...(notifications?.reactions !== undefined && { notifyReactions: notifications.reactions }),
       ...(notifications?.assigned !== undefined && { notifyAssigned: notifications.assigned }),
       ...(notifications?.comments !== undefined && { notifyComments: notifications.comments }),
       ...(notifications?.mentions !== undefined && { notifyMentions: notifications.mentions }),
     },
   });
   return { updated: true };
+}
+
+// Sets or clears a custom status ("In a meeting", "On vacation") and whether the person shows as away.
+export async function setStatus(userId: string, input: unknown): Promise<PersonStatus> {
+  const { text, emoji, expiresAt, away } = statusSchema.parse(input);
+  const until = expiresAt ? new Date(expiresAt) : null;
+  if (until && until <= new Date()) throw new AppError(400, "Choose a time in the future for the status to clear.");
+  const user = await db.user.update({
+    where: { id: userId },
+    data: { statusText: text, statusEmoji: emoji, statusExpiresAt: text || emoji ? until : null, ...(away !== undefined && { away }) },
+    select: statusFields,
+  });
+  return currentStatus(user);
+}
+
+// Pauses notifications until a time (snooze, focus mode), or resumes them with null.
+export async function pauseNotifications(userId: string, input: unknown) {
+  const { until } = pauseSchema.parse(input);
+  const date = until ? new Date(until) : null;
+  if (date && (date <= new Date() || date.getTime() - Date.now() > 7 * 24 * 3_600_000)) throw new AppError(400, "Pause notifications for up to a week.");
+  await db.user.update({ where: { id: userId }, data: { notificationsPausedUntil: date } });
+  return { pausedUntil: date?.toISOString() ?? null };
 }
 
 // Ends the other login sessions and drops their live chat connections. Returns how many were ended.

@@ -69,6 +69,9 @@ function Board({ project, board, userId, canWrite, initialTicket, toolbar }: { p
   const [revision, setRevision] = useState(0);
   const [filters, setFilters] = useState(NO_FILTERS);
   const [drawer, setDrawer] = useState<DrawerTarget | null>(initialTicket ? { ticketId: initialTicket } : null);
+  // Next keeps a visited board mounted, so a later link to one of its tickets arrives as a new prop.
+  const [linkedTicket, setLinkedTicket] = useState(initialTicket);
+  if (linkedTicket !== initialTicket) { setLinkedTicket(initialTicket); if (initialTicket) setDrawer({ ticketId: initialTicket }); }
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [today] = useState(localToday);
   const sensors = useSensors(

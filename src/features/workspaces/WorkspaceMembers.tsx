@@ -16,7 +16,9 @@ async function fetchWorkspaceMembers(workspaceId: string, role: "ADMIN" | "MEMBE
   const invites = role === "ADMIN"
     ? (await request<{ invites: PendingInvite[] }>(`/api/workspaces/${workspaceId}/invites`)).invites
     : [];
-  return { members, invites };
+  // Members can invite too when an admin has allowed it.
+  const { workspace } = await request<{ workspace: { invitePolicy: "ADMINS" | "EVERYONE" } }>(`/api/workspaces/${workspaceId}`);
+  return { members, invites, canInvite: role === "ADMIN" || workspace.invitePolicy === "EVERYONE" };
 }
 
 export default function WorkspaceMembers({
@@ -37,12 +39,14 @@ export default function WorkspaceMembers({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [canInvite, setCanInvite] = useState(role === "ADMIN");
 
   const reload = useCallback(async () => {
     try {
       const result = await fetchWorkspaceMembers(workspaceId, role);
       setMembers(result.members);
       setInvites(result.invites);
+      setCanInvite(result.canInvite);
     } catch (cause) {
       setError(messageOf(cause));
     } finally {
@@ -58,6 +62,7 @@ export default function WorkspaceMembers({
         if (!active) return;
         setMembers(result.members);
         setInvites(result.invites);
+        setCanInvite(result.canInvite);
       } catch (cause) {
         if (active) setError(messageOf(cause));
       } finally {
@@ -132,8 +137,8 @@ export default function WorkspaceMembers({
   return <>
     <Card>
       <h2>Members</h2>
-      <p className={styles.subtle}>{role === "ADMIN" ? "Invite people to collaborate in this workspace." : "People in this workspace."}</p>
-      {role === "ADMIN" && <form className={styles.inviteForm} onSubmit={sendInvite}>
+      <p className={styles.subtle}>{canInvite ? "Invite people to collaborate in this workspace." : "People in this workspace. Ask an admin to invite someone."}</p>
+      {canInvite && <form className={styles.inviteForm} onSubmit={sendInvite}>
         <Input aria-label="Teammate email" type="email" placeholder="teammate@company.com" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} />
         <Button variant="primary" type="submit" disabled={!!busy}>{busy === "invite" ? "Sending…" : "Send invite"}</Button>
       </form>}

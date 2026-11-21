@@ -5,6 +5,30 @@ import { requireChannel, requireWorkspace } from "../../lib/permissions";
 import { channelSchema, dmChannelSchema, extractPlainText, historySchema, messageEditSchema, messageSchema, reactionSchema } from "../../lib/validation";
 import { realtime } from "../../lib/realtime";
 import type { ChannelSummary, ChatMessage, ChatReaction, MessagePage } from "../../lib/chat-types";
+import { announceNotifications, createChatNotifications, type ChatNotification } from "../notifications/service";
+
+type Database = Prisma.TransactionClient;
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// The people a message mentions. Names can contain spaces ("@Demo Admin"), so each member's name is matched
+// in full, longest first, rather than taking the first word after the @.
+export function mentionedIn(text: string, members: { id: string; name: string | null }[]) {
+  const ids = new Set<string>();
+  let rest = text;
+  for (const member of members.filter(item => item.name?.trim()).sort((a, b) => b.name!.length - a.name!.length)) {
+    const pattern = new RegExp(`(^|[^\\w@])@${escapeRegExp(member.name!.trim())}(?!\\w)`, "gi");
+    if (pattern.test(rest)) { ids.add(member.id); rest = rest.replace(pattern, "$1"); }
+  }
+  return { userIds: [...ids], channel: /(^|[^\w@])@channel\b/i.test(rest), here: /(^|[^\w@])@here\b/i.test(rest) };
+}
+
+// Announcement-only channels take new posts from workspace admins and the channel's creator; anyone can reply in threads.
+async function assertCanPost(tx: Database, userId: string, channel: { workspaceId: string; createdById: string; postingPolicy: string; archivedAt: Date | null }, isReply: boolean) {
+  if (channel.archivedAt) throw new AppError(400, "This channel is archived, so new messages can't be posted.");
+  if (channel.postingPolicy !== "ADMINS" || isReply || channel.createdById === userId) return;
+  const member = await tx.membership.findUnique({ where: { workspaceId_userId: { workspaceId: channel.workspaceId, userId } }, select: { role: true } });
+  if (member?.role !== "ADMIN") throw new AppError(403, "Only admins can post in this channel. You can still reply in threads.");
+}
 
 const include = {
   author: { select: { id: true, name: true, image: true } },
@@ -51,6 +75,7 @@ function serializeMessage(row: Record): ChatMessage {
     authorId: row.authorId,
     body: isDeleted ? "This message was deleted" : row.body,
     threadRootId: row.threadRootId,
+    alsoInChannel: row.alsoInChannel,
     clientId: row.clientId,
     editedAt: row.editedAt ? row.editedAt.toISOString() : null,
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
@@ -72,11 +97,11 @@ function serializeMessage(row: Record): ChatMessage {
 export async function listChannels(userId: string, workspaceId: string): Promise<ChannelSummary[]> {
   const member = await requireWorkspace(userId, workspaceId);
   const channels = await db.channel.findMany({
+    // Archived channels stay listed for their members, read-only, so they can be found and unarchived.
     where: {
       workspaceId,
-      archivedAt: null,
       OR: [
-        { type: "PUBLIC" },
+        { type: "PUBLIC", archivedAt: null },
         { members: { some: { userId } } },
       ],
     },
@@ -85,6 +110,7 @@ export async function listChannels(userId: string, workspaceId: string): Promise
         select: {
           userId: true,
           lastReadAt: true,
+          muted: true,
           role: true,
           user: { select: { id: true, name: true, image: true } },
         },
@@ -147,6 +173,10 @@ export async function listChannels(userId: string, workspaceId: string): Promise
       unreadCount,
       mentionCount,
       otherUser,
+      muted: userMembership?.muted ?? false,
+      archived: channel.archivedAt !== null,
+      postingPolicy: channel.postingPolicy,
+      canPost: !channel.archivedAt && (channel.postingPolicy === "EVERYONE" || channel.createdById === userId || member.role === "ADMIN"),
     };
   }));
 }
@@ -347,10 +377,10 @@ export async function listMessages(userId: string, channelId: string, input: unk
   const targetParent = threadRootId ?? parentId ?? null;
   await requireChannel(userId, channelId);
 
-  const scope: Prisma.MessageWhereInput = {
-    channelId,
-    threadRootId: targetParent,
-  };
+  // The main feed also shows thread replies that were sent to the channel too.
+  const scope: Prisma.MessageWhereInput = targetParent
+    ? { channelId, threadRootId: targetParent }
+    : { channelId, OR: [{ threadRootId: null }, { alsoInChannel: true }] };
 
   if (targetParent) {
     const root = await db.message.findFirst({ where: { id: targetParent, channelId, threadRootId: null } });
@@ -365,13 +395,12 @@ export async function listMessages(userId: string, channelId: string, input: unk
 
   const rows = await db.message.findMany({
     where: {
-      ...scope,
-      ...(boundary && {
+      AND: [scope, ...(boundary ? [{
         OR: [
           { createdAt: { lt: boundary.createdAt } },
           { createdAt: boundary.createdAt, id: { lt: boundary.id } },
         ],
-      }),
+      }] : [])],
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
@@ -380,7 +409,8 @@ export async function listMessages(userId: string, channelId: string, input: unk
 
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit);
-  return { messages: page.reverse().map(serializeMessage), nextCursor: hasMore ? page[0].id : null };
+  const saved = new Set((await db.savedMessage.findMany({ where: { userId, messageId: { in: page.map(row => row.id) } }, select: { messageId: true } })).map(row => row.messageId));
+  return { messages: page.reverse().map(row => ({ ...serializeMessage(row), saved: saved.has(row.id) })), nextCursor: hasMore ? page[0].id : null };
 }
 
 export async function sendMessage(userId: string, channelId: string, input: unknown): Promise<ChatMessage> {
@@ -398,6 +428,7 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
 
   let row: Record;
   let workspaceId = "";
+  let alerts: string[] = [];
 
   try {
     const result = await db.$transaction(async tx => {
@@ -411,6 +442,7 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
         const parent = await tx.message.findFirst({ where: { id: threadRootId, channelId, threadRootId: null } });
         if (!parent) throw new AppError(400, "Reply to a top-level message in this channel.");
       }
+      await assertCanPost(tx, userId, channel, Boolean(threadRootId));
 
       const created = await tx.message.create({
         data: {
@@ -419,6 +451,7 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
           channelId,
           authorId: userId,
           threadRootId,
+          alsoInChannel: Boolean(threadRootId && data.alsoInChannel),
           clientId,
         },
         include,
@@ -432,32 +465,28 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
         });
       }
 
-      // Parse mentions (@username, @channel, @here)
-      const textContent = extractPlainText(data.body);
-      const mentionMatches = textContent.match(/@([a-zA-Z0-9_-]+)/g);
-      if (mentionMatches) {
-        const uniqueNames = [...new Set(mentionMatches.map(m => m.slice(1).toLowerCase()))];
-        for (const name of uniqueNames) {
-          if (name === "channel") {
-            await tx.mention.create({ data: { messageId: created.id, kind: "CHANNEL" } });
-          } else if (name === "here") {
-            await tx.mention.create({ data: { messageId: created.id, kind: "HERE" } });
-          } else {
-            const mentionedUser = await tx.user.findFirst({
-              where: {
-                name: { equals: name, mode: "insensitive" },
-                memberships: { some: { workspaceId: channel.workspaceId } },
-              },
-              select: { id: true },
-            });
-            if (mentionedUser) {
-              await tx.mention.create({
-                data: { messageId: created.id, mentionedUserId: mentionedUser.id, kind: "USER" },
-              });
-            }
-          }
-        }
+      // Mentions (@Full Name, @channel, @here) count only for people in this channel.
+      const channelMembers = await tx.channelMember.findMany({ where: { channelId }, select: { userId: true, muted: true, user: { select: { name: true } } } });
+      const mentioned = mentionedIn(extractPlainText(data.body), channelMembers.map(item => ({ id: item.userId, name: item.user.name })));
+      await tx.mention.createMany({
+        data: [
+          ...mentioned.userIds.map(mentionedUserId => ({ messageId: created.id, mentionedUserId, kind: "USER" as const })),
+          ...(mentioned.channel ? [{ messageId: created.id, kind: "CHANNEL" as const }] : []),
+          ...(mentioned.here ? [{ messageId: created.id, kind: "HERE" as const }] : []),
+        ],
+      });
+      const notify: ChatNotification[] = [];
+      const add = (recipientId: string, type: ChatNotification["type"]) => notify.push({ recipientId, type, actorId: userId, messageId: created.id });
+      mentioned.userIds.forEach(id => add(id, "CHAT_MENTION"));
+      // Every message in a direct message, and @channel or @here, alerts everyone else who has not muted it.
+      const direct = channel.type === "DM" || channel.type === "GROUP_DM";
+      if (direct || mentioned.channel || mentioned.here) channelMembers.filter(item => !item.muted).forEach(item => add(item.userId, "CHAT_MENTION"));
+      if (threadRootId) {
+        // The thread's author and everyone who already replied hear about new replies.
+        const people = await tx.message.findMany({ where: { OR: [{ id: threadRootId }, { threadRootId }] }, select: { authorId: true }, distinct: ["authorId"] });
+        people.forEach(item => { if (!notify.some(entry => entry.recipientId === item.authorId)) add(item.authorId, "CHAT_REPLY"); });
       }
+      alerts = await createChatNotifications(tx, channelId, notify);
 
       // Auto update sender lastReadAt
       await tx.channelMember.updateMany({
@@ -484,6 +513,7 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
 
   try {
     await realtime()?.publish({ message, parentReplyCount });
+    await announceNotifications(alerts);
   } catch {
     console.error("Live message delivery failed; history will reconcile on reconnect.");
   }
@@ -557,6 +587,7 @@ export async function deleteMessage(userId: string, messageId: string): Promise<
 
 export async function toggleReaction(userId: string, messageId: string, input: unknown) {
   const { emoji } = reactionSchema.parse(input);
+  let alerts: string[] = [];
 
   const result = await db.$transaction(async tx => {
     const message = await tx.message.findUnique({ where: { id: messageId } });
@@ -571,6 +602,8 @@ export async function toggleReaction(userId: string, messageId: string, input: u
       await tx.reaction.delete({ where: { id: existing.id } });
     } else {
       await tx.reaction.create({ data: { messageId, userId, emoji } });
+      // Adding a reaction (not removing one) tells the message author.
+      alerts = await createChatNotifications(tx, message.channelId, [{ recipientId: message.authorId, actorId: userId, messageId, type: "CHAT_REACTION" }]);
     }
 
     const updatedReactions = await tx.reaction.findMany({
@@ -597,6 +630,7 @@ export async function toggleReaction(userId: string, messageId: string, input: u
     };
   });
 
+  await announceNotifications(alerts).catch(() => console.error("Live alert delivery failed."));
   return result;
 }
 
@@ -684,6 +718,7 @@ export async function getChannel(userId: string, channelId: string): Promise<Cha
           userId: true,
           lastReadAt: true,
           role: true,
+          muted: true,
           user: { select: { id: true, name: true, image: true } },
         },
       },
@@ -692,7 +727,8 @@ export async function getChannel(userId: string, channelId: string): Promise<Cha
   });
 
   if (!channel) throw new AppError(404, "Channel not found.");
-  await requireWorkspace(userId, channel.workspaceId);
+  const member = await requireWorkspace(userId, channel.workspaceId);
+  const manager = channel.createdById === userId || member.role === "ADMIN";
 
   const userMembership = channel.members.find(m => m.userId === userId);
   const joined = !!userMembership;
@@ -718,7 +754,11 @@ export async function getChannel(userId: string, channelId: string): Promise<Cha
     isPrivate: channel.type !== "PUBLIC",
     joined,
     memberCount: channel._count.members,
-    canManageMembers: channel.createdById === userId,
+    canManageMembers: manager,
     otherUser,
+    muted: userMembership?.muted ?? false,
+    archived: Boolean(channel.archivedAt),
+    postingPolicy: channel.postingPolicy,
+    canPost: !channel.archivedAt && (channel.postingPolicy === "EVERYONE" || manager),
   };
 }

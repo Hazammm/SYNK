@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { Button, Input } from "./Primitives";
 import AuthAside from "@/components/AuthAside";
 import Logo from "@/components/Logo";
@@ -39,6 +39,9 @@ export default function AuthPage({
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(authError ? "Invalid email or password" : "");
+  // Accounts with two-factor sign-in are asked for a code after the password is accepted.
+  const [needCode, setNeedCode] = useState(false);
+  const [code, setCode] = useState("");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
@@ -46,7 +49,9 @@ export default function AuthPage({
     setBusy(true); setError("");
     try {
       const email = String(data.get("email")).trim().toLowerCase();
-      const result = await signIn("credentials", { email, password, redirect: false });
+      const result = await signIn("credentials", { email, password, ...(needCode && { code }), redirect: false });
+      if (result?.error === "TwoFactorRequired") { setNeedCode(true); return; }
+      if (result?.error === "InvalidTwoFactor") { setError("That code is not right. Try the newest code from your app, or a recovery code."); return; }
       if (!result?.ok || result.error) { setError("Invalid email or password"); return; }
       if (inviteToken) {
         await request(`/api/invites/${encodeURIComponent(inviteToken)}/accept-existing`, { method: "POST", body: "{}" });
@@ -73,6 +78,7 @@ export default function AuthPage({
       <form onSubmit={submit} className={styles.form}>
         <label className={styles.field}><span>Email</span><div className={styles.inputWrap}><Mail size={17} /><Input name="email" type="email" autoComplete="email" placeholder="you@company.com" required maxLength={254} /></div></label>
         <label className={styles.field}><span>Password</span><div className={styles.inputWrap}><LockKeyhole size={17} /><Input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" required maxLength={72} value={password} onChange={event => setPassword(event.target.value)} /><button className={styles.eye} onClick={() => setShowPassword(!showPassword)} type="button" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+        {needCode && <label className={styles.field}><span>Two-factor code</span><div className={styles.inputWrap}><ShieldCheck size={17} /><Input name="code" inputMode="numeric" autoComplete="one-time-code" placeholder="6-digit code or recovery code" required maxLength={20} autoFocus value={code} onChange={event => setCode(event.target.value)} aria-describedby="code-hint" /></div><small id="code-hint">Open your authenticator app, or use one of your recovery codes.</small></label>}
         <div className={styles.formOptions}><span /><Link href="/forgot-password">Forgot password?</Link></div>
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <Button variant="primary" type="submit" disabled={busy} className={styles.submit}>{busy ? "Please wait…" : "Sign in"}</Button>

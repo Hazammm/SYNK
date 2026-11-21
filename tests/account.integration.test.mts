@@ -53,7 +53,7 @@ test("account: shows the person's details, workspaces and other sessions", async
   await db.loginSession.create({ data: { userId: owner, expiresAt: new Date(Date.now() - 1000) } }); // expired, not counted
   const account = await getAccount(owner, current);
   assert.deepEqual([account.name, account.hasPassword, account.providers, account.otherSessions], ["Owner Person", true, [], 1]);
-  assert.deepEqual(account.notifications, { assigned: true, comments: true, mentions: true });
+  assert.deepEqual(account.notifications, { assigned: true, comments: true, mentions: true, replies: true, reactions: true });
   assert.deepEqual(account.workspaces.map(item => [item.name, item.role, item.memberCount, item.adminCount]), [["Account workspace", "ADMIN", 2, 1]]);
   const google = await getAccount(oauth, await login(oauth));
   assert.deepEqual([google.hasPassword, google.providers, google.workspaces], [false, ["Google"], []]);
@@ -84,7 +84,7 @@ test("notifications: turned-off kinds are not created, and turning them back on 
   await updateTicket(owner, other.id, { assigneeId: member });
   await addComment(owner, other.id, { body: "Another plain comment" });
   assert.deepEqual(await alertTypes(member), ["TICKET_ASSIGNED", "TICKET_COMMENT"]); // the new comment was not alerted
-  assert.deepEqual((await getAccount(member, await login(member))).notifications, { assigned: true, comments: false, mentions: false });
+  assert.deepEqual((await getAccount(member, await login(member))).notifications, { assigned: true, comments: false, mentions: false, replies: true, reactions: true });
   await updateProfile(member, { notifications: { assigned: true, comments: true, mentions: true } });
 });
 

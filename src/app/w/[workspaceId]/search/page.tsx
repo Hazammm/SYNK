@@ -18,12 +18,13 @@ export default async function WorkspaceSearchPage({ params, searchParams }: {
   const groups = [
     { title: "Tickets", items: results.flatMap(item => item.type === "ticket" ? [{ ...item, href: trackerHref("board", { workspaceId, projectId: item.projectId, boardId: item.boardId, ticket: item.id }), label: item.title, meta: item.status }] : []) },
     { title: "Pages", items: results.flatMap(item => item.type === "doc" ? [{ ...item, href: `/w/${workspaceId}/docs?projectId=${item.projectId}&doc=${item.id}`, label: item.title, meta: item.project }] : []) },
-    { title: "Messages", items: results.flatMap(item => item.type === "message" ? [{ ...item, href: `/w/${workspaceId}/chat`, label: `#${item.channel}`, meta: item.sender }] : []) },
+    { title: "Messages", items: results.flatMap(item => item.type === "message" ? [{ ...item, href: `/w/${workspaceId}/chat/${item.channelId}?message=${item.threadRootId ?? item.id}`, label: `#${item.channel}`, meta: item.sender }] : []) },
   ].filter(group => group.items.length);
 
   return <div className={styles.page}>
     <h1>{query ? `Results for “${query}”` : "Search"}</h1>
     {query.length < 2 && <p className={styles.notice}>Type at least 2 characters in the search box above.</p>}
+    <p className={styles.notice}>Narrow messages with <code>from:@name</code>, <code>in:#channel</code>, <code>before:2026-11-01</code>, <code>after:2026-10-01</code>, <code>has:link</code> or <code>has:file</code>.</p>
     {query.length >= 2 && !groups.length && <p className={styles.notice}>Nothing matched. Only tickets and pages in projects you can open, and messages in channels you have joined, are searched.</p>}
     {groups.map(group => <section key={group.title} className={styles.group} aria-label={group.title}>
       <h2>{group.title} <span>{group.items.length}</span></h2>

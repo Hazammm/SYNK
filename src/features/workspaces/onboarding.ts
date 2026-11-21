@@ -40,7 +40,7 @@ function projectKeyFor(name: string) {
   return key.length === 1 ? `${key}1` : key;
 }
 
-type SetupInput = { workspaceName: string; projectName: string; inviteEmails: string[] };
+type SetupInput = { workspaceName: string; projectName: string; inviteEmails: string[]; usePurpose?: string };
 type Owner = { id: string; name: string | null; email: string | null };
 
 // Creates the workspace with its owner, first project, board, #general channel and pending invites.
@@ -49,7 +49,7 @@ async function seedWorkspace(tx: Prisma.TransactionClient, owner: Owner, data: S
     data: { name: data.workspaceName, createdById: owner.id },
     select: { id: true, name: true },
   });
-  await tx.user.update({ where: { id: owner.id }, data: { lastActiveWorkspaceId: workspace.id } });
+  await tx.user.update({ where: { id: owner.id }, data: { lastActiveWorkspaceId: workspace.id, ...(data.usePurpose && { usePurpose: data.usePurpose }) } });
   await tx.membership.create({ data: { workspaceId: workspace.id, userId: owner.id, role: "ADMIN" } });
   const project = await tx.project.create({
     data: { workspaceId: workspace.id, name: data.projectName, key: projectKeyFor(data.projectName) },

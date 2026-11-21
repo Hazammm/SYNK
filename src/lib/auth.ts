@@ -11,6 +11,7 @@ import { credentialsSchema } from "./validation";
 import { rateLimit } from "./rate-limit";
 import { realtime } from "./realtime";
 import { encryptGoogleProfile } from "./google-profile-cookie";
+import { checkSecondFactor } from "../features/account/two-factor";
 
 const maxAge = 7 * 24 * 60 * 60;
 const LOGIN_WINDOW_MS = 5 * 60_000;
@@ -42,20 +43,26 @@ export async function createPasswordLogin(userId: string, verifiedHash: string) 
 
 const providers: NextAuthOptions["providers"] = [Credentials({
   name: "Email and password",
-  credentials: { email: { type: "email" }, password: { type: "password" } },
+  credentials: { email: { type: "email" }, password: { type: "password" }, code: { type: "text" } },
   async authorize(input, request) {
     const parsed = credentialsSchema.safeParse(input);
     if (!parsed.success) return null;
     limitLogin(parsed.data.email, request?.headers?.["x-synk-client-ip"] ?? "unknown");
     const user = await db.user.findFirst({
       where: { email: { equals: parsed.data.email, mode: "insensitive" } },
-      select: { id: true, name: true, email: true, image: true, passwordHash: true },
+      select: { id: true, name: true, email: true, image: true, passwordHash: true, totpSecret: true },
     });
     // Use the same bcrypt cost for unknown accounts to avoid an easy timing oracle.
     const fallback = "$2b$12$C6UzMDM.H6dfI/f/IKcEe.5MR.PmTuYkSY7jLRPx3QIkggY7UjN0i";
     const valid = await compare(parsed.data.password, user?.passwordHash ?? fallback);
     // Reject if password invalid OR if user has no password (Google-only account).
     if (!valid || !user?.passwordHash || !user.email) return null;
+    // Two-factor sign-in is asked for only after the password is right, so it reveals nothing to a guesser.
+    if (user.totpSecret) {
+      const code = typeof input?.code === "string" ? input.code.trim().slice(0, 20) : "";
+      if (!code) throw new Error("TwoFactorRequired");
+      if (!(await checkSecondFactor(user.id, code))) throw new Error("InvalidTwoFactor");
+    }
     const loginSessionId = await createPasswordLogin(user.id, user.passwordHash);
     if (!loginSessionId) return null;
     return { id: user.id, name: user.name, email: user.email, image: user.image, loginSessionId };

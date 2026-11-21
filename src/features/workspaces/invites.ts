@@ -25,7 +25,9 @@ async function deliverInvites(invites: Array<{ email: string; token: string; adm
 
 export async function createInvites(actorId: string, workspaceId: string, input: unknown) {
   const { emails } = inviteEmailsSchema.parse(input);
-  const member = await requireWorkspace(actorId, workspaceId, "workspace:manage");
+  const member = await requireWorkspace(actorId, workspaceId);
+  const policy = await db.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { invitePolicy: true } });
+  if (member.role !== "ADMIN" && policy.invitePolicy !== "EVERYONE") throw new AppError(403, "Only workspace admins can invite people here. Ask an admin to let everyone invite.");
   assertMailerConfigured();
   const [workspace, inviter] = await Promise.all([
     db.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { id: true, name: true } }),

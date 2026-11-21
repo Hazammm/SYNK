@@ -4,22 +4,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
-import { Bell, Bot, Building2, Palette, Shield, UserRound, Users } from "lucide-react";
-import { Avatar, Button, Input } from "@/components/Primitives";
-import { initialsOf } from "@/components/ProfileMenu";
+import { BarChart3, Bell, Bot, Building2, Palette, Shield, Smile, UserRound, Users } from "lucide-react";
+import { Button, Input } from "@/components/Primitives";
 import { applyTheme, THEMES, useTheme } from "@/lib/theme";
 import { messageOf, request } from "@/lib/client-http";
 import WorkspaceMembers from "@/features/workspaces/WorkspaceMembers";
+import WorkspaceAdmin from "@/features/workspaces/WorkspaceAdmin";
+import { DesktopNotifications, PauseSettings, ProfileDetails, Section, StatusSettings, TwoFactor, useSaving } from "./PersonalSettings";
 import { SETTINGS_SECTIONS, type Account, type NotificationPreferences, type SettingsSection } from "@/lib/account-types";
 import styles from "./Settings.module.css";
 
 const SECTIONS: Record<SettingsSection, { label: string; icon: typeof UserRound }> = {
   profile: { label: "Profile", icon: UserRound },
+  status: { label: "Status", icon: Smile },
   notifications: { label: "Notifications", icon: Bell },
   appearance: { label: "Appearance", icon: Palette },
   security: { label: "Password and security", icon: Shield },
   workspaces: { label: "Workspaces", icon: Building2 },
   members: { label: "Members", icon: Users },
+  admin: { label: "Workspace admin", icon: BarChart3 },
   assistant: { label: "AI assistant", icon: Bot },
 };
 const sectionOf = (value?: string): SettingsSection => SETTINGS_SECTIONS.find(section => section === value?.toLowerCase()) ?? "profile";
@@ -33,7 +36,7 @@ export default function SettingsView({ initialSection, workspace, inviteDelivery
   inviteDeliveryFailed?: boolean;
   welcomeEmailFailed?: boolean;
 }) {
-  const sections = SETTINGS_SECTIONS.filter(id => id !== "members" || workspace);
+  const sections = SETTINGS_SECTIONS.filter(id => (id !== "members" || workspace) && (id !== "admin" || workspace?.role === "ADMIN"));
   const pick = (value?: string) => { const found = sectionOf(value); return sections.includes(found) ? found : "profile"; };
   const [section, setSection] = useState(pick(initialSection));
   const [account, setAccount] = useState<Account | null>(null);
@@ -68,11 +71,13 @@ export default function SettingsView({ initialSection, workspace, inviteDelivery
         {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={reload}>Retry</button></p>}
         {!account && !error && <p role="status" className={styles.muted}>Loading your settings…</p>}
         {account && <>
-          {section === "profile" && <Profile account={account} onSaved={reload} />}
-          {section === "notifications" && <Notifications account={account} onSaved={reload} />}
+          {section === "profile" && <ProfileDetails account={account} onSaved={reload} />}
+          {section === "status" && <StatusSettings account={account} onSaved={reload} />}
+          {section === "notifications" && <><Notifications account={account} onSaved={reload} /><PauseSettings account={account} onSaved={reload} /><DesktopNotifications /></>}
           {section === "appearance" && <Appearance />}
-          {section === "security" && <Security account={account} onChanged={reload} />}
+          {section === "security" && <><Security account={account} onChanged={reload} /><TwoFactor account={account} onChanged={reload} /></>}
           {section === "workspaces" && <Workspaces account={account} onChanged={reload} />}
+          {section === "admin" && workspace?.role === "ADMIN" && <WorkspaceAdmin workspaceId={workspace.id} />}
           {section === "members" && workspace && <WorkspaceMembers workspaceId={workspace.id} role={workspace.role} userId={workspace.userId} inviteDeliveryFailed={inviteDeliveryFailed} />}
           {section === "assistant" && <Assistant account={account} />}
         </>}
@@ -81,56 +86,13 @@ export default function SettingsView({ initialSection, workspace, inviteDelivery
   </div>;
 }
 
-function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
-  return <section className={styles.card} aria-labelledby={`${title}-heading`.replace(/\s+/g, "-")}>
-    <h2 id={`${title}-heading`.replace(/\s+/g, "-")}>{title}</h2><p className={styles.muted}>{description}</p>{children}
-  </section>;
-}
-
 // Saving state shared by the forms: busy, a success note and an error, announced to screen readers.
-function useSaving() {
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
-  async function run(action: () => Promise<string>) {
-    setBusy(true); setNotice(""); setError("");
-    try { setNotice(await action()); } catch (error) { setError(messageOf(error)); } finally { setBusy(false); }
-  }
-  const feedback = <>{error && <p role="alert" className={styles.error}>{error}</p>}<p role="status" className={styles.notice}>{notice}</p></>;
-  return { busy, run, feedback };
-}
-
-function Profile({ account, onSaved }: { account: Account; onSaved: () => void }) {
-  const router = useRouter();
-  const [name, setName] = useState(account.name);
-  const { busy, run, feedback } = useSaving();
-  const save = (event: React.FormEvent) => {
-    event.preventDefault();
-    void run(async () => {
-      await request("/api/me", { method: "PATCH", body: JSON.stringify({ name }) });
-      onSaved(); router.refresh(); // the header shows the new name
-      return "Your name was saved.";
-    });
-  };
-  return <Section title="Profile" description="How you appear to teammates in chat, on tickets and in mentions.">
-    <div className={styles.identity}><Avatar initials={initialsOf(name || account.name)} /><div><strong>{name || account.name}</strong><span>{account.email}</span></div></div>
-    <form className={styles.form} onSubmit={save}>
-      <label>Display name<Input required maxLength={80} value={name} onChange={event => setName(event.target.value)} autoComplete="name" /></label>
-      <label>Email<Input value={account.email ?? ""} disabled readOnly aria-describedby="email-hint" /></label>
-      <p id="email-hint" className={styles.hint}>Your email is used to sign in and to add you to workspaces, so it cannot be changed here.</p>
-      <div className={styles.actions}><Button variant="primary" disabled={busy || !name.trim() || name.trim() === account.name}>{busy ? "Saving…" : "Save changes"}</Button>{feedback}</div>
-    </form>
-    <dl className={styles.facts}>
-      <div><dt>Member since</dt><dd>{new Date(account.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}</dd></div>
-      <div><dt>Signs in with</dt><dd>{[account.hasPassword && "Email and password", ...account.providers].filter(Boolean).join(", ")}</dd></div>
-    </dl>
-  </Section>;
-}
-
 const NOTIFICATION_OPTIONS: { key: keyof NotificationPreferences; label: string; description: string }[] = [
   { key: "assigned", label: "Ticket assignments", description: "When someone assigns a ticket to you." },
   { key: "comments", label: "Comments on your tickets", description: "When someone comments on a ticket assigned to you." },
-  { key: "mentions", label: "Mentions", description: "When someone @mentions you in a ticket comment." },
+  { key: "mentions", label: "Mentions and direct messages", description: "When someone @mentions you in chat or on a ticket, or sends you a direct message." },
+  { key: "replies", label: "Thread replies", description: "When someone replies to a thread you started or replied in." },
+  { key: "reactions", label: "Reactions", description: "When someone reacts to your message." },
 ];
 
 function Notifications({ account, onSaved }: { account: Account; onSaved: () => void }) {

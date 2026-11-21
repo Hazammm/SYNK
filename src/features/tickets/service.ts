@@ -6,7 +6,18 @@ import {
   boardSchema, boardUpdateSchema, commentSchema, idSchema, sprintSchema, sprintUpdateSchema,
   ticketFilterSchema, ticketSchema, ticketUpdateSchema,
 } from "../../lib/validation";
-import { wantedNotifications } from "../notifications/service";
+import { announceNotifications, wantedNotifications } from "../notifications/service";
+
+// Runs a write that may create alerts, then announces those alerts once the change is saved.
+async function withAlerts<T>(work: (created: string[]) => Promise<T>): Promise<T> {
+  const created: string[] = [];
+  const result = await work(created);
+  await announceNotifications(created).catch(() => console.error("Live alert delivery failed."));
+  return result;
+}
+const storeAlerts = async (tx: Database, created: string[], data: Prisma.NotificationCreateManyInput[]) => {
+  if (data.length) created.push(...(await tx.notification.createManyAndReturn({ data, select: { id: true } })).map(row => row.id));
+};
 import { boardInclude, createBoardRecord, isoDate, serializeBoard, serializeSprint } from "../projects/service";
 import type { BoardSummary, SprintSummary, TicketComment, TicketDetail, TicketSummary } from "../../lib/ticket-types";
 
@@ -175,7 +186,7 @@ export async function listTickets(userId: string, input: unknown): Promise<Ticke
 
 export async function createTicket(userId: string, input: unknown): Promise<TicketDetail> {
   const { boardId, columnId, ...data } = ticketSchema.parse(input);
-  return db.$transaction(async tx => {
+  return withAlerts(created => db.$transaction(async tx => {
     const board = await tx.board.findUnique({ where: { id: boardId }, include: boardInclude });
     if (!board) throw new AppError(404, "Board not found.");
     const { project } = await requireProject(userId, board.projectId, "ticket:write", tx);
@@ -196,10 +207,10 @@ export async function createTicket(userId: string, input: unknown): Promise<Tick
     });
     if (ticket.assigneeId && ticket.assigneeId !== userId) {
       const wanted = await wantedNotifications(tx, [{ type: "TICKET_ASSIGNED" as const, recipientId: ticket.assigneeId, actorId: userId, ticketId: ticket.id }]);
-      if (wanted.length) await tx.notification.createMany({ data: wanted });
+      await storeAlerts(tx, created, wanted);
     }
     return serializeDetail(ticket);
-  });
+  }));
 }
 
 export async function getTicket(userId: string, ticketId: string): Promise<TicketDetail> {
@@ -218,7 +229,7 @@ export async function findTicketByKey(userId: string, workspaceId: string, key: 
 
 export async function updateTicket(userId: string, ticketId: string, input: unknown): Promise<TicketDetail> {
   const { columnId, position, ...fields } = ticketUpdateSchema.parse(input);
-  return db.$transaction(async tx => {
+  return withAlerts(created => db.$transaction(async tx => {
     const { ticket, project } = await requireTicket(userId, ticketId, "ticket:write", tx);
     if (fields.assigneeId) await assertAssignable(tx, project.id, project.workspaceId, fields.assigneeId);
     if (fields.sprintId && fields.sprintId !== ticket.sprintId) await assertOpenSprint(tx, project.id, fields.sprintId);
@@ -242,10 +253,10 @@ export async function updateTicket(userId: string, ticketId: string, input: unkn
     const updated = await tx.ticket.update({ where: { id: ticketId }, data, include: detailInclude });
     if (updated.assigneeId && updated.assigneeId !== ticket.assigneeId && updated.assigneeId !== userId) {
       const wanted = await wantedNotifications(tx, [{ type: "TICKET_ASSIGNED" as const, recipientId: updated.assigneeId, actorId: userId, ticketId }]);
-      if (wanted.length) await tx.notification.createMany({ data: wanted });
+      await storeAlerts(tx, created, wanted);
     }
     return serializeDetail(updated);
-  });
+  }));
 }
 
 // Comments and notifications go with the ticket. Its key is never reused, because numbering only moves forward.
@@ -263,7 +274,7 @@ export async function deleteTicket(userId: string, ticketId: string): Promise<{ 
 
 export async function addComment(userId: string, ticketId: string, input: unknown): Promise<TicketComment> {
   const data = commentSchema.parse(input);
-  return db.$transaction(async tx => {
+  return withAlerts(created => db.$transaction(async tx => {
     const { ticket, project } = await requireTicket(userId, ticketId, "ticket:comment", tx);
     const comment = await tx.comment.create({ data: { ticketId, authorId: userId, body: data.body }, include: { author: person } });
     // Mentions only reach people who can open the ticket; unknown or outside IDs are dropped.
@@ -275,7 +286,7 @@ export async function addComment(userId: string, ticketId: string, input: unknow
     // The assignee hears about every comment; a mention already covers it.
     if (ticket.assigneeId && ticket.assigneeId !== userId && !recipients.has(ticket.assigneeId)) recipients.set(ticket.assigneeId, "TICKET_COMMENT");
     const wanted = await wantedNotifications(tx, [...recipients].map(([recipientId, type]) => ({ type, recipientId, actorId: userId, ticketId, commentId: comment.id })));
-    if (wanted.length) await tx.notification.createMany({ data: wanted });
+    await storeAlerts(tx, created, wanted);
     return serializeComment(comment);
-  });
+  }));
 }

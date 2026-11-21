@@ -1,0 +1,9 @@
+import { connection } from "next/server";
+import { requireUser } from "@/lib/session";
+import { api } from "@/lib/errors";
+import { listSaved } from "@/features/chat/manage";
+
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  await connection();
+  return api(async () => ({ saved: await listSaved((await requireUser()).id, (await context.params).id) }));
+}

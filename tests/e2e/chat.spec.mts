@@ -102,7 +102,7 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     console.log(`Observed cross-user delivery, including UI actions: ${Date.now() - start} ms`);
     // Chat search finds the message by a word in it.
     await member.getByRole("button", { name: "Search messages" }).click();
-    await member.getByPlaceholder("Search channel messages…").fill(`delivery ${nonce}`);
+    await member.getByPlaceholder(/^Search messages/).fill(`delivery ${nonce}`);
     await member.getByRole("button", { name: "Find messages" }).click();
     await expect(member.getByRole("button", { name: /#general/ }).filter({ hasText: nonce })).toBeVisible();
     await member.getByRole("button", { name: "Search messages" }).click();
