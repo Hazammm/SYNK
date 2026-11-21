@@ -1,7 +1,6 @@
 /* Account settings. Colours come from the theme variables in globals.css. */
 .page { width: 100%; max-width: 1000px; margin: 0 auto; }
 .header h1 { margin: 0; font-size: var(--t-2xl); letter-spacing: -.025em; line-height: 1.2; }
-.eyebrow { color: var(--muted); font-size: var(--t-sm); letter-spacing: .12em; }
 .layout { display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 24px; }
 .nav { position: sticky; top: calc(var(--topbar-h) + 16px); display: grid; gap: 1px; }
 .nav button { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 10px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); font-size: var(--t-base); font-weight: 500; text-align: left; cursor: pointer; transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease); }
@@ -32,10 +31,6 @@
 .form input:disabled { color: var(--muted); cursor: not-allowed; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .danger { border-color: var(--high); color: var(--high); }
-.facts { display: grid; gap: 8px; margin: 0; padding-top: 12px; border-top: 1px solid var(--border); font-size: var(--t-base); }
-.facts div { display: grid; grid-template-columns: 130px 1fr; gap: 8px; }
-.facts dt { color: var(--muted); }
-.facts dd { margin: 0; }
 
 .toggles { margin: 0; padding: 0; list-style: none; }
 .toggles li + li { border-top: 1px solid var(--border); }
