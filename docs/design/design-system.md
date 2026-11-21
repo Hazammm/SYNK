@@ -84,9 +84,22 @@ Every text pairing used in the interface meets WCAG AA (4.5:1) in both themes; t
 
 Two themes: `light` and `dark`. The choice is saved in `localStorage` under `synk-theme`; with nothing saved, the system setting decides. Values saved by the earlier four-theme build map onto the two (black and forest to dark, white and lavender to light).
 
+## Interaction and accessibility rules
+
+- **Text** is never smaller than 12 px (`--t-xs`). On touch phones, fields use 16 px so the browser does not zoom in on focus.
+- **Focus:** every control shows the global `:focus-visible` ring. A field that hides its outline must show focus another way (a border or underline).
+- **Dialogs** use `src/components/Modal.tsx`, a native `<dialog>`: focus stays inside, Escape closes it, the page behind is inert, and focus returns to the control that opened it.
+- **Touch:** icon buttons are 44 px on coarse pointers (message actions 40 px so all eight fit a phone-width message).
+- **Messages:** the message list is one Tab stop. Up and Down move between messages; Tab from a message reaches its actions, which also show on hover and when a message is tapped.
+- **Status is never colour alone:** online is a filled dot and offline a hollow ring, with screen-reader text; unread alerts carry hidden "Unread" text.
+- **Loading** uses `SkeletonList` (placeholder rows plus a screen-reader label), not "Loading…" text.
+- **Empty states** show an icon, a heading and the next step, using the screen's `.empty` style.
+- **Styles** live in CSS modules. Inline `style` is only for values computed from data, such as bar heights.
+- **Phones (760 px and below):** the chat header puts its actions on a second scrolling row, and channels become one scrolling row of chips.
+
 ## QA record
 
-- `npm run lint`, `npm run typecheck`, `npm test` (39), `npm run test:integration` (106), `npm run test:e2e` (8) and `npm run build` all pass.
+- `npm run lint`, `npm run typecheck`, `npm test` (53), `npm run test:integration` (128), `npm run test:e2e` (11, including keyboard-only and 375 px checks) and `npm run build` all pass.
 - Every page was captured at 1440, 820 and 390 px wide in both themes with no console errors and no horizontal page scroll.
 - Contrast (WCAG 2.1): body text 15.7:1 light and 16.3:1 dark; muted text at least 5.2:1; faint text at least 4.4:1; accent text at least 5.6:1; status text on its tint at least 4.8:1.
 - Field borders use `--field-border`: 3.3:1 on the light surface and 3.6:1 or more on dark surfaces, meeting WCAG 1.4.11 for control boundaries (the earlier `--border-strong` borders were 1.6:1).

@@ -12,15 +12,15 @@ This page checks Synk against the quality targets in PRD section 15 and says how
 | Chat delivery under 1 second | **367 ms**, from typing to the other person seeing it | `tests/e2e/chat.spec.mts` prints the time |
 | Sign-up to first AI-created ticket under 5 minutes | **5.5 s** scripted (a person typing takes longer) | `npm run test:walkthrough` |
 | API p95 under 500 ms | **Slowest p95: 299 ms** | `npm run test:load` |
-| Test coverage: at least 80% on the permission module, 60% overall | **Permission module 100%; server code 89.6% of lines** | `npm run test:coverage` |
+| Test coverage: at least 80% on the permission module, 60% overall | **Permission module 100%; server code 89.4% of lines** | `npm run test:coverage` |
 
 ## Test suites
 
 | Suite | Tests | Command |
 |---|---:|---|
 | Unit | 53 | `npm test` |
-| Integration (PostgreSQL) | 131, in 12 files | `npm run test:integration` |
-| End-to-end (Playwright, production build) | 9 | `npm run test:e2e` |
+| Integration (PostgreSQL) | 128, in 12 files | `npm run test:integration` |
+| End-to-end (Playwright, production build) | 11 | `npm run test:e2e` |
 | Agent (pytest, scripted model) | 46 | `npm run agent:test` |
 | Agent accuracy (real model) | 30 prompts | `npm run agent:eval` |
 
@@ -33,7 +33,7 @@ CI runs the unit and integration tests together with coverage (`npm run test:cov
 | Scope | Lines | Branches | Functions |
 |---|---:|---:|---:|
 | Permission module (`src/lib/permissions.ts`) | 100% | 97.1% | 100% |
-| All server code | 89.6% | 91.4% | 95.2% |
+| All server code | 89.4% | 91.3% | 95.3% |
 
 The command prints the figures for every file. The least covered file is `src/lib/mailer.ts`, because the tests never send real email.
 
