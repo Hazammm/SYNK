@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download } from "lucide-react";
-import { Button, Input } from "@/components/Primitives";
+import { Button, Input, SkeletonList } from "@/components/Primitives";
 import { messageOf, request } from "@/lib/client-http";
 import { Section, useSaving } from "@/features/account/PersonalSettings";
 import styles from "@/features/account/Settings.module.css";
@@ -36,7 +36,7 @@ export default function WorkspaceAdmin({ workspaceId }: { workspaceId: string })
   });
 
   if (error) return <p role="alert" className={styles.error}>{error}</p>;
-  if (!settings) return <p role="status" className={styles.muted}>Loading workspace settings…</p>;
+  if (!settings) return <SkeletonList label="Loading workspace settings…" height={140} />;
   const peak = Math.max(1, ...(analytics?.daily.map(day => day.messages) ?? [0]));
 
   return <>
@@ -55,7 +55,7 @@ export default function WorkspaceAdmin({ workspaceId }: { workspaceId: string })
       {policy.feedback}
     </Section>
     <Section title="Usage" description="Activity in this workspace. Deleted messages are not counted.">
-      {!analytics ? <p role="status" className={styles.muted}>Loading usage…</p> : <>
+      {!analytics ? <SkeletonList label="Loading usage…" rows={2} height={72} /> : <>
         <dl className={styles.stats}>
           <div><dt>Members</dt><dd>{analytics.members}</dd><small>{analytics.newMembers} joined in 30 days</small></div>
           <div><dt>Active this week</dt><dd>{analytics.activeMembers.week}</dd><small>{analytics.activeMembers.month} in 30 days</small></div>
