@@ -1445,6 +1445,61 @@
   gap: 8px;
 }
 
+.pinCard p,
+.pinCard > span {
+  display: block;
+  margin: 4px 0;
+  color: var(--text);
+}
+
+.pinCard small,
+.mentionKind {
+  color: var(--faint);
+}
+
+.mentionKind,
+.fileDownload {
+  margin-left: auto;
+}
+
+.drawerSearch {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ticketBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--sunken);
+}
+
+.ticketBar > span {
+  color: var(--faint);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ticketCards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stagedRemove {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
 .pinCard {
   padding: 10px;
   border: 1px solid var(--border);

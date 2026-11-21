@@ -1133,8 +1133,8 @@ function PinnedMessagesList({ channelId }: { channelId: string }) {
       {pins.map(pin => (
         <div key={pin.id} className={styles.pinCard}>
           <strong>{pin.sender?.name ?? "Member"}</strong>
-          <p style={{ margin: "4px 0", color: "var(--text)" }}>{pin.body}</p>
-          <small style={{ color: "var(--faint)" }}>{formatClockTime(pin.createdAt)}</small>
+          <p>{pin.body}</p>
+          <small>{formatClockTime(pin.createdAt)}</small>
         </div>
       ))}
     </>
@@ -1170,7 +1170,7 @@ function ChannelFilesList({ channelId }: { channelId: string }) {
             <span className={styles.fileName}>{file.fileName}</span>
             <span className={styles.fileSize}>{formatFileSize(file.size)}</span>
           </div>
-          <Download size={15} style={{ marginLeft: "auto" }} />
+          <Download size={15} className={styles.fileDownload} aria-hidden="true" />
         </a>
       ))}
     </>
@@ -1209,7 +1209,7 @@ function SearchDrawer({
 
   return (
     <div>
-      <form onSubmit={handleSearch} style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
+      <form onSubmit={handleSearch} className={styles.drawerSearch}>
         <Input
           placeholder="Search messages, e.g. from:@sam has:link"
           aria-describedby="search-modifiers"
@@ -1235,8 +1235,8 @@ function SearchDrawer({
           }}
         >
           <strong>{item.title}</strong>
-          <span style={{ display: "block", margin: "4px 0", color: "var(--text)" }}>{item.snippet}</span>
-          <small style={{ color: "var(--faint)" }}>{formatClockTime(item.createdAt)}</small>
+          <span>{item.snippet}</span>
+          <small>{formatClockTime(item.createdAt)}</small>
         </button>
       ))}
       {!loading && !error && !results.length && query && (
@@ -1443,8 +1443,8 @@ function Feed({
       )}
 
       {linkedTickets.length > 0 && (
-        <div style={{ display: "flex", gap: "6px", padding: "6px 20px", background: "var(--sunken)", borderBottom: "1px solid var(--border)" }}>
-          <span style={{ fontSize: "var(--t-xs)", color: "var(--faint)", alignSelf: "center", fontWeight: 600 }}>TICKETS:</span>
+        <div className={styles.ticketBar}>
+          <span>Tickets</span>
           {linkedTickets.map(key => (
             <Link
               key={key}
@@ -1733,7 +1733,7 @@ function MessageCard({
 
         {/* Embedded Ticket Cards */}
         {!isDeleted && !isEditing && ticketKeys.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          <div className={styles.ticketCards}>
             {ticketKeys.map(key => (
               <Link
                 key={key}
@@ -1772,7 +1772,7 @@ function MessageCard({
                     <span className={styles.fileName}>{att.fileName}</span>
                     <span className={styles.fileSize}>{formatFileSize(att.size)}</span>
                   </div>
-                  <Download size={14} style={{ marginLeft: "auto" }} />
+                  <Download size={14} className={styles.fileDownload} aria-hidden="true" />
                 </a>
               );
             })}
