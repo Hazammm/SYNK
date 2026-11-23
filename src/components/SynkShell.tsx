@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import {
-  Bell, Check, ChevronsUpDown, Clock3, FileText, LayoutDashboard, Menu, MessageCircle, Moon,
-  PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, KanbanSquare, Sun, Users, X,
+  Bell, Check, Clock3, FileText, Hash, KanbanSquare, LayoutDashboard, Menu, MessageCircle, MessageSquarePlus,
+  Moon, MoreHorizontal, Plus, Search, Settings, SquarePen, Sun, Ticket, Users, Webhook, X,
 } from "lucide-react";
 import { applyTheme, useTheme } from "@/lib/theme";
 import { NOTIFICATIONS_CHANGED } from "@/lib/events";
 import AgentPanel from "@/features/agent/AgentPanel";
 import { useLiveAlerts } from "@/features/notifications/live";
 import QuickSwitcher from "./QuickSwitcher";
-import Logo, { LogoMark } from "./Logo";
+import { LogoMark } from "./Logo";
 import ProfileMenu, { SettingsLink } from "./ProfileMenu";
 import styles from "./Synk.module.css";
 
@@ -32,19 +32,9 @@ export function ThemeBar() {
   return <div className={styles.themeCorner}><ThemeToggle /></div>;
 }
 
-// The collapsed sidebar is remembered in this browser.
-const COLLAPSE_KEY = "synk-sidebar-collapsed";
-const COLLAPSE_EVENT = "synk-sidebar-change";
-function useCollapsed() {
-  const collapsed = useSyncExternalStore(
-    notify => { window.addEventListener(COLLAPSE_EVENT, notify); return () => window.removeEventListener(COLLAPSE_EVENT, notify); },
-    () => window.localStorage.getItem(COLLAPSE_KEY) === "1",
-    () => false,
-  );
-  const toggle = () => { window.localStorage.setItem(COLLAPSE_KEY, collapsed ? "0" : "1"); window.dispatchEvent(new Event(COLLAPSE_EVENT)); };
-  return [collapsed, toggle] as const;
-}
+type Popover = "workspace" | "more" | "create" | null;
 
+// The app frame, laid out like Slack: a narrow rail of tabs on the left and a search bar across the top.
 export default function SynkShell({
   children,
   userName,
@@ -62,12 +52,10 @@ export default function SynkShell({
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [collapsed, toggleCollapsed] = useCollapsed();
-  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [popover, setPopover] = useState<Popover>(null);
   const [unread, setUnread] = useState(0);
   const base = workspaceId ? `/w/${workspaceId}` : "";
   const [quickOpen, setQuickOpen] = useState(false);
-  const switcher = useRef<HTMLDivElement>(null);
   const displayName = workspaceName || "Workspace";
   const displayGlyph = displayName[0]?.toUpperCase() || "W";
   useLiveAlerts(Boolean(workspaceId));
@@ -83,13 +71,13 @@ export default function SynkShell({
   }, [workspaceId]);
 
   useEffect(() => {
-    if (!switcherOpen) return;
-    const outside = (event: MouseEvent) => { if (!switcher.current?.contains(event.target as Node)) setSwitcherOpen(false); };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setSwitcherOpen(false); };
+    if (!popover) return;
+    const outside = (event: MouseEvent) => { if (!(event.target as HTMLElement).closest("[data-rail-popover]")) setPopover(null); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setPopover(null); };
     document.addEventListener("mousedown", outside);
     document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape); };
-  }, [switcherOpen]);
+  }, [popover]);
 
   useEffect(() => {
     const load = () => {
@@ -106,47 +94,51 @@ export default function SynkShell({
     return () => window.removeEventListener(NOTIFICATIONS_CHANGED, load);
   }, [pathname]);
 
-  const nav = [
-    { label: "Overview", href: `${base}/overview`, icon: LayoutDashboard, active: pathname.endsWith("/overview") },
-    { label: "Chat", href: `${base}/chat`, icon: MessageCircle, active: pathname.includes("/chat") },
+  const unreadLabel = unread > 99 ? "99+" : String(unread);
+  const alertsActive = pathname.endsWith("/alerts");
+  const tabs = [
+    { label: "Home", href: `${base}/chat`, icon: MessageCircle, active: pathname.includes("/chat") },
+    { label: "Activity", href: `${base}/alerts`, icon: Bell, active: alertsActive, badge: unread },
     { label: "Board", href: `${base}/board`, icon: KanbanSquare, active: pathname.includes("/board") || pathname.includes("/tickets/") },
     { label: "Docs", href: `${base}/docs`, icon: FileText, active: pathname.endsWith("/docs") },
     { label: "Time", href: `${base}/time`, icon: Clock3, active: pathname.endsWith("/time") },
-    { label: "People", href: `${base}/people`, icon: Users, active: pathname.endsWith("/people") },
   ];
-  const alertsActive = pathname.endsWith("/alerts");
-  const flush = pathname.endsWith("/chat") || pathname.endsWith("/docs");
-  const unreadLabel = unread > 99 ? "99+" : String(unread);
+  const more = [
+    { label: "Overview", href: `${base}/overview`, icon: LayoutDashboard, active: pathname.endsWith("/overview") },
+    { label: "People", href: `${base}/people`, icon: Users, active: pathname.endsWith("/people") },
+    { label: "Apps", href: `${base}/apps`, icon: Webhook, active: pathname.endsWith("/apps") },
+    { label: "Settings", href: `${base}/settings`, icon: Settings, active: pathname.endsWith("/settings") },
+  ];
+  const create = [
+    { label: "Message", hint: "Start a conversation", href: `${base}/people`, icon: MessageSquarePlus },
+    { label: "Channel", hint: "Start a group conversation", href: `${base}/chat?newChannel=1`, icon: Hash },
+    { label: "Ticket", hint: "Track a piece of work", href: `${base}/board`, icon: Ticket },
+    { label: "Page", hint: "Write it down in Docs", href: `${base}/docs`, icon: SquarePen },
+  ];
+  const moreActive = more.some(item => item.active);
+  const flush = pathname.endsWith("/chat") || pathname.includes("/chat/") || pathname.endsWith("/docs");
+  const toggle = (name: Exclude<Popover, null>) => setPopover(current => (current === name ? null : name));
 
   return (
-    <div className={styles.app} data-collapsed={collapsed} data-drawer={drawerOpen}>
+    <div className={styles.app} data-drawer={drawerOpen}>
       <a href="#synk-main" className={styles.skipLink}>Skip to content</a>
       <button type="button" className={styles.scrim} aria-label="Close menu" tabIndex={drawerOpen ? 0 : -1} onClick={() => setDrawerOpen(false)} />
 
-      {/* Following any link in the sidebar closes the mobile drawer and the workspace menu. */}
-      <aside className={styles.sidebar} aria-label="Workspace" onClick={event => { if ((event.target as HTMLElement).closest("a")) { setDrawerOpen(false); setSwitcherOpen(false); } }}>
-        <div className={styles.sidebarHead}>
-          <Link href={`${base}/overview`} className={styles.brand} aria-label="Synk home">
-            <span className={styles.brandFull}><Logo size={22} /></span>
-            <span className={styles.brandMarkOnly}><LogoMark size={24} /></span>
-          </Link>
-          <button type="button" className={`${styles.iconButton} ${styles.collapseButton}`} onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
-            {collapsed ? <PanelLeftOpen size={16} aria-hidden="true" /> : <PanelLeftClose size={16} aria-hidden="true" />}
-          </button>
-          <button type="button" className={`${styles.iconButton} ${styles.drawerClose}`} onClick={() => setDrawerOpen(false)} aria-label="Close menu"><X size={18} aria-hidden="true" /></button>
-        </div>
+      {/* Following any link in the rail closes the mobile drawer and any open menu. */}
+      <aside className={styles.sidebar} aria-label="Workspace" onClick={event => { if ((event.target as HTMLElement).closest("a")) { setDrawerOpen(false); setPopover(null); } }}>
+        <button type="button" className={`${styles.iconButton} ${styles.drawerClose}`} onClick={() => setDrawerOpen(false)} aria-label="Close menu"><X size={18} aria-hidden="true" /></button>
 
-        <div className={styles.switcherWrap} ref={switcher}>
-          <button className={styles.switcher} type="button" aria-haspopup="menu" aria-expanded={switcherOpen} onClick={() => setSwitcherOpen(!switcherOpen)} title={displayName}>
-            <span className={styles.glyph}>{displayGlyph}</span>
-            <span className={styles.switcherText}><strong>{displayName}</strong><small>{role === "ADMIN" ? "Admin" : "Member"}</small></span>
-            <ChevronsUpDown size={14} aria-hidden="true" />
+        <div className={styles.railSlot} data-rail-popover>
+          <button className={styles.workspaceTile} type="button" aria-haspopup="menu" aria-expanded={popover === "workspace"} onClick={() => toggle("workspace")} title={`${displayName} (${role === "ADMIN" ? "admin" : "member"})`}>
+            {displayGlyph}
           </button>
-          {switcherOpen && (
+          {popover === "workspace" && (
             <div className={styles.menu} role="menu" aria-label="Switch workspace">
+              <div className={styles.menuHeader}><span className={styles.glyph}>{displayGlyph}</span><span><strong>{displayName}</strong><small>{role === "ADMIN" ? "Admin" : "Member"}</small></span></div>
+              <div className={styles.menuDivider} />
               <span className={styles.menuLabel}>Workspaces</span>
               {workspaces.map(ws => (
-                <Link key={ws.id} role="menuitem" href={`/w/${ws.id}/overview`} className={styles.menuItem} aria-current={ws.id === workspaceId ? "true" : undefined} onClick={() => setSwitcherOpen(false)}>
+                <Link key={ws.id} role="menuitem" href={`/w/${ws.id}/chat`} className={styles.menuItem} aria-current={ws.id === workspaceId ? "true" : undefined}>
                   <span className={styles.glyph}>{ws.name[0]?.toUpperCase() || "W"}</span>
                   <span>{ws.name}</span>
                   {ws.id === workspaceId && <Check size={15} aria-hidden="true" />}
@@ -154,7 +146,7 @@ export default function SynkShell({
               ))}
               {!workspaces.length && <span className={styles.menuEmpty}>No workspaces yet</span>}
               <div className={styles.menuDivider} />
-              <Link href="/create-workspace" role="menuitem" className={styles.menuItem} onClick={() => setSwitcherOpen(false)}>
+              <Link href="/create-workspace" role="menuitem" className={styles.menuItem}>
                 <span className={styles.menuIcon}><Plus size={15} aria-hidden="true" /></span><span>New workspace</span>
               </Link>
             </div>
@@ -162,21 +154,49 @@ export default function SynkShell({
         </div>
 
         <nav className={styles.nav} aria-label="Workspace navigation">
-          {nav.map(({ label, href, icon: Icon, active }) => (
-            <Link key={href} href={href} className={styles.navLink} aria-current={active ? "page" : undefined} title={label}>
-              <Icon size={17} aria-hidden="true" /><span>{label}</span>
+          {tabs.map(({ label, href, icon: Icon, active, badge }) => (
+            <Link key={href} href={href} className={styles.railTab} aria-current={active ? "page" : undefined} title={label}>
+              <span className={styles.railIcon}><Icon size={19} aria-hidden="true" />{badge ? <em className={styles.navCount} aria-label={`${unreadLabel} unread`}>{unreadLabel}</em> : null}</span>
+              <span className={styles.railLabel}>{label}</span>
             </Link>
           ))}
-          <Link href={`${base}/alerts`} className={styles.navLink} aria-current={alertsActive ? "page" : undefined} title="Alerts">
-            <Bell size={17} aria-hidden="true" /><span>Alerts</span>
-            {unread > 0 && <em className={styles.navCount} aria-hidden="true">{unreadLabel}</em>}
-          </Link>
+          <div className={styles.railSlot} data-rail-popover>
+            <button type="button" className={styles.railTab} aria-haspopup="menu" aria-expanded={popover === "more"} data-active={moreActive || undefined} onClick={() => toggle("more")} title="More">
+              <span className={styles.railIcon}><MoreHorizontal size={19} aria-hidden="true" /></span>
+              <span className={styles.railLabel}>More</span>
+            </button>
+            {popover === "more" && (
+              <div className={styles.menu} role="menu" aria-label="More">
+                <span className={styles.menuLabel}>More</span>
+                {more.map(({ label, href, icon: Icon, active }) => (
+                  <Link key={href} role="menuitem" href={href} className={styles.menuItem} aria-current={active ? "true" : undefined}>
+                    <span className={styles.menuIcon}><Icon size={15} aria-hidden="true" /></span><span>{label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
 
-        <div className={styles.sidebarFoot}>
-          <Link href={`${base}/settings`} className={styles.navLink} aria-current={pathname.endsWith("/settings") ? "page" : undefined} title="Settings"><Settings size={17} aria-hidden="true" /><span>Settings</span></Link>
-          <ThemeToggle className={styles.showSmall} />
-          <span className={styles.version}>v1.0.0</span>
+        <div className={styles.railFoot}>
+          <div className={styles.railSlot} data-rail-popover>
+            <button type="button" className={styles.createButton} aria-haspopup="menu" aria-expanded={popover === "create"} onClick={() => toggle("create")} aria-label="Create new" title="Create new">
+              <Plus size={20} aria-hidden="true" />
+            </button>
+            {popover === "create" && (
+              <div className={`${styles.menu} ${styles.menuUp}`} role="menu" aria-label="Create">
+                <span className={styles.menuLabel}>Create</span>
+                {create.map(({ label, hint, href, icon: Icon }) => (
+                  <Link key={label} role="menuitem" href={href} className={styles.menuItem}>
+                    <span className={styles.menuIcon}><Icon size={15} aria-hidden="true" /></span>
+                    <span><strong>{label}</strong><small>{hint}</small></span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+          <ThemeToggle className={`${styles.railTheme} ${styles.showSmall}`} />
+          <ProfileMenu compact userName={userName} settingsHref={`${base}/settings`} />
         </div>
       </aside>
 
@@ -189,18 +209,14 @@ export default function SynkShell({
           {workspaceId
             ? <form role="search" action={`${base}/search`} className={styles.search}>
                 <Search size={15} aria-hidden="true" />
-                <input type="search" name="q" required minLength={2} maxLength={200} aria-label="Search Synk" placeholder="Search tickets, pages and messages" />
+                <input type="search" name="q" required minLength={2} maxLength={200} aria-label="Search Synk" placeholder={`Search ${displayName}`} />
                 <button type="button" className={styles.kbdButton} onClick={() => setQuickOpen(true)} aria-label="Open the quick switcher" title="Jump to a page, channel or person"><kbd>Ctrl K</kbd></button>
               </form>
             : <span className={styles.searchSpacer} />}
           <div className={styles.topbarActions}>
-            <AgentPanel />
+            <AgentPanel launcherClassName={styles.navLauncher} />
             <ThemeToggle className={styles.hideSmall} />
-            <Link href={`${base}/alerts`} className={styles.iconButton} aria-label={`Alerts, ${unread} unread`} title="Alerts" aria-current={alertsActive ? "page" : undefined}>
-              <Bell size={17} aria-hidden="true" />{unread > 0 && <span className={styles.alertCount}>{unreadLabel}</span>}
-            </Link>
             <SettingsLink href={`${base}/settings`} className={`${styles.iconButton} ${styles.hideSmall}`} />
-            <ProfileMenu userName={userName} settingsHref={`${base}/settings`} />
           </div>
         </header>
         {quickOpen && workspaceId && <QuickSwitcher workspaceId={workspaceId} onClose={() => setQuickOpen(false)} />}

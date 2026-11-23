@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import Link from "next/link";
 import { isTiptapDoc } from "@/lib/validation";
 import { parseInline, safeHref, type Inline } from "@/lib/markdown";
+import { CustomEmojiImg } from "./CustomEmoji";
 import styles from "./Chat.module.css";
 
 type TiptapNode = {
@@ -15,33 +16,33 @@ type TiptapNode = {
 };
 
 function renderTextWithTickets(text: string, workspaceId: string): React.ReactNode[] {
-  const ticketRegex = /\b([A-Z][A-Z0-9]{1,9}-[1-9]\d*)\b/g;
+  const chunks = text.split(/(:[a-z][a-z0-9-]{0,30}[a-z0-9]:)/g);
   const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = ticketRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+  chunks.forEach((chunk, chunkIndex) => {
+    if (/^:[a-z][a-z0-9-]{0,30}[a-z0-9]:$/.test(chunk)) {
+      parts.push(<CustomEmojiImg key={`e-${chunkIndex}`} workspaceId={workspaceId} shortcode={chunk} />);
+      return;
     }
-    const key = match[1];
-    parts.push(
-      <Link
-        key={`${key}-${match.index}`}
-        href={`/tickets/${encodeURIComponent(key)}?workspaceId=${encodeURIComponent(workspaceId)}`}
-        className={styles.ticketLink}
-        onClick={e => e.stopPropagation()}
-      >
-        {key}
-      </Link>
-    );
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
+    const ticketRegex = /\b([A-Z][A-Z0-9]{1,9}-[1-9]\d*)\b/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = ticketRegex.exec(chunk)) !== null) {
+      if (match.index > lastIndex) parts.push(chunk.slice(lastIndex, match.index));
+      const key = match[1];
+      parts.push(
+        <Link
+          key={`${key}-${chunkIndex}-${match.index}`}
+          href={`/tickets/${encodeURIComponent(key)}?workspaceId=${encodeURIComponent(workspaceId)}`}
+          className={styles.ticketLink}
+          onClick={e => e.stopPropagation()}
+        >
+          {key}
+        </Link>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < chunk.length) parts.push(chunk.slice(lastIndex));
+  });
   return parts.length ? parts : [text];
 }
 

@@ -4,20 +4,35 @@ import { AppError } from "../../lib/errors";
 import { requireChannel, requireWorkspace } from "../../lib/permissions";
 import { channelSchema, dmChannelSchema, extractPlainText, historySchema, messageEditSchema, messageSchema, reactionSchema } from "../../lib/validation";
 import { realtime } from "../../lib/realtime";
-import type { ChannelSummary, ChatMessage, ChatReaction, MessagePage } from "../../lib/chat-types";
+import type { ChannelSummary, ChatMessage, MessagePage } from "../../lib/chat-types";
 import { announceNotifications, createChatNotifications, type ChatNotification } from "../notifications/service";
+import { formatReactions, messageInclude, serializeStoredMessage } from "./serialize";
+import { isCustomReaction, normalizeShortcode } from "../../lib/emoji-shortcode";
+import { rateLimit } from "../../lib/rate-limit";
 
 type Database = Prisma.TransactionClient;
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // The people a message mentions. Names can contain spaces ("@Demo Admin"), so each member's name is matched
 // in full, longest first, rather than taking the first word after the @.
-export function mentionedIn(text: string, members: { id: string; name: string | null }[]) {
+export function mentionedIn(
+  text: string,
+  members: { id: string; name: string | null }[],
+  groups: { handle: string; memberIds: string[] }[] = [],
+) {
   const ids = new Set<string>();
   let rest = text;
   for (const member of members.filter(item => item.name?.trim()).sort((a, b) => b.name!.length - a.name!.length)) {
     const pattern = new RegExp(`(^|[^\\w@])@${escapeRegExp(member.name!.trim())}(?!\\w)`, "gi");
     if (pattern.test(rest)) { ids.add(member.id); rest = rest.replace(pattern, "$1"); }
+  }
+  const inChannel = new Set(members.map(item => item.id));
+  for (const group of groups.filter(item => item.handle.trim()).sort((a, b) => b.handle.length - a.handle.length)) {
+    const pattern = new RegExp(`(^|[^\\w@])@${escapeRegExp(group.handle.trim())}(?!\\w)`, "gi");
+    if (pattern.test(rest)) {
+      rest = rest.replace(pattern, "$1");
+      for (const id of group.memberIds) if (inChannel.has(id)) ids.add(id);
+    }
   }
   return { userIds: [...ids], channel: /(^|[^\w@])@channel\b/i.test(rest), here: /(^|[^\w@])@here\b/i.test(rest) };
 }
@@ -30,69 +45,9 @@ async function assertCanPost(tx: Database, userId: string, channel: { workspaceI
   if (member?.role !== "ADMIN") throw new AppError(403, "Only admins can post in this channel. You can still reply in threads.");
 }
 
-const include = {
-  author: { select: { id: true, name: true, image: true } },
-  reactions: { select: { emoji: true, userId: true } },
-  attachments: { select: { id: true, fileName: true, mimeType: true, size: true, storageKey: true } },
-  pins: { select: { id: true } },
-  _count: { select: { replies: true } },
-} satisfies Prisma.MessageInclude;
-
+const include = messageInclude;
 type Record = Prisma.MessageGetPayload<{ include: typeof include }>;
-
-function formatReactions(reactions: Array<{ emoji: string; userId: string }>): ChatReaction[] {
-  const map = new Map<string, string[]>();
-  for (const r of reactions) {
-    const list = map.get(r.emoji) ?? [];
-    list.push(r.userId);
-    map.set(r.emoji, list);
-  }
-  return [...map.entries()].map(([emoji, userIds]) => ({
-    emoji,
-    count: userIds.length,
-    userIds,
-  }));
-}
-
-function serializeMessage(row: Record): ChatMessage {
-  const isDeleted = !!row.deletedAt;
-  const author = { id: row.author.id, name: row.author.name, image: row.author.image };
-  const reactions = formatReactions(row.reactions ?? []);
-  const attachments = (row.attachments ?? []).map(a => ({
-    id: a.id,
-    fileName: a.fileName,
-    mimeType: a.mimeType,
-    size: a.size,
-    storageKey: a.storageKey,
-    url: `/api/attachments/${a.id}`,
-  }));
-  const isPinned = (row.pins?.length ?? 0) > 0;
-
-  return {
-    id: row.id,
-    workspaceId: row.workspaceId,
-    channelId: row.channelId,
-    authorId: row.authorId,
-    body: isDeleted ? "This message was deleted" : row.body,
-    threadRootId: row.threadRootId,
-    alsoInChannel: row.alsoInChannel,
-    clientId: row.clientId,
-    editedAt: row.editedAt ? row.editedAt.toISOString() : null,
-    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
-    createdAt: row.createdAt.toISOString(),
-    author,
-    replyCount: row._count.replies,
-    reactions,
-    attachments: isDeleted ? [] : attachments,
-    isPinned,
-
-    // Aliases
-    senderId: row.authorId,
-    sender: author,
-    parentId: row.threadRootId,
-    clientMessageId: row.clientId,
-  };
-}
+const serializeMessage = serializeStoredMessage;
 
 export async function listChannels(userId: string, workspaceId: string): Promise<ChannelSummary[]> {
   const member = await requireWorkspace(userId, workspaceId);
@@ -413,11 +368,12 @@ export async function listMessages(userId: string, channelId: string, input: unk
   return { messages: page.reverse().map(row => ({ ...serializeMessage(row), saved: saved.has(row.id) })), nextCursor: hasMore ? page[0].id : null };
 }
 
-export async function sendMessage(userId: string, channelId: string, input: unknown): Promise<ChatMessage> {
+export async function sendMessage(userId: string, channelId: string, input: unknown, extras?: { viaApp?: string }): Promise<ChatMessage> {
   const data = messageSchema.parse(input);
   const clientId = data.clientId ?? data.clientMessageId ?? crypto.randomUUID();
   const threadRootId = data.threadRootId ?? data.parentId ?? null;
   const unique = { authorId_clientId: { authorId: userId, clientId } };
+  const viaApp = extras?.viaApp?.trim().slice(0, 80) ?? "";
 
   const checkRetry = (row: Record) => {
     if (row.body !== data.body || row.threadRootId !== threadRootId) {
@@ -453,6 +409,7 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
           threadRootId,
           alsoInChannel: Boolean(threadRootId && data.alsoInChannel),
           clientId,
+          viaApp,
         },
         include,
       });
@@ -465,9 +422,13 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
         });
       }
 
-      // Mentions (@Full Name, @channel, @here) count only for people in this channel.
+      // Mentions (@Full Name, @group-handle, @channel, @here) count only for people in this channel.
       const channelMembers = await tx.channelMember.findMany({ where: { channelId }, select: { userId: true, muted: true, user: { select: { name: true } } } });
-      const mentioned = mentionedIn(extractPlainText(data.body), channelMembers.map(item => ({ id: item.userId, name: item.user.name })));
+      const groups = (await tx.userGroup.findMany({
+        where: { workspaceId: channel.workspaceId },
+        select: { handle: true, members: { select: { userId: true } } },
+      })).map(row => ({ handle: row.handle, memberIds: row.members.map(member => member.userId) }));
+      const mentioned = mentionedIn(extractPlainText(data.body), channelMembers.map(item => ({ id: item.userId, name: item.user.name })), groups);
       await tx.mention.createMany({
         data: [
           ...mentioned.userIds.map(mentionedUserId => ({ messageId: created.id, mentionedUserId, kind: "USER" as const })),
@@ -516,6 +477,14 @@ export async function sendMessage(userId: string, channelId: string, input: unkn
     await announceNotifications(alerts);
   } catch {
     console.error("Live message delivery failed; history will reconcile on reconnect.");
+  }
+
+  try {
+    rateLimit(`unfurl:${channelId}`, 20, 60_000);
+    const { unfurlMessage } = await import("../unfurl/service");
+    void unfurlMessage(message.id);
+  } catch {
+    // Rate-limited or unfurl failed; the message itself still sent.
   }
 
   return message;
@@ -593,6 +562,11 @@ export async function toggleReaction(userId: string, messageId: string, input: u
     const message = await tx.message.findUnique({ where: { id: messageId } });
     if (!message) throw new AppError(404, "Message not found.");
     await requireChannel(userId, message.channelId, tx);
+    if (isCustomReaction(emoji)) {
+      const shortcode = normalizeShortcode(emoji);
+      const custom = await tx.customEmoji.findUnique({ where: { workspaceId_shortcode: { workspaceId: message.workspaceId, shortcode } } });
+      if (!custom) throw new AppError(400, "That custom emoji is not in this workspace.");
+    }
 
     const existing = await tx.reaction.findUnique({
       where: { messageId_userId_emoji: { messageId, userId, emoji } },

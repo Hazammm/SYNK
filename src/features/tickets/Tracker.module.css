@@ -157,6 +157,11 @@
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button { min-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-pill); background: transparent; color: var(--muted); font-size: var(--t-sm); font-weight: 500; cursor: pointer; transition: background var(--d-fast) var(--ease), border-color var(--d-fast) var(--ease), color var(--d-fast) var(--ease); }
 .chips button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--on-ink); }
+.reminders { margin-top: 24px; }
+.reminders h2 { margin: 0 0 8px; font-size: var(--t-md); }
+.reminders ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; border: 0; background: transparent; overflow: visible; }
+.reminders li { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.reminders time { color: var(--muted); font-size: var(--t-sm); }
 
 @media (prefers-reduced-motion: reduce) { .column, .progress span, .sprint summary > svg { transition: none; } }
 @media (max-width: 650px) {

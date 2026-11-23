@@ -190,10 +190,15 @@ export const authOptions: NextAuthOptions = {
         token.sub = user.id;
       }
       if (token.sub) {
-        const userRecord = await db.user.findUnique({
-          where: { id: token.sub },
-          select: { lastActiveWorkspaceId: true },
-        });
+        let userRecord: { lastActiveWorkspaceId: string | null } | null = null;
+        try {
+          userRecord = await db.user.findUnique({
+            where: { id: token.sub },
+            select: { lastActiveWorkspaceId: true },
+          });
+        } catch {
+          return token;
+        }
         let membership = userRecord?.lastActiveWorkspaceId
           ? await db.membership.findUnique({
               where: { workspaceId_userId: { workspaceId: userRecord.lastActiveWorkspaceId, userId: token.sub } },
@@ -213,21 +218,28 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      const login = token.sessionId
-        ? await db.loginSession.findUnique({
-            where: { id: token.sessionId },
-            include: { user: { select: { name: true, email: true } } },
-          })
-        : null;
-      const active = login && login.userId === token.sub && login.expiresAt > new Date();
-      session.user.id = active ? login.userId : "";
-      session.user.workspaceId = active ? token.workspaceId ?? "" : "";
-      session.user.role = active ? token.role ?? null : null;
-      if (active) {
-        session.user.name = login.user.name;
-        session.user.email = login.user.email;
+      try {
+        const login = token.sessionId
+          ? await db.loginSession.findUnique({
+              where: { id: token.sessionId },
+              include: { user: { select: { name: true, email: true } } },
+            })
+          : null;
+        const active = login && login.userId === token.sub && login.expiresAt > new Date();
+        session.user.id = active ? login.userId : "";
+        session.user.workspaceId = active ? token.workspaceId ?? "" : "";
+        session.user.role = active ? token.role ?? null : null;
+        if (active) {
+          session.user.name = login.user.name;
+          session.user.email = login.user.email;
+        }
+        return session;
+      } catch {
+        session.user.id = "";
+        session.user.workspaceId = "";
+        session.user.role = null;
+        return session;
       }
-      return session;
     },
   },
   events: {

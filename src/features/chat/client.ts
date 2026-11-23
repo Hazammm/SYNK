@@ -12,6 +12,7 @@ import {
 } from "../../lib/chat-types";
 
 import { HttpError } from "../../lib/client-http";
+import { STATUS_CHANGED } from "../../lib/events";
 import { applyMessageEvent, mergeMessages, messageOf, request, typingText } from "./message-utils";
 
 export { applyMessageEvent, mergeMessages, messageOf, request, typingText };
@@ -133,8 +134,16 @@ export function useMessages(
       setMessages(current => current.map(m => (m.id === messageId ? { ...m, reactions } : m)));
     });
 
+    socket.on("poll:updated", ({ messageId, poll }) => {
+      setMessages(current => current.map(m => (m.id === messageId ? { ...m, poll } : m)));
+    });
+
     socket.on("presence:update", event => {
       onPresenceUpdateRef.current?.(event);
+    });
+
+    socket.on("status:update", detail => {
+      window.dispatchEvent(new CustomEvent(STATUS_CHANGED, { detail }));
     });
 
     socket.on("access:revoked", () => {

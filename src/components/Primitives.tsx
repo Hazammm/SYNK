@@ -30,11 +30,12 @@ export function Badge({
 const hueOf = (text: string) => [...text].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 6;
 
 // Shows the photo when there is one, otherwise the initials on a tinted circle. A green dot marks someone online.
-export function Avatar({ initials, small = false, src, online }: { initials: string; small?: boolean; src?: string | null; online?: boolean }) {
+// `paused` swaps the presence dot for a "z", as Slack does while notifications are paused.
+export function Avatar({ initials, small = false, src, online, paused = false }: { initials: string; small?: boolean; src?: string | null; online?: boolean; paused?: boolean }) {
   return <span className={`${styles.avatar} ${small ? styles.avatarSmall : ""}`} data-hue={hueOf(initials)}>
     {/* eslint-disable-next-line @next/next/no-img-element -- small, authenticated images that next/image cannot optimise */}
     {src ? <img src={src} alt="" className={styles.avatarImage} /> : initials}
-    {online !== undefined && <i className={styles.presence} data-online={online} aria-hidden="true" />}
+    {online !== undefined && <i className={styles.presence} data-online={online} data-paused={paused || undefined} aria-hidden="true">{paused && "z"}</i>}
   </span>;
 }
 

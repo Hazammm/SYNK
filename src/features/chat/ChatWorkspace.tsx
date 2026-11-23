@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   Check,
+  ChevronDown,
   Compass,
   Download,
   Edit2,
@@ -13,16 +14,16 @@ import {
   Hash,
   LockKeyhole,
   MessageCircle,
-  MessageSquare,
   Pin,
   Plus,
   Search,
   Smile,
+  SquarePen,
   Ticket,
   Trash2,
   Users,
   X,
-  Bell, BellOff, Bookmark, MessagesSquare, Settings2, Archive,
+  Bell, BellOff, Bookmark, Headphones, MessagesSquare, Settings2, Archive,
 } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import { INLINE_ATTACHMENT_TYPES, type ChannelSummary, type ChatAttachment, type ChatMessage, type ChatReaction, type WorkspaceSummary } from "@/lib/chat-types";
@@ -34,8 +35,16 @@ import { messageOf, request, useMessages } from "./client";
 import { RichComposer } from "./RichComposer";
 import Modal from "@/components/Modal";
 import type { DirectoryPerson } from "@/lib/people-types";
+import { isPaused, type PersonStatus } from "@/lib/account-types";
+import { STATUS_CHANGED } from "@/lib/events";
 import { ChannelSettingsModal, MessageExtraActions, SavedList, ThreadsInbox } from "./ChatExtras";
 import { TiptapRenderer } from "./TiptapRenderer";
+import { HuddleDock, HuddleHeaderButton, huddleActive, useHuddleSession, type HuddleSession } from "./HuddleBar";
+import PollCard from "./PollCard";
+import UnfurlCard from "./UnfurlCard";
+import ProfileCard from "@/features/people/ProfileCard";
+import { CustomEmojiImg } from "./CustomEmoji";
+import { isCustomReaction } from "@/lib/emoji-shortcode";
 import styles from "./Chat.module.css";
 
 type Member = {
@@ -44,6 +53,22 @@ type Member = {
 };
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "🎉", "🚀", "👀"];
+
+// Everyone's status in this workspace, shown as an emoji after their name.
+const StatusContext = createContext<Map<string, PersonStatus>>(new Map());
+function StatusEmoji({ userId }: { userId?: string | null }) {
+  const status = useContext(StatusContext).get(userId ?? "");
+  if (!status?.emoji) return null;
+  return <span className={styles.statusEmoji} title={status.text || undefined} aria-label={status.text || "Status"}>{status.emoji}</span>;
+}
+
+// Above the composer in a DM with someone who has paused notifications, like Slack.
+function PausedNote({ userId, name }: { userId: string; name: string }) {
+  const status = useContext(StatusContext).get(userId);
+  if (!isPaused(status)) return null;
+  const until = new Date(status!.pausedUntil!).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+  return <p className={styles.pausedNote} role="status"><BellOff size={14} aria-hidden="true" /> <span><strong>{name}</strong> has paused notifications until {until}. They&apos;ll see your message when they&apos;re back.</span></p>;
+}
 
 const initials = (name: string | null) =>
   (name ?? "Member")
@@ -131,13 +156,14 @@ export default function ChatWorkspace({
 
   return (
     <div className={styles.workspace}>
-      <div className={styles.workspaceBar}>
-        <h1>Conversations</h1>
-        {workspace && <span className={styles.workspaceName}>{workspace.name}</span>}
-        <Button variant="quiet" aria-expanded={creating} onClick={() => setCreating(!creating)}>
-          <Plus size={15} /> New workspace
-        </Button>
-      </div>
+      {!workspace && (
+        <div className={styles.workspaceBar}>
+          <h1>Conversations</h1>
+          <Button variant="quiet" aria-expanded={creating} onClick={() => setCreating(!creating)}>
+            <Plus size={15} /> New workspace
+          </Button>
+        </div>
+      )}
       {creating && (
         <Modal label={workspaces.length ? "Create a workspace" : "Bring your team together"} className={styles.dialog} onClose={() => { if (workspaces.length) setCreating(false); }}>
           <form onSubmit={create} className={styles.setup}>
@@ -181,6 +207,7 @@ export default function ChatWorkspace({
           startCreating={startNewChannel}
           focusMessageId={focusMessageId}
           viewerId={viewerId}
+          onNewWorkspace={() => setCreating(true)}
         />
       )}
     </div>
@@ -193,12 +220,14 @@ function WorkspaceChannels({
   startCreating,
   focusMessageId,
   viewerId,
+  onNewWorkspace,
 }: {
   workspace: WorkspaceSummary;
   initialChannelId?: string;
   startCreating: boolean;
   focusMessageId?: string;
   viewerId: string;
+  onNewWorkspace: () => void;
 }) {
   const router = useRouter();
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
@@ -212,8 +241,24 @@ function WorkspaceChannels({
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [statuses, setStatuses] = useState<Map<string, PersonStatus>>(new Map());
   const [workspaceMembers, setWorkspaceMembers] = useState<Member[]>([]);
   const [view, setView] = useState<"threads" | "saved" | null>(null);
+  const [sideMenu, setSideMenu] = useState<"workspace" | "channels" | null>(null);
+  const [folded, setFolded] = useState({ channels: false, dms: false });
+  const huddle = useHuddleSession();
+  const toggleSideMenu = (menu: "workspace" | "channels") => setSideMenu(current => (current === menu ? null : menu));
+  const runSideMenu = (action: () => void) => { setSideMenu(null); action(); };
+  const fold = (section: "channels" | "dms") => setFolded(current => ({ ...current, [section]: !current[section] }));
+
+  useEffect(() => {
+    if (!sideMenu) return;
+    const outside = (event: MouseEvent) => { if (!(event.target as HTMLElement).closest("[data-side-menu]")) setSideMenu(null); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setSideMenu(null); };
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape); };
+  }, [sideMenu]);
 
   // Split into Channels vs Direct Messages
   const textChannels = useMemo(
@@ -270,9 +315,26 @@ function WorkspaceChannels({
 
   useEffect(() => {
     request<{ people: DirectoryPerson[] }>(`/api/workspaces/${workspace.id}/people`)
-      .then(res => setOnlineUserIds(new Set(res.people.filter(person => person.online).map(person => person.id))))
+      .then(res => {
+        setOnlineUserIds(new Set(res.people.filter(person => person.online).map(person => person.id)));
+        setStatuses(new Map(res.people.map(person => [person.id, person.status])));
+      })
       .catch(() => {});
   }, [workspace.id]);
+
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const { userId, status } = (event as CustomEvent<{ userId: string; status: PersonStatus }>).detail;
+      setStatuses(current => new Map(current).set(userId, status));
+      setOnlineUserIds(current => {
+        const next = new Set(current);
+        if (status.away) next.delete(userId); else next.add(userId);
+        return next;
+      });
+    };
+    window.addEventListener(STATUS_CHANGED, changed);
+    return () => window.removeEventListener(STATUS_CHANGED, changed);
+  }, []);
 
   // Opens a message from the Threads or Saved view in its channel.
   const openMessage = useCallback(
@@ -338,125 +400,159 @@ function WorkspaceChannels({
   }
 
   return (
-    <>
+    <StatusContext.Provider value={statuses}>
       <div className={styles.columns}>
-        <aside className={styles.channels}>
-          <div className={styles.section}>
-            <button className={`${styles.channel} ${view === "threads" ? styles.active : ""}`} aria-pressed={view === "threads"} onClick={() => setView("threads")}>
-              <MessagesSquare size={15} />
-              <span className={styles.channelName}>Threads</span>
-            </button>
-            <button className={`${styles.channel} ${view === "saved" ? styles.active : ""}`} aria-pressed={view === "saved"} onClick={() => setView("saved")}>
-              <Bookmark size={15} />
-              <span className={styles.channelName}>Saved for later</span>
-            </button>
-          </div>
-
-          {/* CHANNELS SECTION */}
-          <div className={styles.section}>
-            <div className={styles.sideHeading}>
-              <strong>Channels</strong>
-              <div className={styles.headingActions}>
-                <button
-                  className={styles.iconBtn}
-                  aria-label="Browse channels"
-                  title="Browse channels"
-                  onClick={() => setBrowsing(true)}
-                >
-                  <Compass size={15} />
-                </button>
-                <button
-                  className={styles.iconBtn}
-                  aria-label="Create channel"
-                  title="Create channel"
-                  onClick={() => setCreating(true)}
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-            </div>
-
-            {loading && <p className={styles.role}>Loading channels…</p>}
-
-            {textChannels.map(item => {
-              const isActive = !view && selected === item.id;
-              const hasUnread = !isActive && (item.unreadCount ?? 0) > 0;
-              const hasMentions = !isActive && (item.mentionCount ?? 0) > 0;
-
-              return (
-                <button
-                  key={item.id}
-                  className={`${styles.channel} ${isActive ? styles.active : ""} ${hasUnread ? styles.hasUnread : ""} ${item.muted || item.archived ? styles.dimmed : ""}`}
-                  onClick={() => selectChannel(item.id)}
-                >
-                  {item.archived ? <Archive size={15} /> : item.isPrivate ? <LockKeyhole size={15} /> : <Hash size={15} />}
-                  <span className={styles.channelName}>{item.name}</span>
-                  <div className={styles.channelBadges}>
-                    {item.muted && <BellOff size={12} aria-label="Muted" />}
-                    {!item.joined && <small className={styles.joinBadge}>Join</small>}
-                    {hasMentions && <span className={styles.mentionBadge}>@{item.mentionCount}</span>}
-                    {hasUnread && !hasMentions && <span className={styles.unreadBadge}>{item.unreadCount}</span>}
-                  </div>
-                </button>
-              );
-            })}
-
-            {!loading && !textChannels.length && (
-              <p className={styles.role}>No channels yet. Create your first one.</p>
-            )}
-          </div>
-
-          {/* DIRECT MESSAGES SECTION */}
-          <div className={styles.section}>
-            <div className={styles.sideHeading}>
-              <strong>Direct Messages</strong>
-              <div className={styles.headingActions}>
-                <button
-                  className={styles.iconBtn}
-                  aria-label="Start direct message"
-                  title="Start direct message"
-                  onClick={() => setStartingDm(true)}
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-            </div>
-
-            {directMessages.map(item => {
-              const isActive = !view && selected === item.id;
-              const displayName = item.otherUser?.name ?? item.name ?? "Direct Message";
-              const isOnline = item.otherUser ? onlineUserIds.has(item.otherUser.id) : false;
-              const hasUnread = !isActive && (item.unreadCount ?? 0) > 0;
-              const hasMentions = !isActive && (item.mentionCount ?? 0) > 0;
-
-              return (
-                <button
-                  key={item.id}
-                  className={`${styles.dmItem} ${isActive ? styles.active : ""} ${hasUnread ? styles.hasUnread : ""} ${item.muted ? styles.dimmed : ""}`}
-                  onClick={() => selectChannel(item.id)}
-                >
-                  <div className={styles.dmAvatarWrapper}>
-                    <Avatar small initials={initials(displayName)} src={item.otherUser?.image} />
-                    <span className={styles.presenceDot} data-online={isOnline} />
-                    <span className="sr-only">{isOnline ? "online" : "offline"}</span>
-                  </div>
-                  <span className={styles.channelName}>{displayName}</span>
-                  <div className={styles.channelBadges}>
-                    {hasMentions && <span className={styles.mentionBadge}>@{item.mentionCount}</span>}
-                    {hasUnread && !hasMentions && <span className={styles.unreadBadge}>{item.unreadCount}</span>}
-                  </div>
-                </button>
-              );
-            })}
-
-            {!loading && !directMessages.length && (
-              <button className={styles.channel} onClick={() => setStartingDm(true)}>
-                <MessageSquare size={15} />
-                <span>Start a conversation</span>
+        <aside className={styles.channels} aria-label="Channels and direct messages">
+          <div className={styles.sideHeader}>
+            <div className={styles.sideMenuWrap} data-side-menu>
+              <button type="button" className={styles.workspaceButton} aria-haspopup="menu" aria-expanded={sideMenu === "workspace"} onClick={() => toggleSideMenu("workspace")}>
+                <span>{workspace.name}</span>
+                <ChevronDown size={15} aria-hidden="true" />
               </button>
-            )}
+              {sideMenu === "workspace" && (
+                <div className={styles.sideMenu} role="menu" aria-label={workspace.name}>
+                  <div className={styles.sideMenuHead}>
+                    <span className={styles.sideMenuGlyph}>{workspace.name[0]?.toUpperCase() || "W"}</span>
+                    <span><strong>{workspace.name}</strong><small>{workspace.role === "ADMIN" ? "Workspace admin" : "Workspace member"}</small></span>
+                  </div>
+                  <div className={styles.sideMenuDivider} />
+                  <button type="button" role="menuitem" onClick={() => runSideMenu(() => setCreating(true))}>Create a channel</button>
+                  <button type="button" role="menuitem" onClick={() => runSideMenu(() => setBrowsing(true))}>Browse channels</button>
+                  <button type="button" role="menuitem" onClick={() => runSideMenu(() => setStartingDm(true))}>Start a direct message</button>
+                  <div className={styles.sideMenuDivider} />
+                  <button type="button" role="menuitem" onClick={() => runSideMenu(() => setShowMembers(true))}>Workspace members</button>
+                  <Link role="menuitem" href={`/w/${workspace.id}/settings?section=members`}>Invite people to {workspace.name}</Link>
+                  <Link role="menuitem" href={`/w/${workspace.id}/settings`}>Settings</Link>
+                  <div className={styles.sideMenuDivider} />
+                  <button type="button" role="menuitem" onClick={() => runSideMenu(onNewWorkspace)}>Create a new workspace</button>
+                </div>
+              )}
+            </div>
+            <button type="button" className={styles.composeButton} aria-label="New message" title="New message" onClick={() => setStartingDm(true)}>
+              <SquarePen size={16} aria-hidden="true" />
+            </button>
           </div>
 
+          <div className={styles.sideScroll}>
+            <div className={styles.section}>
+              <button className={`${styles.channel} ${view === "threads" ? styles.active : ""}`} aria-pressed={view === "threads"} onClick={() => setView("threads")}>
+                <MessagesSquare size={15} />
+                <span className={styles.channelName}>Threads</span>
+              </button>
+              <button className={`${styles.channel} ${view === "saved" ? styles.active : ""}`} aria-pressed={view === "saved"} onClick={() => setView("saved")}>
+                <Bookmark size={15} />
+                <span className={styles.channelName}>Saved for later</span>
+              </button>
+            </div>
+
+            <div className={styles.section}>
+              <div className={styles.sideHeading}>
+                <button type="button" className={styles.sectionToggle} aria-expanded={!folded.channels} onClick={() => fold("channels")}>
+                  <ChevronDown size={14} aria-hidden="true" />
+                  <strong>Channels</strong>
+                </button>
+                <div className={styles.headingActions}>
+                  <button className={styles.iconBtn} aria-label="Browse channels" title="Browse channels" onClick={() => setBrowsing(true)}>
+                    <Compass size={14} />
+                  </button>
+                  <button className={styles.iconBtn} aria-label="Create channel" title="Create channel" onClick={() => setCreating(true)}>
+                    <Plus size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {loading && <p className={styles.role}>Loading channels…</p>}
+
+              {textChannels.map(item => {
+                const isActive = !view && selected === item.id;
+                const hasUnread = !isActive && (item.unreadCount ?? 0) > 0;
+                const hasMentions = !isActive && (item.mentionCount ?? 0) > 0;
+                if (folded.channels && !isActive && !hasUnread && !hasMentions) return null;
+
+                return (
+                  <button
+                    key={item.id}
+                    className={`${styles.channel} ${isActive ? styles.active : ""} ${hasUnread ? styles.hasUnread : ""} ${item.muted || item.archived ? styles.dimmed : ""}`}
+                    onClick={() => selectChannel(item.id)}
+                  >
+                    {item.archived ? <Archive size={15} /> : item.isPrivate ? <LockKeyhole size={15} /> : <Hash size={15} />}
+                    <span className={styles.channelName}>{item.name}</span>
+                    <div className={styles.channelBadges}>
+                      {huddleActive(huddle.rooms, item.id) && <Headphones size={12} className={styles.huddleLive} aria-label="Huddle in progress" />}
+                      {item.muted && <BellOff size={12} aria-label="Muted" />}
+                      {!item.joined && <small className={styles.joinBadge}>Join</small>}
+                      {hasMentions && <span className={styles.mentionBadge}>@{item.mentionCount}</span>}
+                      {hasUnread && !hasMentions && <span className={styles.unreadBadge}>{item.unreadCount}</span>}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {!folded.channels && (
+                <div className={styles.sideMenuWrap} data-side-menu>
+                  <button type="button" className={styles.addRow} aria-haspopup="menu" aria-expanded={sideMenu === "channels"} onClick={() => toggleSideMenu("channels")}>
+                    <span className={styles.addIcon}><Plus size={13} aria-hidden="true" /></span>
+                    <span>Add channels</span>
+                  </button>
+                  {sideMenu === "channels" && (
+                    <div className={`${styles.sideMenu} ${styles.sideMenuCompact}`} role="menu" aria-label="Add channels">
+                      <button type="button" role="menuitem" onClick={() => runSideMenu(() => setCreating(true))}>Create a new channel</button>
+                      <button type="button" role="menuitem" onClick={() => runSideMenu(() => setBrowsing(true))}>Browse channels</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className={styles.section}>
+              <div className={styles.sideHeading}>
+                <button type="button" className={styles.sectionToggle} aria-expanded={!folded.dms} onClick={() => fold("dms")}>
+                  <ChevronDown size={14} aria-hidden="true" />
+                  <strong>Direct messages</strong>
+                </button>
+                <div className={styles.headingActions}>
+                  <button className={styles.iconBtn} aria-label="Start direct message" title="Start direct message" onClick={() => setStartingDm(true)}>
+                    <Plus size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {directMessages.map(item => {
+                const isActive = !view && selected === item.id;
+                const displayName = item.otherUser?.name ?? item.name ?? "Direct Message";
+                const isOnline = item.otherUser ? onlineUserIds.has(item.otherUser.id) : false;
+                const hasUnread = !isActive && (item.unreadCount ?? 0) > 0;
+                const hasMentions = !isActive && (item.mentionCount ?? 0) > 0;
+                if (folded.dms && !isActive && !hasUnread && !hasMentions) return null;
+
+                return (
+                  <button
+                    key={item.id}
+                    className={`${styles.dmItem} ${isActive ? styles.active : ""} ${hasUnread ? styles.hasUnread : ""} ${item.muted ? styles.dimmed : ""}`}
+                    onClick={() => selectChannel(item.id)}
+                  >
+                    <div className={styles.dmAvatarWrapper}>
+                      <Avatar small initials={initials(displayName)} src={item.otherUser?.image} online={isOnline} paused={item.type === "DM" && isPaused(statuses.get(item.otherUser?.id ?? ""))} />
+                    </div>
+                    <span className={styles.channelName}>{displayName}</span>
+                    {item.type === "DM" && <StatusEmoji userId={item.otherUser?.id} />}
+                    <div className={styles.channelBadges}>
+                      {huddleActive(huddle.rooms, item.id) && <Headphones size={12} className={styles.huddleLive} aria-label="Huddle in progress" />}
+                      {hasMentions && <span className={styles.mentionBadge}>@{item.mentionCount}</span>}
+                      {hasUnread && !hasMentions && <span className={styles.unreadBadge}>{item.unreadCount}</span>}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {!folded.dms && (
+                <Link className={styles.addRow} href={`/w/${workspace.id}/settings?section=members`}>
+                  <span className={styles.addIcon}><Plus size={13} aria-hidden="true" /></span>
+                  <span>Add coworkers</span>
+                </Link>
+              )}
+            </div>
+          </div>
         </aside>
 
         {/* MAIN CHAT CONTENT */}
@@ -604,6 +700,7 @@ function WorkspaceChannels({
               onChannelChanged={handleChannelChanged}
               focusMessageId={channel.id === initialChannelId ? focusMessageId : undefined}
               viewerId={viewerId}
+              huddle={huddle}
             />
           ) : channel ? (
             <div className={styles.empty}>
@@ -623,7 +720,8 @@ function WorkspaceChannels({
           ) : null}
         </div>
       </div>
-    </>
+      <HuddleDock huddle={huddle} channels={channels} onOpen={selectChannel} />
+    </StatusContext.Provider>
   );
 }
 
@@ -840,6 +938,7 @@ function ChannelView({
   onChannelChanged,
   focusMessageId,
   viewerId,
+  huddle,
 }: {
   channel: ChannelSummary;
   workspaceMembers: Member[];
@@ -850,6 +949,7 @@ function ChannelView({
   onChannelChanged: (updated: ChannelSummary) => void;
   focusMessageId?: string;
   viewerId: string;
+  huddle: HuddleSession;
 }) {
   const [showSettings, setShowSettings] = useState(false);
   const isDirect = channel.type === "DM" || channel.type === "GROUP_DM";
@@ -997,6 +1097,8 @@ function ChannelView({
               <Search size={16} />
             </button>
 
+            <span className={styles.huddleSlot}><HuddleHeaderButton channelId={channel.id} huddle={huddle} /></span>
+
             <button className={styles.headerChip} onClick={onOpenMembers}>
               <Users size={14} />
               <span>
@@ -1019,6 +1121,7 @@ function ChannelView({
           onThread={setThread}
           onUserPresenceChange={onUserPresenceChange}
           focusMessageId={focusMessageId}
+          viewerId={viewerId}
         />
       </section>
 
@@ -1058,6 +1161,7 @@ function ChannelView({
             parentId={thread.id}
             workspaceMembers={workspaceMembers}
             onUserPresenceChange={onUserPresenceChange}
+            viewerId={viewerId}
           />
         </section>
       )}
@@ -1255,6 +1359,7 @@ function Feed({
   onThread,
   onUserPresenceChange,
   focusMessageId,
+  viewerId,
 }: {
   channel: ChannelSummary;
   parentId: string | null;
@@ -1262,6 +1367,7 @@ function Feed({
   onThread?: (message: ChatMessage) => void;
   onUserPresenceChange?: (updater: (prev: Set<string>) => Set<string>) => void;
   focusMessageId?: string;
+  viewerId: string;
 }) {
   const handlePresenceUpdate = useCallback(
     (event: { userId: string; online: boolean }) => {
@@ -1408,6 +1514,7 @@ function Feed({
           key={msg.id}
           message={msg}
           workspaceId={channel.workspaceId}
+          viewerId={viewerId}
           isGrouped={isGrouped}
           isEditing={editingMessageId === msg.id}
           onStartEdit={() => setEditingMessageId(msg.id)}
@@ -1428,7 +1535,7 @@ function Feed({
     });
 
     return items;
-  }, [channel.workspaceId, editingMessageId, feed, onThread]);
+  }, [channel.workspaceId, editingMessageId, feed, onThread, viewerId]);
 
   return (
     <>
@@ -1506,6 +1613,7 @@ function Feed({
       </div>
 
       {!parentId && <p className={styles.typing} role="status" aria-live="polite">{feed.typing}</p>}
+      {channel.type === "DM" && channel.otherUser && <PausedNote userId={channel.otherUser.id} name={channel.otherUser.name ?? "They"} />}
 
       {channel.archived || (!parentId && channel.canPost === false) ? (
         <p className={styles.readOnlyNote} role="status">
@@ -1532,6 +1640,7 @@ function Feed({
 function MessageCard({
   message,
   workspaceId,
+  viewerId = "",
   isGrouped,
   isEditing = false,
   onStartEdit,
@@ -1544,6 +1653,7 @@ function MessageCard({
 }: {
   message: ChatMessage;
   workspaceId: string;
+  viewerId?: string;
   isGrouped: boolean;
   isEditing?: boolean;
   onStartEdit?: () => void;
@@ -1555,6 +1665,9 @@ function MessageCard({
   onThread?: (message: ChatMessage) => void;
 }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [profileAnchor, setProfileAnchor] = useState<DOMRect | null>(null);
+  const closeProfile = useCallback(() => setProfileAnchor(null), []);
+  const openProfile = (event: React.MouseEvent<HTMLElement>) => setProfileAnchor(event.currentTarget.getBoundingClientRect());
   const [note, setNote] = useState("");
   const plainBody = extractPlainText(message.body);
   const [editDraft, setEditDraft] = useState(plainBody);
@@ -1663,6 +1776,15 @@ function MessageCard({
               {emoji}
             </button>
           ))}
+          {(message.reactions ?? []).filter(item => isCustomReaction(item.emoji)).map(item => (
+            <button
+              key={item.emoji}
+              className={styles.emojiQuickBtn}
+              onClick={() => { onReact(item.emoji); setShowEmojiPicker(false); }}
+            >
+              <CustomEmojiImg workspaceId={workspaceId} shortcode={item.emoji} />
+            </button>
+          ))}
           <button
             className={styles.iconBtn}
             onClick={() => setShowEmojiPicker(false)}
@@ -1673,9 +1795,12 @@ function MessageCard({
         </div>
       )}
 
+      {profileAnchor && <ProfileCard workspaceId={workspaceId} userId={message.sender.id} viewerId={viewerId} anchor={profileAnchor} onClose={closeProfile} />}
       <div className={styles.avatarCol}>
         {!isGrouped ? (
-          <Avatar small initials={initials(message.sender.name)} />
+          <button type="button" className={styles.personBtn} aria-label={`View ${message.sender.name ?? "member"}'s profile`} onClick={openProfile}>
+            <Avatar small initials={initials(message.sender.name)} src={message.sender.image} />
+          </button>
         ) : (
           <span className={styles.compactTime}>{formatClockTime(message.createdAt)}</span>
         )}
@@ -1690,7 +1815,8 @@ function MessageCard({
 
         {!isGrouped && (
           <div className={styles.metaRow}>
-            <strong className={styles.authorName}>{message.sender.name ?? "Member"}</strong>
+            <button type="button" className={`${styles.personBtn} ${styles.authorName}`} onClick={openProfile}>{message.sender.name ?? "Member"}</button>
+            <StatusEmoji userId={message.sender.id} />
             <time
               className={styles.timestamp}
               dateTime={message.createdAt}
@@ -1700,6 +1826,7 @@ function MessageCard({
             </time>
             {isEdited && <span className={styles.editedBadge}>(edited)</span>}
             {message.alsoInChannel && message.threadRootId && <span className={styles.editedBadge}>replied to a thread</span>}
+            {message.viaApp && <span className={styles.editedBadge}>via {message.viaApp}</span>}
           </div>
         )}
         {isGrouped && message.alsoInChannel && message.threadRootId && <span className={styles.editedBadge}>replied to a thread</span>}
@@ -1723,7 +1850,7 @@ function MessageCard({
               </Button>
             </div>
           </form>
-        ) : (
+        ) : message.poll && !isDeleted ? null : (
           <div className={`${styles.messageText} ${isDeleted ? styles.deleted : ""}`}>
             {isDeleted ? (
               "This message was deleted"
@@ -1749,6 +1876,9 @@ function MessageCard({
             ))}
           </div>
         )}
+
+        {!isDeleted && !isEditing && message.poll && <PollCard poll={message.poll} viewerId={viewerId} />}
+        {!isDeleted && (message.unfurls ?? []).map(unfurl => <UnfurlCard key={unfurl.url} unfurl={unfurl} />)}
 
         {/* Attachments */}
         {!isDeleted && message.attachments && message.attachments.length > 0 && (
@@ -1792,7 +1922,7 @@ function MessageCard({
                   className={`${styles.reactionChip} ${hasReacted ? styles.active : ""}`}
                   onClick={() => onReact(r.emoji)}
                 >
-                  <span>{r.emoji}</span>
+                  <span>{isCustomReaction(r.emoji) ? <CustomEmojiImg workspaceId={workspaceId} shortcode={r.emoji} /> : r.emoji}</span>
                   <span>{r.count}</span>
                 </button>
               );

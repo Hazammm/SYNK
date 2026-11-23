@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "./db";
 import { requirePageUser } from "./session";
 
@@ -30,10 +30,13 @@ export async function requireWorkspaceUser(workspaceId: string) {
   const user = await requirePageUser();
   const membership = await db.membership.findUnique({
     where: { workspaceId_userId: { workspaceId, userId: user.id } },
-    include: { workspace: true },
+    include: { workspace: true, user: { select: { profileSetupAt: true } } },
   });
   if (!membership) {
     notFound();
+  }
+  if (!membership.user.profileSetupAt) {
+    redirect(`/welcome?next=${encodeURIComponent(`/w/${workspaceId}`)}`);
   }
   if (user.workspaceId !== workspaceId) {
     await db.user.update({

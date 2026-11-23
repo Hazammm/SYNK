@@ -58,6 +58,8 @@ export async function POST(request: Request) {
         select: { id: true, workspaceId: true, workspace: { select: { name: true } } },
       });
       if (!invite) throw Object.assign(new Error("Invitation not found or expired."), { status: 410 });
+      const { assertCanJoinWorkspace } = await import("@/features/workspaces/join-guard");
+      await assertCanJoinWorkspace(tx, invite.workspaceId, profile.email, true);
 
       await tx.invite.update({ where: { id: invite.id }, data: { status: "ACCEPTED" } });
 

@@ -13,11 +13,12 @@ export const avatarUrl = (user: { id: string; avatarKey: string | null; image: s
   user.avatarKey ? `/api/users/${user.id}/avatar?v=${encodeURIComponent(user.avatarKey)}` : user.image;
 
 // A status past its expiry reads as no status.
-export function currentStatus(user: { statusText: string; statusEmoji: string; statusExpiresAt: Date | null; away: boolean }, now = new Date()): PersonStatus {
+export function currentStatus(user: { statusText: string; statusEmoji: string; statusExpiresAt: Date | null; away: boolean; notificationsPausedUntil: Date | null }, now = new Date()): PersonStatus {
   const expired = user.statusExpiresAt !== null && user.statusExpiresAt <= now;
-  return { text: expired ? "" : user.statusText, emoji: expired ? "" : user.statusEmoji, expiresAt: expired ? null : user.statusExpiresAt?.toISOString() ?? null, away: user.away };
+  const paused = user.notificationsPausedUntil && user.notificationsPausedUntil > now ? user.notificationsPausedUntil.toISOString() : null;
+  return { text: expired ? "" : user.statusText, emoji: expired ? "" : user.statusEmoji, expiresAt: expired ? null : user.statusExpiresAt?.toISOString() ?? null, away: user.away, pausedUntil: paused };
 }
-export const statusFields = { statusText: true, statusEmoji: true, statusExpiresAt: true, away: true } as const;
+export const statusFields = { statusText: true, statusEmoji: true, statusExpiresAt: true, away: true, notificationsPausedUntil: true } as const;
 export const profileFields = { title: true, phone: true, location: true, timezone: true, pronouns: true, avatarKey: true, image: true } as const;
 
 const PROVIDER_NAMES: Record<string, string> = { google: "Google", github: "GitHub", bitbucket: "Bitbucket" };
@@ -57,10 +58,11 @@ export async function getAccount(userId: string, currentSessionId: string): Prom
 }
 
 export async function updateProfile(userId: string, input: unknown) {
-  const { name, notifications, title, phone, location, timezone, pronouns } = profileUpdateSchema.parse(input);
+  const { name, notifications, title, phone, location, timezone, pronouns, setupDone } = profileUpdateSchema.parse(input);
   await db.user.update({
     where: { id: userId },
     data: {
+      ...(setupDone && { profileSetupAt: new Date() }),
       ...(name !== undefined && { name }),
       ...(title !== undefined && { title }),
       ...(phone !== undefined && { phone }),
@@ -85,18 +87,26 @@ export async function setStatus(userId: string, input: unknown): Promise<PersonS
   const user = await db.user.update({
     where: { id: userId },
     data: { statusText: text, statusEmoji: emoji, statusExpiresAt: text || emoji ? until : null, ...(away !== undefined && { away }) },
-    select: statusFields,
+    select: { ...statusFields, memberships: { select: { workspaceId: true } } },
   });
-  return currentStatus(user);
+  const status = currentStatus(user);
+  await realtime()?.publishStatus?.(user.memberships.map(membership => membership.workspaceId), userId, status);
+  return status;
 }
 
 // Pauses notifications until a time (snooze, focus mode), or resumes them with null.
 export async function pauseNotifications(userId: string, input: unknown) {
   const { until } = pauseSchema.parse(input);
   const date = until ? new Date(until) : null;
-  if (date && (date <= new Date() || date.getTime() - Date.now() > 7 * 24 * 3_600_000)) throw new AppError(400, "Pause notifications for up to a week.");
-  await db.user.update({ where: { id: userId }, data: { notificationsPausedUntil: date } });
-  return { pausedUntil: date?.toISOString() ?? null };
+  // A little over a week, so "Until next week" (Monday 9:00) always fits.
+  if (date && (date <= new Date() || date.getTime() - Date.now() > 8 * 24 * 3_600_000)) throw new AppError(400, "Pause notifications for up to a week.");
+  const user = await db.user.update({
+    where: { id: userId }, data: { notificationsPausedUntil: date },
+    select: { ...statusFields, memberships: { select: { workspaceId: true } } },
+  });
+  const status = currentStatus(user);
+  await realtime()?.publishStatus?.(user.memberships.map(membership => membership.workspaceId), userId, status);
+  return { pausedUntil: status.pausedUntil, status };
 }
 
 // Ends the other login sessions and drops their live chat connections. Returns how many were ended.

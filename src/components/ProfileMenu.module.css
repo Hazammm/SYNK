@@ -1,30 +1,89 @@
-/* The profile button in the header and the card it opens. Colours come from the theme variables in globals.css. */
-.root { position: relative; min-width: 0; margin-left: 6px; }
-.trigger { display: inline-flex; align-items: center; gap: 8px; max-width: min(220px, 100%); min-height: 34px; padding: 3px 8px 3px 4px; border: 1px solid transparent; border-radius: var(--r-pill); background: transparent; color: var(--text); cursor: pointer; transition: background var(--d-fast) var(--ease), border-color var(--d-fast) var(--ease); }
+/* The profile in the bottom corner of the sidebar and the card it opens upward. Colours come from the theme variables in globals.css. */
+.root { position: relative; flex: 1; min-width: 0; }
+.trigger { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 8px; border: 1px solid transparent; border-radius: var(--r-md); background: transparent; color: var(--text); text-align: left; cursor: pointer; transition: background var(--d-fast) var(--ease), border-color var(--d-fast) var(--ease); }
 .trigger:hover, .trigger[aria-expanded="true"] { border-color: var(--border); background: var(--fill); }
-.trigger:focus-visible, .card a:focus-visible, .card button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.trigger svg { flex: 0 0 auto; color: var(--faint); }
-.name { overflow: hidden; font-size: var(--t-base); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.trigger:focus-visible, .card a:focus-visible, .card button:focus-visible, .card input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.trigger > span:first-child { width: 30px; height: 30px; font-size: 11px; }
+.name { display: grid; flex: 1; min-width: 0; }
+.name strong, .name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name strong { font-size: var(--t-base); font-weight: 600; }
+.name small { color: var(--muted); font-size: var(--t-xs); }
+.badge { flex: 0 0 auto; font-size: 16px; line-height: 1; }
 
-.card { position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; display: grid; gap: 12px; width: min(320px, calc(100vw - 24px)); padding: 16px; border: 1px solid var(--border); border-radius: var(--r-xl); background: var(--raised); color: var(--text); box-shadow: var(--shadow-lg); animation: synk-pop-in var(--d-base) var(--ease-out); }
+/* Compact: just the avatar, as at the bottom of Slack's rail */
+.root[data-compact="true"] { flex: 0 0 auto; }
+.root[data-compact="true"] .trigger { position: relative; justify-content: center; width: 44px; min-height: 44px; padding: 4px; border: 0; border-radius: var(--r-md); color: var(--nav-strong); }
+.root[data-compact="true"] .trigger:hover, .root[data-compact="true"] .trigger[aria-expanded="true"] { background: var(--nav-hover); }
+.root[data-compact="true"] .trigger > span:first-child { width: 36px; height: 36px; border-radius: var(--r-md); font-size: 13px; }
+.root[data-compact="true"] .trigger > span:first-child > img { border-radius: var(--r-md); }
+.root[data-compact="true"] .trigger > span:first-child > i { right: -3px; bottom: -3px; border-color: var(--nav-rail); }
+.root[data-compact="true"] .badge { position: absolute; top: -2px; right: -4px; font-size: 13px; }
+
+.card { position: fixed; z-index: 80; display: grid; gap: 10px; width: min(300px, calc(100vw - 24px)); padding: 14px; border: 1px solid var(--border); border-radius: var(--r-xl); background: var(--raised); color: var(--text); box-shadow: var(--shadow-lg); animation: synk-pop-in var(--d-base) var(--ease-out); }
 .identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.identity > span:first-child { width: 44px; height: 44px; font-size: 15px; }
+.identity > span:first-child > i { width: 13px; height: 13px; border-width: 3px; border-color: var(--raised); }
 .identity div { display: grid; min-width: 0; }
 .identity strong { font-size: var(--t-md); font-weight: 600; overflow-wrap: anywhere; }
-.identity span { color: var(--muted); font-size: var(--t-base); overflow-wrap: anywhere; }
-.facts { display: grid; gap: 8px; margin: 0; padding: 12px; border-radius: var(--r-md); background: var(--sunken); font-size: var(--t-sm); }
-.facts div { display: grid; grid-template-columns: 96px 1fr; gap: 8px; }
-.facts dt { color: var(--muted); }
-.facts dd { margin: 0; overflow-wrap: anywhere; }
-.links { display: grid; }
+.presence { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--t-sm); }
+.presence i { width: 9px; height: 9px; border: 2px solid var(--faint); border-radius: 50%; }
+.presence i[data-active="true"] { border-color: var(--done); background: var(--done); }
+
+.statusBox { display: flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: var(--r-md); }
+.statusButton { display: flex; flex: 1; align-items: center; gap: 10px; min-width: 0; min-height: 38px; padding: 0 10px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--t-base); text-align: left; cursor: pointer; }
+.statusButton span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statusButton span:first-child { display: inline-grid; place-items: center; width: 20px; font-size: 16px; color: var(--muted); }
+.statusBox:hover { border-color: var(--border-strong, var(--faint)); }
+.clear { display: grid; place-items: center; width: 28px; height: 28px; margin-right: 4px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--faint); cursor: pointer; }
+.clear:hover { background: var(--fill); color: var(--text); }
+
+.presets { display: grid; margin: 0; padding: 0; list-style: none; }
+.presets button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text); font: inherit; font-size: var(--t-sm); text-align: left; cursor: pointer; }
+.presets button:hover { background: var(--fill); }
+.presets small { color: var(--muted); }
+
+.statusForm { display: grid; gap: 8px; }
+.emojiRow { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
+.emojiRow button { height: 32px; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; font-size: 17px; cursor: pointer; }
+.emojiRow button:hover { background: var(--fill); }
+.emojiRow button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.statusInput { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-md); }
+.statusInput input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; color: var(--text); font: inherit; outline: none; }
+.formActions { display: flex; justify-content: flex-end; gap: 6px; }
+.formActions button { min-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: transparent; color: var(--text); font: inherit; font-size: var(--t-sm); cursor: pointer; }
+.formActions .primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+
+.item { min-height: 34px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text); font: inherit; font-size: var(--t-base); text-align: left; cursor: pointer; }
+.item:hover { background: var(--fill); }
+
+.pauseWrap { position: relative; display: grid; margin-top: -6px; }
+.pauseRow { display: flex; align-items: center; gap: 10px; min-height: 38px; }
+.pauseRow > svg:first-child { flex: 0 0 auto; color: var(--muted); }
+.pauseRow > svg:last-child { flex: 0 0 auto; margin-left: auto; color: var(--faint); }
+.pauseRow span { display: grid; }
+.pauseRow small { color: var(--muted); font-size: var(--t-xs); }
+.pauseRow[aria-expanded="true"] { background: var(--fill); }
+.submenu { position: absolute; bottom: -8px; left: calc(100% + 22px); z-index: 1; display: grid; width: 260px; padding: 6px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--raised); box-shadow: var(--shadow-lg); animation: synk-pop-in var(--d-base) var(--ease-out); }
+.submenu > button, .submenu > a { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; padding: 0 10px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text); font: inherit; font-size: var(--t-base); text-align: left; cursor: pointer; }
+.submenu > button:hover, .submenu > a:hover { background: var(--accent); color: var(--on-accent); }
+.submenu > button:hover small { color: inherit; }
+.submenu small { color: var(--muted); font-size: var(--t-xs); white-space: nowrap; }
+.submenuNote { margin: 4px 10px 6px; color: var(--muted); font-size: var(--t-sm); }
+.submenuLabel { padding: 4px 10px 2px; color: var(--faint); font-size: var(--t-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.divider { height: 1px; margin: 6px 4px; background: var(--border); }
+.customPause { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 2px 10px 4px; }
+.customPause label { grid-column: 1 / -1; font-size: var(--t-base); }
+.customPause input { min-width: 0; min-height: 30px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-sm); color-scheme: light dark; }
+.customPause .primary { min-height: 30px; padding: 0 10px; border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--accent); color: var(--on-accent); font: inherit; font-size: var(--t-sm); cursor: pointer; }
+.customPause .primary:disabled { opacity: .5; cursor: default; }
+@media (max-width: 640px) {
+  .submenu { position: static; width: auto; margin-top: 4px; box-shadow: none; }
+}
+.links { display: grid; padding-top: 8px; border-top: 1px solid var(--border); }
 .links a, .signOut { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text); font-size: var(--t-base); font-weight: 500; text-align: left; cursor: pointer; transition: background var(--d-fast) var(--ease); }
 .links a:hover, .signOut:hover { background: var(--fill); }
-.links svg, .signOut svg { color: var(--muted); }
-.signOut { width: 100%; margin-top: -4px; padding-top: 0; color: var(--high); }
+.links svg { color: var(--muted); }
+.signOut { width: 100%; color: var(--high); }
+.signOut svg { color: currentColor; }
 .muted { margin: 0; color: var(--muted); font-size: var(--t-base); }
 .error { margin: 0; padding: 8px 12px; border-radius: var(--r-md); background: var(--high-soft); color: var(--high); font-size: var(--t-base); }
-
-.signOut svg { color: currentColor; }
-.links { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-@media (max-width: 640px) { .name, .trigger > svg { display: none; } .trigger { padding: 3px; } }
-.status { margin: 0; padding: 0 0 10px; color: var(--text); font-size: var(--t-sm); }
-.status small { color: var(--muted); }

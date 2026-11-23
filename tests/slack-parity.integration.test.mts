@@ -186,12 +186,12 @@ test("profile fields, custom status with expiry, away and paused notifications",
   await assert.rejects(updateProfile(asra, { timezone: "Mars/Olympus" }), { name: "ZodError" });
   await assert.rejects(updateProfile(asra, { phone: "call me" }), { name: "ZodError" });
   const soon = new Date(Date.now() + 3_600_000).toISOString();
-  assert.deepEqual(await setStatus(asra, { text: "In a meeting", emoji: "📅", expiresAt: soon }), { text: "In a meeting", emoji: "📅", expiresAt: soon, away: false });
+  assert.deepEqual(await setStatus(asra, { text: "In a meeting", emoji: "📅", expiresAt: soon }), { text: "In a meeting", emoji: "📅", expiresAt: soon, away: false, pausedUntil: null });
   await assert.rejects(setStatus(asra, { text: "Past", expiresAt: new Date(Date.now() - 1000).toISOString() }), status(400));
-  assert.deepEqual(currentStatus({ statusText: "Gone", statusEmoji: "🌴", statusExpiresAt: new Date(Date.now() - 1000), away: false }), { text: "", emoji: "", expiresAt: null, away: false });
+  assert.deepEqual(currentStatus({ statusText: "Gone", statusEmoji: "🌴", statusExpiresAt: new Date(Date.now() - 1000), away: false, notificationsPausedUntil: new Date(Date.now() - 1000) }), { text: "", emoji: "", expiresAt: null, away: false, pausedUntil: null });
   await setStatus(asra, { text: "In a meeting", emoji: "📅", expiresAt: soon, away: true });
 
-  await pauseNotifications(asra, { until: soon });
+  assert.equal((await pauseNotifications(asra, { until: soon })).status.pausedUntil, soon);
   await assert.rejects(pauseNotifications(asra, { until: new Date(Date.now() + 9 * 24 * 3_600_000).toISOString() }), status(400));
   const account = await getAccount(asra, await sessionId(asra));
   assert.deepEqual(account.profile, { title: "Frontend developer", phone: "+92 300 1234567", location: "Lahore", timezone: "Asia/Karachi", pronouns: "she/her", image: null });
@@ -272,7 +272,7 @@ test("workspace admin: rename, invite policy, usage and export", async () => {
   // Members cannot invite until an admin allows it; then the request reaches the mailer.
   await assert.rejects(createInvites(asra, workspaceId, { emails: ["friend@example.test"] }), status(403));
   await assert.rejects(updateWorkspaceSettings(asra, workspaceId, { invitePolicy: "EVERYONE" }), status(403));
-  assert.deepEqual(await updateWorkspaceSettings(admin, workspaceId, { name: "Parity HQ", invitePolicy: "EVERYONE" }), { id: workspaceId, name: "Parity HQ", invitePolicy: "EVERYONE" });
+  assert.deepEqual(await updateWorkspaceSettings(admin, workspaceId, { name: "Parity HQ", invitePolicy: "EVERYONE" }), { id: workspaceId, name: "Parity HQ", invitePolicy: "EVERYONE", allowedEmailDomains: [], requireGoogleSignIn: false });
   assert.equal((await getWorkspaceSettings(asra, workspaceId)).invitePolicy, "EVERYONE");
   await assert.rejects(createInvites(asra, workspaceId, { emails: ["friend@example.test"] }), (error: unknown) => (error as { status?: number }).status !== 403);
   await assert.rejects(getWorkspaceSettings(outsider, workspaceId), status(403));

@@ -1,17 +1,12 @@
-/* App shell and shared primitives. Every value comes from the tokens in app/globals.css. */
+﻿/* App shell and shared primitives. Every value comes from the tokens in app/globals.css. */
 
-/* ---------- Shell ---------- */
+/* ---------- Shell: a Slack-style rail on the left, a search bar across the top ---------- */
 
 .app {
   display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
   min-height: 100dvh;
   background: var(--bg);
-  transition: grid-template-columns var(--d-slow) var(--ease-out);
-}
-
-.app[data-collapsed="true"] {
-  grid-template-columns: var(--rail-w) minmax(0, 1fr);
 }
 
 .skipLink {
@@ -42,32 +37,15 @@
   top: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 14px;
   height: 100dvh;
   min-width: 0;
-  padding: 10px 10px 12px;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
-  overflow: hidden auto;
+  padding: 12px 0 14px;
+  background: var(--nav-rail);
+  color: var(--nav-text);
 }
 
-.sidebarHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 32px;
-  margin: 0 0 10px;
-  padding-left: 6px;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--r-sm);
-  color: var(--text);
-}
-
-.brandMarkOnly,
 .iconButton.drawerClose,
 .iconButton.menuButton {
   display: none;
@@ -96,63 +74,48 @@
   color: var(--text);
 }
 
-.collapseButton {
-  width: 28px;
-  height: 28px;
-  color: var(--faint);
+.sidebar .iconButton,
+.topbar .iconButton {
+  color: var(--nav-text);
 }
 
-/* Workspace switcher */
+.sidebar .iconButton:hover,
+.topbar .iconButton:hover,
+.topbar .iconButton[aria-current="page"],
+.topbar .iconButton[aria-expanded="true"] {
+  background: var(--nav-hover);
+  color: var(--nav-strong);
+}
 
-.switcherWrap {
+.railSlot {
   position: relative;
-  margin-bottom: 10px;
 }
 
-.switcher {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 44px;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--bg);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color var(--d-base) var(--ease), background var(--d-base) var(--ease);
-}
+/* Workspace tile and its switcher */
 
-.switcher:hover,
-.switcher[aria-expanded="true"] {
-  border-color: var(--border-strong);
-}
-
-.switcher > svg {
-  flex: 0 0 auto;
-  margin-left: auto;
-  color: var(--faint);
-}
-
-.switcherText {
+.workspaceTile {
   display: grid;
-  min-width: 0;
-  line-height: 1.25;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--nav-strong);
+  color: var(--nav-rail);
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: box-shadow var(--d-fast) var(--ease), transform var(--d-fast) var(--ease);
 }
 
-.switcherText strong {
-  overflow: hidden;
-  font-size: var(--t-base);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.workspaceTile:hover,
+.workspaceTile[aria-expanded="true"] {
+  box-shadow: 0 0 0 3px var(--nav-pressed);
 }
 
-.switcherText small {
-  color: var(--muted);
-  font-size: var(--t-xs);
+.workspaceTile:active {
+  transform: scale(.96);
 }
 
 .glyph {
@@ -171,17 +134,59 @@
 .menu {
   position: absolute;
   z-index: 60;
-  top: calc(100% + 6px);
-  left: 0;
+  top: 0;
+  left: calc(100% + 12px);
   display: grid;
   gap: 2px;
-  width: max(100%, 232px);
+  width: 248px;
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--raised);
+  color: var(--text);
   box-shadow: var(--shadow-lg);
   animation: synk-pop-in var(--d-base) var(--ease-out);
+}
+
+.menuUp {
+  top: auto;
+  bottom: 0;
+}
+
+.menuHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+}
+
+.menuHeader .glyph {
+  width: 36px;
+  height: 36px;
+  font-size: var(--t-md);
+}
+
+.menuHeader > span:last-child,
+.menuItem strong,
+.menuItem small {
+  display: grid;
+  min-width: 0;
+}
+
+.menuHeader strong {
+  font-size: var(--t-md);
+  font-weight: 600;
+}
+
+.menuHeader small,
+.menuItem small {
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-weight: 400;
+}
+
+.menuItem strong {
+  font-weight: 500;
 }
 
 .menuLabel,
@@ -213,6 +218,17 @@
 }
 
 .menuItem:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.menuItem:hover small,
+.menuItem:hover > svg,
+.menuItem:hover .menuIcon {
+  color: inherit;
+}
+
+.menuItem[aria-current="true"]:not(:hover) {
   background: var(--fill);
 }
 
@@ -222,8 +238,8 @@
 
 .menuItem .glyph,
 .menuIcon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   font-size: var(--t-xs);
 }
 
@@ -234,8 +250,8 @@
 
 .menuIcon {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
-  border: 1px dashed var(--border-strong);
   border-radius: var(--r-sm);
   color: var(--muted);
 }
@@ -246,160 +262,136 @@
   background: var(--border);
 }
 
-/* Navigation */
+/* Rail tabs: an icon with a small label underneath */
 
 .nav {
   display: grid;
-  gap: 1px;
-}
-
-.navLink {
-  position: relative;
-  display: flex;
-  align-items: center;
+  justify-items: center;
   gap: 10px;
-  min-height: 32px;
-  padding: 0 8px;
-  border-radius: var(--r-sm);
-  color: var(--muted);
-  font-size: var(--t-base);
-  font-weight: 500;
-  white-space: nowrap;
-  transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
 }
 
-.navLink > svg {
-  flex: 0 0 auto;
-  color: var(--faint);
-  transition: color var(--d-fast) var(--ease);
+.railTab {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 64px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--nav-text);
+  font: inherit;
+  cursor: pointer;
 }
 
-.navLink > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.railIcon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease), transform var(--d-fast) var(--ease);
 }
 
-.navLink:hover {
-  background: var(--fill);
-  color: var(--text);
-}
-
-.navLink:hover > svg {
-  color: var(--muted);
-}
-
-.navLink[aria-current="page"] {
-  background: var(--fill);
-  color: var(--text);
+.railLabel {
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1.1;
 }
 
-.navLink[aria-current="page"] > svg {
-  color: var(--accent-text);
+.railTab:hover,
+.railTab[aria-current="page"],
+.railTab[data-active],
+.railTab[aria-expanded="true"] {
+  color: var(--nav-strong);
+}
+
+.railTab:hover .railIcon {
+  background: var(--nav-hover);
+}
+
+.railTab:active .railIcon {
+  transform: scale(.94);
+}
+
+.railTab[aria-current="page"] .railIcon,
+.railTab[data-active] .railIcon,
+.railTab[aria-expanded="true"] .railIcon {
+  background: var(--nav-pressed);
+}
+
+.railTab:focus-visible {
+  outline: none;
+}
+
+.railTab:focus-visible .railIcon,
+.workspaceTile:focus-visible,
+.createButton:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .navCount {
+  position: absolute;
+  top: -4px;
+  right: -9px;
   display: grid;
   place-items: center;
-  min-width: 18px;
-  height: 18px;
-  margin-left: auto;
-  padding: 0 5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border: 2px solid var(--nav-rail);
   border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 10.5px;
+  background: var(--nav-badge);
+  color: #fff;
+  font-size: 10px;
   font-style: normal;
-  font-weight: 600;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  box-sizing: content-box;
 }
 
-.sidebarFoot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.sidebarFoot .navLink {
-  flex: 1;
-}
-
-.version {
-  padding-right: 6px;
-  color: var(--faint);
-  font-family: var(--font-code);
-  font-size: 10.5px;
-}
-
-/* Collapsed rail (desktop only) */
-
-@media (min-width: 1001px) {
-  .app[data-collapsed="true"] .sidebar {
-    align-items: center;
-    padding-inline: 8px;
-  }
-
-  .app[data-collapsed="true"] .sidebarHead {
-    flex-direction: column;
-    height: auto;
-    gap: 8px;
-    padding-left: 0;
-  }
-
-  .app[data-collapsed="true"] .brandFull,
-  .app[data-collapsed="true"] .switcherText,
-  .app[data-collapsed="true"] .switcher > svg,
-  .app[data-collapsed="true"] .navLink > span,
-  .app[data-collapsed="true"] .version {
+@media (max-height: 600px) {
+  .railLabel {
     display: none;
   }
+}
 
-  .app[data-collapsed="true"] .brandMarkOnly {
-    display: inline-flex;
-  }
+.railFoot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+}
 
-  .app[data-collapsed="true"] .switcher {
-    justify-content: center;
-    width: 44px;
-    padding: 6px;
-    border-color: transparent;
-    background: transparent;
-  }
+.createButton {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--nav-pressed);
+  color: var(--nav-strong);
+  cursor: pointer;
+  transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease), transform var(--d-fast) var(--ease);
+}
 
-  .app[data-collapsed="true"] .nav,
-  .app[data-collapsed="true"] .switcherWrap {
-    justify-items: center;
-  }
+.createButton:hover,
+.createButton[aria-expanded="true"] {
+  background: var(--nav-strong);
+  color: var(--nav-rail);
+}
 
-  .app[data-collapsed="true"] .navLink {
-    justify-content: center;
-    width: 40px;
-    height: 36px;
-    padding: 0;
-  }
+.createButton[aria-expanded="true"] > svg {
+  transform: rotate(45deg);
+}
 
-  .app[data-collapsed="true"] .navCount {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    min-width: 8px;
-    width: 8px;
-    height: 8px;
-    padding: 0;
-    font-size: 0;
-  }
-
-  .app[data-collapsed="true"] .sidebarFoot {
-    justify-content: center;
-    width: 100%;
-  }
-
-  .app[data-collapsed="true"] .sidebarFoot .navLink {
-    flex: 0 0 auto;
-  }
+.createButton > svg {
+  transition: transform var(--d-base) var(--ease-out);
 }
 
 /* Top bar */
@@ -415,13 +407,14 @@
   position: sticky;
   z-index: 20;
   top: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 680px) minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   height: var(--topbar-h);
-  padding: 0 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  padding: 0 12px 0 16px;
+  background: var(--nav-rail);
+  color: var(--nav-text);
 }
 
 .topbarBrand {
@@ -429,25 +422,28 @@
 }
 
 .search {
+  grid-column: 2;
   display: flex;
   align-items: center;
   gap: 8px;
-  width: min(420px, 100%);
-  height: 34px;
-  padding: 0 8px 0 10px;
-  border: 1px solid var(--border);
+  width: 100%;
+  height: 30px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--nav-border);
   border-radius: var(--r-md);
-  background: var(--surface);
-  color: var(--faint);
-  transition: border-color var(--d-base) var(--ease), box-shadow var(--d-base) var(--ease);
+  background: var(--nav-hover);
+  color: var(--nav-text);
+  transition: background var(--d-base) var(--ease), border-color var(--d-base) var(--ease), box-shadow var(--d-base) var(--ease);
 }
 
 .search:hover {
-  border-color: var(--border-strong);
+  background: var(--nav-pressed);
 }
 
 .search:focus-within {
   border-color: var(--accent);
+  background: var(--surface);
+  color: var(--muted);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
@@ -458,12 +454,30 @@
   border: 0;
   outline: 0;
   background: transparent;
+  color: var(--nav-strong);
+  font-size: var(--t-sm);
+}
+
+.search input::placeholder {
+  color: var(--nav-text);
+}
+
+.search:focus-within input {
   color: var(--text);
-  font-size: var(--t-base);
+}
+
+.search:focus-within input::placeholder {
+  color: var(--faint);
 }
 
 .search input::-webkit-search-cancel-button {
   display: none;
+}
+
+.search kbd {
+  border-color: var(--nav-border);
+  background: transparent;
+  color: var(--nav-faint);
 }
 
 .iconButton.showSmall {
@@ -471,33 +485,33 @@
 }
 
 .searchSpacer {
-  flex: 1;
+  grid-column: 2;
 }
 
 .topbarActions {
+  grid-column: 3;
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 2px;
-  margin-left: auto;
 }
 
-.alertCount {
-  position: absolute;
-  top: 2px;
-  right: 1px;
-  display: grid;
-  place-items: center;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 4px;
-  border: 2px solid var(--bg);
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 9.5px;
-  font-weight: 600;
-  line-height: 1;
-  box-sizing: content-box;
+.topbar .navLauncher {
+  height: 28px;
+  border-color: var(--nav-border);
+  background: var(--nav-hover);
+  color: var(--nav-strong);
+  box-shadow: none;
+}
+
+.topbar .navLauncher:hover,
+.topbar .navLauncher[aria-expanded="true"] {
+  border-color: var(--nav-border);
+  background: var(--nav-pressed);
+}
+
+.topbar .navLauncher svg {
+  color: var(--nav-strong);
 }
 
 .main {
@@ -840,8 +854,7 @@
 /* ---------- Tablet and phone: the sidebar becomes a drawer ---------- */
 
 @media (max-width: 1000px) {
-  .app,
-  .app[data-collapsed="true"] {
+  .app {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -849,7 +862,9 @@
     position: fixed;
     z-index: 70;
     inset: 0 auto 0 0;
-    width: min(288px, 86vw);
+    width: var(--rail-w);
+    gap: 8px;
+    padding-block: 8px;
     box-shadow: var(--shadow-lg);
     transform: translateX(-104%);
     visibility: hidden;
@@ -880,27 +895,33 @@
     pointer-events: auto;
   }
 
-  .iconButton.collapseButton {
-    display: none;
-  }
-
   .iconButton.drawerClose,
   .iconButton.menuButton {
     display: inline-grid;
   }
 
-  .navLink {
-    min-height: 40px;
-  }
-
   .topbar {
+    display: flex;
     gap: 8px;
     padding: 0 12px;
   }
 
   .topbarBrand {
     display: inline-flex;
-    color: var(--text);
+    color: var(--nav-strong);
+  }
+
+  .topbarActions {
+    margin-left: auto;
+  }
+
+  .nav,
+  .railFoot {
+    gap: 4px;
+  }
+
+  .searchSpacer {
+    flex: 1;
   }
 
   .search {
@@ -951,6 +972,9 @@
 .avatarImage { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .presence { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border: 2px solid var(--surface); border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 2px var(--faint); }
 .presence[data-online="true"] { background: var(--done); box-shadow: none; }
+.presence[data-online="false"] { background: var(--surface); box-shadow: inset 0 0 0 2px var(--faint); }
+.presence[data-paused] { display: grid; place-items: center; width: 14px; height: 14px; right: -3px; bottom: -3px; border-width: 2px; color: var(--surface); font-family: var(--font-sans, inherit); font-size: 9px; font-style: normal; font-weight: 800; line-height: 1; }
+.presence[data-paused][data-online="false"] { background: var(--faint); box-shadow: none; }
 
 /* Quick switcher (Ctrl+K) */
 .kbdButton {

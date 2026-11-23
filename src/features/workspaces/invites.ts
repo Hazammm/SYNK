@@ -7,6 +7,8 @@ import { assertMailerConfigured, sendWelcomeEmail, sendWorkspaceInvite } from "@
 import { inviteEmailsSchema, inviteTokenSchema, acceptInviteSchema } from "@/lib/validation";
 import { requireWorkspace } from "@/lib/permissions";
 import { rateLimit } from "@/lib/rate-limit";
+import { assertEmailAllowed } from "@/lib/join-policy";
+import { assertCanJoinWorkspace } from "./join-guard";
 
 const inviteLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -26,8 +28,9 @@ async function deliverInvites(invites: Array<{ email: string; token: string; adm
 export async function createInvites(actorId: string, workspaceId: string, input: unknown) {
   const { emails } = inviteEmailsSchema.parse(input);
   const member = await requireWorkspace(actorId, workspaceId);
-  const policy = await db.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { invitePolicy: true } });
+  const policy = await db.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { invitePolicy: true, allowedEmailDomains: true } });
   if (member.role !== "ADMIN" && policy.invitePolicy !== "EVERYONE") throw new AppError(403, "Only workspace admins can invite people here. Ask an admin to let everyone invite.");
+  for (const email of emails) assertEmailAllowed(email, policy.allowedEmailDomains);
   assertMailerConfigured();
   const [workspace, inviter] = await Promise.all([
     db.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { id: true, name: true } }),
@@ -178,6 +181,7 @@ export async function acceptInvite(inputToken: unknown, input: unknown) {
     try {
       return await db.$transaction(async tx => {
         const invitation = await claimPendingInvite(tx, tokenHash);
+        await assertCanJoinWorkspace(tx, invitation.workspaceId, invitation.email, false);
         if (await tx.user.findFirst({
           where: { email: { equals: invitation.email, mode: "insensitive" } },
           select: { id: true },
@@ -234,6 +238,8 @@ export async function acceptInviteForExistingUser(inputToken: unknown, userId: s
     if (!user.email || user.email.toLowerCase() !== invitation.email.toLowerCase()) {
       throw new AppError(403, "Sign in with the email address that received this invitation.");
     }
+    const google = await tx.account.findFirst({ where: { userId, provider: "google" }, select: { id: true } });
+    await assertCanJoinWorkspace(tx, invitation.workspaceId, user.email, Boolean(google));
     await tx.membership.upsert({
       where: { workspaceId_userId: { workspaceId: invitation.workspaceId, userId } },
       create: { workspaceId: invitation.workspaceId, userId, role: "MEMBER" },

@@ -10,19 +10,21 @@ test("profile menu and settings: details, rename, notifications, theme and sessi
 
   await createWorkspaceAs(page, { name: "Settings QA", email, workspaceName: `Settings QA ${nonce}` });
 
-  // The name in the header opens a card with the person's details.
+  // The avatar at the bottom of the rail opens a card with the person's name, presence and status.
   const trigger = page.locator('button[aria-controls="profile-card"]');
+  await expect(trigger).toHaveAccessibleName(/^Settings QA, Active$/);
   await trigger.click();
   const card = page.getByRole("dialog", { name: "Your profile" });
-  await expect(card.getByText(email)).toBeVisible();
-  await expect(card.getByText("Email and password")).toBeVisible();
+  await expect(card.getByText("Settings QA", { exact: true })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Update your status" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(card).toHaveCount(0);
   await expect(trigger).toBeFocused();
 
-  // A shortcut in the card opens that section of settings.
+  // The pause menu in the card links to the notification section of settings.
   await trigger.click();
-  await card.getByRole("link", { name: "Notifications" }).click();
+  await card.getByRole("button", { name: "Pause notifications" }).click();
+  await card.getByRole("menuitem", { name: "Notification settings" }).click();
   await expect(page).toHaveURL(/\/settings\?section=notifications/);
   const mentions = page.getByRole("switch", { name: /Mentions/ });
   await expect(mentions).toBeChecked();
@@ -31,12 +33,12 @@ test("profile menu and settings: details, rename, notifications, theme and sessi
   await page.reload();
   await expect(page.getByRole("switch", { name: /Mentions/ })).not.toBeChecked(); // saved on the server
 
-  // Renaming updates the header without signing in again.
+  // Renaming updates the profile button without signing in again.
   await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Profile" }).click();
   await page.getByLabel("Display name").fill("Settings Renamed");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByText("Your profile was saved.")).toBeVisible();
-  await expect(trigger).toContainText("Settings Renamed");
+  await expect(trigger).toHaveAccessibleName(/^Settings Renamed,/);
 
   // Theme choice applies at once.
   await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Appearance" }).click();
