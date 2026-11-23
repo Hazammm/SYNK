@@ -3,7 +3,10 @@ export type NotificationPreferences = { assigned: boolean; comments: boolean; me
 // Profile details teammates see. `image` is an uploaded photo or the one from Google, GitHub or Bitbucket.
 export type ProfileDetails = { title: string; phone: string; location: string; timezone: string; pronouns: string; image: string | null };
 // A status that has passed its expiry is reported as empty.
-export type PersonStatus = { text: string; emoji: string; expiresAt: string | null; away: boolean };
+// `pausedUntil` is set while notifications are paused, and teammates see a "z" on the person's avatar.
+export type PersonStatus = { text: string; emoji: string; expiresAt: string | null; away: boolean; pausedUntil: string | null };
+export const isPaused = (status: PersonStatus | undefined, now = Date.now()) =>
+  Boolean(status?.pausedUntil && new Date(status.pausedUntil).getTime() > now);
 export type AccountWorkspace = { id: string; name: string; role: "ADMIN" | "MEMBER"; memberCount: number; adminCount: number };
 export type Account = {
   id: string; name: string; email: string | null; createdAt: string;

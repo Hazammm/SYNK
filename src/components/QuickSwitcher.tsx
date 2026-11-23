@@ -9,7 +9,7 @@ import styles from "./Synk.module.css";
 
 type Item = { id: string; label: string; hint: string; href: string; kind: "page" | "channel" | "private" | "person" };
 
-const PAGES = [["Overview", "overview"], ["Chat", "chat"], ["Board", "board"], ["Docs", "docs"], ["Time", "time"], ["People", "people"], ["Alerts", "alerts"], ["Settings", "settings"]] as const;
+const PAGES = [["Overview", "overview"], ["Chat", "chat"], ["Board", "board"], ["Docs", "docs"], ["Time", "time"], ["People", "people"], ["Apps", "apps"], ["Alerts", "alerts"], ["Settings", "settings"]] as const;
 const ICONS = { page: FileText, channel: Hash, private: LockKeyhole, person: AtSign };
 
 // Ctrl+K: jump to any page, channel, direct message or person by typing part of its name.

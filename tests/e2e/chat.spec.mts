@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import nextEnv from "@next/env";
+import { finishProfileSetup } from "./onboard";
 
 nextEnv.loadEnvConfig(process.cwd(), true);
 if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to a disposable PostgreSQL database before running browser tests.");
@@ -35,9 +36,10 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await expect(admin.getByRole("alert").filter({ hasText: "valid teammate email" })).toBeVisible();
     await admin.getByLabel("Teammate email").fill("");
     await admin.getByRole("button", { name: "Skip for now", exact: true }).click();
+    await finishProfileSetup(admin);
     await expect(admin).toHaveURL(/\/w\/[^/]+\/(?:overview|settings)/, { timeout: 60_000 });
     await admin.goto("/chat");
-    await expect(admin.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
+    await expect(admin.getByRole("complementary", { name: "Channels and direct messages" })).toBeVisible({ timeout: 30_000 });
 
     const workspaceResponse = await adminContext.request.get("/api/workspaces");
     expect(workspaceResponse.ok()).toBeTruthy();
@@ -62,6 +64,7 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await member.getByLabel("Full name").fill("QA Member");
     await member.getByLabel("Password", { exact: true }).fill(password);
     await member.getByRole("button", { name: "Join workspace", exact: true }).click();
+    await finishProfileSetup(member);
     await expect(member).toHaveURL(/\/w\/[^/]+\/(?:overview|settings)/);
     expect((await (await memberContext.request.get(`/api/invites/${token}`)).json()).valid).toBe(false);
 
@@ -151,6 +154,7 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     })).toBe(true);
     await member.screenshot({ path: "test-results/chat-mobile.png", fullPage: true });
 
+    await member.getByRole("button", { name: "Open menu" }).click(); // on a phone the rail, with the profile button, is a drawer
     await member.locator('button[aria-controls="profile-card"]').click(); // sign out lives in the profile menu
     await member.getByRole("dialog", { name: "Your profile" }).getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(member).toHaveURL(/\/login/);
@@ -165,6 +169,7 @@ test("admin onboarding, invite acceptance, live chat, access control and logout"
     await expect(member).toHaveURL(/\/overview/);
     await member.getByRole("link", { name: "Chat", exact: true }).click();
     await expect(member.getByRole("log", { name: "Channel messages" }).getByText(message)).toBeVisible();
+    await member.getByRole("button", { name: "Open menu" }).click(); // on a phone the rail, with the profile button, is a drawer
     await member.locator('button[aria-controls="profile-card"]').click(); // sign out lives in the profile menu
     await member.getByRole("dialog", { name: "Your profile" }).getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(member).toHaveURL(/\/login/);

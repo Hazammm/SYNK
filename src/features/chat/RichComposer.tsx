@@ -23,11 +23,15 @@ import {
   Send,
   Paperclip,
   X,
+  Clock3,
+  BarChart3,
 } from "lucide-react";
-import { Button } from "@/components/Primitives";
+import { Button, Input } from "@/components/Primitives";
 import type { ChatMessage } from "@/lib/chat-types";
 import { messageOf, request } from "./client";
 import { DrivePicker, resumeDrivePicker } from "./DrivePicker";
+import { parseRemindCommand } from "@/lib/reminder-parse";
+import { CustomEmojiImg } from "./CustomEmoji";
 import styles from "./Chat.module.css";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "🎉", "🚀", "👀", "🔥", "✨", "🙌", "💯"];
@@ -75,6 +79,20 @@ export function RichComposer({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showDrive, setShowDrive] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  const [customEmoji, setCustomEmoji] = useState<Array<{ shortcode: string; reaction: string; url: string }>>([]);
+  const [groups, setGroups] = useState<Array<{ id: string; handle: string; name: string }>>([]);
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [showPoll, setShowPoll] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState("Yes\nNo");
+  const [pollMulti, setPollMulti] = useState(false);
+  useEffect(() => {
+    request<{ emoji: Array<{ shortcode: string; reaction: string; url: string }> }>(`/api/workspaces/${workspaceId}/emoji`)
+      .then(result => setCustomEmoji(result.emoji)).catch(() => undefined);
+    request<{ groups: Array<{ id: string; handle: string; name: string }> }>(`/api/workspaces/${workspaceId}/groups`)
+      .then(result => setGroups(result.groups)).catch(() => undefined);
+  }, [workspaceId]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -117,6 +135,7 @@ export function RichComposer({
     const list: { id: string; label: string; kind: string }[] = [
       { id: "channel", label: "@channel", kind: "Notify everyone in this channel" },
       { id: "here", label: "@here", kind: "Notify active people in this channel" },
+      ...groups.map(group => ({ id: `group-${group.id}`, label: `@${group.handle}`, kind: group.name })),
     ];
     for (const m of workspaceMembers) {
       if (m.user.name) {
@@ -124,8 +143,8 @@ export function RichComposer({
       }
     }
     const q = mentionQuery.toLowerCase();
-    return list.filter(item => item.label.toLowerCase().includes(q)).slice(0, 5);
-  }, [showMentionMenu, mentionQuery, workspaceMembers]);
+    return list.filter(item => item.label.toLowerCase().includes(q)).slice(0, 8);
+  }, [showMentionMenu, mentionQuery, workspaceMembers, groups]);
 
   const mentionCandidatesRef = useRef(mentionCandidates);
 
@@ -267,6 +286,22 @@ export function RichComposer({
     const text = editor.getText().trim();
     if (!text && !stagedFiles.length) return;
 
+    const reminder = parseRemindCommand(text);
+    if (reminder) {
+      try {
+        await request(`/api/workspaces/${workspaceId}/reminders`, {
+          method: "POST",
+          body: JSON.stringify({ dueAt: reminder.dueAt.toISOString(), text: reminder.text }),
+        });
+        editor.commands.clearContent();
+        setEmpty(true);
+        setError("");
+      } catch (err) {
+        setError(messageOf(err));
+      }
+      return;
+    }
+
     // Handle slash commands
     if (text === "/shrug") {
       editor.commands.setContent("¯\\_(ツ)_/¯");
@@ -304,6 +339,35 @@ export function RichComposer({
     };
 
     const attachmentIds = stagedFiles.map(f => f.id);
+    const payload = {
+      body,
+      parentId,
+      threadRootId: parentId,
+      clientId,
+      clientMessageId: clientId,
+      attachmentIds,
+      ...(parentId && alsoInChannel && { alsoInChannel: true }),
+    };
+
+    if (scheduleAt) {
+      setBusy(true);
+      setError("");
+      try {
+        const sendAt = new Date(scheduleAt).toISOString();
+        await request(`/api/channels/${channelId}/schedule`, { method: "POST", body: JSON.stringify({ ...payload, sendAt }) });
+        editor.commands.clearContent();
+        setEmpty(true);
+        setStagedFiles([]);
+        setScheduleAt("");
+        setShowSchedule(false);
+      } catch (err) {
+        setError(messageOf(err));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     onSent(optimisticMessage);
     editor.commands.clearContent();
     setEmpty(true);
@@ -314,20 +378,31 @@ export function RichComposer({
     try {
       const result = await request<{ message: ChatMessage }>(`/api/channels/${channelId}/messages`, {
         method: "POST",
-        body: JSON.stringify({
-          body,
-          parentId,
-          threadRootId: parentId,
-          clientId,
-          clientMessageId: clientId,
-          attachmentIds,
-          ...(parentId && alsoInChannel && { alsoInChannel: true }),
-        }),
+        body: JSON.stringify(payload),
       });
       onUpdateStatus(clientId, "sent", result.message);
     } catch (err) {
       setError(messageOf(err));
       onUpdateStatus(clientId, "failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createPoll = async () => {
+    const options = pollOptions.split("\n").map(item => item.trim()).filter(Boolean);
+    setBusy(true); setError("");
+    try {
+      const result = await request<{ message: ChatMessage }>(`/api/channels/${channelId}/polls`, {
+        method: "POST",
+        body: JSON.stringify({ question: pollQuestion, options, multiSelect: pollMulti }),
+      });
+      onSent(result.message);
+      setShowPoll(false);
+      setPollQuestion("");
+      setPollOptions("Yes\nNo");
+    } catch (err) {
+      setError(messageOf(err));
     } finally {
       setBusy(false);
     }
@@ -376,6 +451,17 @@ export function RichComposer({
               onClick={() => handleInsertEmoji(emoji)}
             >
               {emoji}
+            </button>
+          ))}
+          {customEmoji.map(item => (
+            <button
+              key={item.shortcode}
+              type="button"
+              className={styles.emojiQuickBtn}
+              title={`:${item.shortcode}:`}
+              onClick={() => handleInsertEmoji(`:${item.shortcode}:`)}
+            >
+              <CustomEmojiImg workspaceId={workspaceId} shortcode={item.shortcode} />
             </button>
           ))}
           <button
@@ -609,6 +695,26 @@ export function RichComposer({
             >
               <AtSign size={16} />
             </button>
+            {!parentId && (
+              <button
+                type="button"
+                className={`${styles.composerActionBtn} ${showPoll ? styles.active : ""}`}
+                title="Create a poll"
+                aria-label="Create a poll"
+                onClick={() => setShowPoll(open => !open)}
+              >
+                <BarChart3 size={16} />
+              </button>
+            )}
+            <button
+              type="button"
+              className={`${styles.composerActionBtn} ${showSchedule ? styles.active : ""}`}
+              title="Schedule send"
+              aria-label="Schedule send"
+              onClick={() => setShowSchedule(open => !open)}
+            >
+              <Clock3 size={16} />
+            </button>
           </div>
 
           <div className={styles.composerRightTools}>
@@ -625,10 +731,24 @@ export function RichComposer({
               onClick={handleSend}
             >
               <Send size={14} />
-              <span>{busy ? "Sending…" : "Send"}</span>
+              <span>{busy ? "Sending…" : scheduleAt ? "Schedule" : "Send"}</span>
             </Button>
           </div>
         </div>
+        {showSchedule && (
+          <label className={styles.scheduleRow}>
+            Schedule send
+            <input type="datetime-local" value={scheduleAt} onChange={event => setScheduleAt(event.target.value)} />
+          </label>
+        )}
+        {showPoll && (
+          <form className={styles.pollForm} onSubmit={event => { event.preventDefault(); void createPoll(); }}>
+            <Input required maxLength={200} placeholder="Question" value={pollQuestion} onChange={event => setPollQuestion(event.target.value)} aria-label="Poll question" />
+            <textarea rows={4} value={pollOptions} onChange={event => setPollOptions(event.target.value)} aria-label="Poll options, one per line" />
+            <label className={styles.check}><input type="checkbox" checked={pollMulti} onChange={event => setPollMulti(event.target.checked)} /> Allow multiple choices</label>
+            <Button variant="primary" disabled={busy || !pollQuestion.trim()}>Create poll</Button>
+          </form>
+        )}
       </div>
       {showDrive && (
         <DrivePicker

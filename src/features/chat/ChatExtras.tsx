@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Archive, Bookmark, BookmarkCheck, Link2, MailOpen, Megaphone, MessagesSquare, X } from "lucide-react";
+import { Archive, Bookmark, BookmarkCheck, Clock3, Link2, MailOpen, Megaphone, MessagesSquare, X } from "lucide-react";
 import { Avatar, Button, Input } from "@/components/Primitives";
 import { initialsOf } from "@/components/ProfileMenu";
 import type { ChannelSummary, ChatMessage, SavedItem, ThreadSummary } from "@/lib/chat-types";
@@ -19,6 +19,15 @@ export const messageLink = (message: { id: string; channelId: string; workspaceI
 export function MessageExtraActions({ message, workspaceId, onStatus }: { message: ChatMessage; workspaceId: string; onStatus: (text: string) => void }) {
   const [saved, setSaved] = useState(Boolean(message.saved));
   const run = async (action: () => Promise<string>) => { try { onStatus(await action()); } catch (error) { onStatus(messageOf(error)); } };
+  const remind = async () => {
+    const when = window.prompt("Remind you when? Try 20m, 1h, tomorrow, or 2026-12-01 09:30", "1h");
+    if (!when) return "Reminder cancelled.";
+    const { parseReminderWhen } = await import("@/lib/reminder-parse");
+    const dueAt = parseReminderWhen(when) ?? (when.match(/^\d{4}-/) ? new Date(when) : null);
+    if (!dueAt || Number.isNaN(dueAt.getTime())) throw new Error("Could not read that time. Try 20m, 1h or tomorrow.");
+    await request(`/api/workspaces/${workspaceId}/reminders`, { method: "POST", body: JSON.stringify({ messageId: message.id, dueAt: dueAt.toISOString() }) });
+    return `Reminder set for ${dueAt.toLocaleString()}.`;
+  };
   return <>
     <button type="button" className={styles.actionBtn} aria-label={saved ? "Remove from saved items" : "Save for later"} title={saved ? "Remove from saved items" : "Save for later"}
       onClick={() => void run(async () => { const result = await request<{ saved: boolean }>(`/api/messages/${message.id}/save`, { method: "POST" }); setSaved(result.saved); return result.saved ? "Saved for later." : "Removed from saved items."; })}>
@@ -31,6 +40,10 @@ export function MessageExtraActions({ message, workspaceId, onStatus }: { messag
     <button type="button" className={styles.actionBtn} aria-label="Mark unread from here" title="Mark unread"
       onClick={() => void run(async () => { await request(`/api/messages/${message.id}/unread`, { method: "POST" }); return "Marked unread from this message."; })}>
       <MailOpen size={14} />
+    </button>
+    <button type="button" className={styles.actionBtn} aria-label="Remind me" title="Remind me"
+      onClick={() => void run(remind)}>
+      <Clock3 size={14} />
     </button>
   </>;
 }

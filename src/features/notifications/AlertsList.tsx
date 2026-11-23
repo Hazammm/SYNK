@@ -43,7 +43,9 @@ function describe(item: NotificationItem) {
   return { href: `/w/${message.workspaceId}/chat/${message.channelId}?message=${message.id}`, text };
 }
 
-export default function AlertsList() {
+type Reminder = { id: string; text: string; dueAt: string; firedAt: string | null; messageId: string | null; channelId: string | null; place: string | null };
+
+export default function AlertsList({ workspaceId }: { workspaceId?: string }) {
   const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState("");
@@ -61,6 +63,14 @@ export default function AlertsList() {
     window.addEventListener(NOTIFICATIONS_CHANGED, reload);
     return () => window.removeEventListener(NOTIFICATIONS_CHANGED, reload);
   }, []);
+  const [reminders, setReminders] = useState<Reminder[] | null>(null);
+  useEffect(() => {
+    if (!workspaceId) return;
+    const controller = new AbortController();
+    request<{ reminders: Reminder[] }>(`/api/workspaces/${workspaceId}/reminders`, { signal: controller.signal })
+      .then(result => setReminders(result.reminders)).catch(() => setReminders([]));
+    return () => controller.abort();
+  }, [workspaceId, revision]);
   const unread = items?.filter(item => !item.read).length ?? 0;
   const shown = items?.filter(FILTERS.find(entry => entry.id === filter)!.match) ?? [];
 
@@ -86,6 +96,17 @@ export default function AlertsList() {
       {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Retry</button></p>}
       {!items && !error && <p role="status" className={styles.loading}>Loading alerts…</p>}
       {items && !shown.length && <div className={styles.empty}><CheckCheck size={32} /><h2>{filter !== "all" && items.length ? "Nothing here" : "No alerts yet"}</h2><p>You will be notified here when someone mentions you, messages you, replies to your thread, reacts to your message, or assigns you a ticket.</p></div>}
+      {reminders && reminders.length > 0 && <section className={styles.reminders}>
+        <h2>Reminders</h2>
+        <ul>{reminders.map(item => {
+          const href = item.channelId && item.messageId && workspaceId ? `/w/${workspaceId}/chat/${item.channelId}?message=${item.messageId}` : "";
+          return <li key={item.id}>
+            {href ? <Link href={href}>{item.text}</Link> : <span>{item.text}</span>}
+            <time dateTime={item.dueAt}>{formatDateTime(item.dueAt)}{item.firedAt ? " · sent" : ""}{item.place ? ` · ${item.place}` : ""}</time>
+            {!item.firedAt && <Button type="button" variant="quiet" onClick={() => void request(`/api/reminders/${item.id}`, { method: "DELETE" }).then(() => setRevision(value => value + 1))}>Cancel</Button>}
+          </li>;
+        })}</ul>
+      </section>}
       {shown.length > 0 && <ul>{shown.map(item => {
         const { href, text } = describe(item);
         return <li key={item.id}>

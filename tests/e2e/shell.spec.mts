@@ -48,8 +48,12 @@ test("shell: Ctrl+K jumps to channels and pages, and searches everything", async
   await page.goto(page.url().replace(/\/board.*/, "/search?q=nothing-matches-this"));
   await expect(page.getByText("Nothing matched.")).toBeVisible();
 
-  // It also jumps straight to a channel or a page by name.
-  await page.keyboard.press("Control+k");
+  // It also jumps straight to a channel or a page by name. The shortcut only works once the
+  // freshly loaded page has hydrated, so press it until the switcher opens.
+  await expect(async () => {
+    if (!(await switcher.isVisible())) await page.keyboard.press("Control+k");
+    await expect(switcher.getByRole("combobox")).toBeFocused({ timeout: 1_000 });
+  }).toPass();
   await page.keyboard.type("#gen");
   await expect(page.getByRole("dialog", { name: "Jump to" }).getByRole("option", { name: /general/ })).toBeVisible();
   await page.keyboard.press("Enter");

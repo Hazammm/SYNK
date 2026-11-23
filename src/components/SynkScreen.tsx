@@ -30,7 +30,7 @@ export default function SynkScreen({
       {screen === "overview"
         ? <OverviewView userName={userName} initialWorkspaces={initialWorkspaces} initialWorkspaceId={initialSelection.workspaceId ?? workspaceId} />
         : screen === "alerts"
-          ? <AlertsList />
+          ? <AlertsList workspaceId={workspaceId} />
           : <Tracker
               view={screen === "backlog" ? "sprints" : screen}
               userId={userId}

@@ -43,6 +43,8 @@ model User {
   timezone                 String               @default("")
   pronouns                 String               @default("")
   avatarKey                String?
+  // Set once the person finishes or skips the profile setup shown after their first sign-in.
+  profileSetupAt           DateTime?
   // Custom status, cleared when statusExpiresAt passes. "away" shows the person as away even when connected.
   statusText               String               @default("")
   statusEmoji              String               @default("")
@@ -85,6 +87,13 @@ model User {
   timeEntries              TimeEntry[]
   repositories             Repository[]
   savedMessages            SavedMessage[]
+  uploadedEmoji            CustomEmoji[]
+  groupMemberships         UserGroupMember[]
+  createdGroups            UserGroup[]          @relation("UserGroupCreator")
+  scheduledMessages        ScheduledMessage[]
+  reminders                Reminder[]
+  pollVotes                PollVote[]
+  createdWebhooks          IncomingWebhook[]    @relation("WebhookCreator")
 }
 
 enum TicketPriority {
@@ -188,21 +197,30 @@ model PasswordResetToken {
 }
 
 model Workspace {
-  id            String         @id @default(cuid())
-  name          String
-  invitePolicy  InvitePolicy   @default(ADMINS)
-  createdById   String
-  createdAt     DateTime       @default(now())
-  createdBy     User           @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  memberships   Membership[]
-  channels      Channel[]
-  messages      Message[]
-  attachments   Attachment[]
-  projects      Project[]
-  invites       Invite[]
-  activeUsers   User[]         @relation("UserLastActiveWorkspace")
-  conversations Conversation[]
-  actionLogs    ActionLog[]
+  id                   String             @id @default(cuid())
+  name                 String
+  invitePolicy         InvitePolicy       @default(ADMINS)
+  // Empty means any email may be invited. Otherwise the address must match one of these domains.
+  allowedEmailDomains  String[]           @default([])
+  // New members must sign in with Google (existing password members keep their accounts).
+  requireGoogleSignIn  Boolean            @default(false)
+  createdById          String
+  createdAt            DateTime           @default(now())
+  createdBy            User               @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  memberships          Membership[]
+  channels             Channel[]
+  messages             Message[]
+  attachments          Attachment[]
+  projects             Project[]
+  invites              Invite[]
+  activeUsers          User[]             @relation("UserLastActiveWorkspace")
+  conversations        Conversation[]
+  actionLogs           ActionLog[]
+  customEmoji          CustomEmoji[]
+  userGroups           UserGroup[]
+  incomingWebhooks     IncomingWebhook[]
+  scheduledMessages    ScheduledMessage[]
+  reminders            Reminder[]
 }
 
 model Membership {
@@ -268,9 +286,11 @@ model Channel {
   createdAt     DateTime        @default(now())
   workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   creator       User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  members       ChannelMember[]
-  messages      Message[]
-  pins          Pin[]
+  members            ChannelMember[]
+  messages           Message[]
+  pins               Pin[]
+  scheduledMessages  ScheduledMessage[]
+  incomingWebhooks   IncomingWebhook[]
 
   @@unique([workspaceId, name])
   @@unique([id, workspaceId])
@@ -300,22 +320,27 @@ model Message {
   authorId      String
   body          String         @db.Text
   threadRootId  String?
-  alsoInChannel Boolean        @default(false)
+  alsoInChannel Boolean            @default(false)
   clientId      String
+  // Set when an incoming webhook posted this message; shown as the app name.
+  viaApp        String             @default("")
   editedAt      DateTime?
   deletedAt     DateTime?
-  createdAt     DateTime       @default(now())
-  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  channel       Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  author        User           @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
-  threadRoot    Message?       @relation("ThreadReplies", fields: [threadRootId], references: [id], onDelete: Cascade)
-  replies       Message[]      @relation("ThreadReplies")
+  createdAt     DateTime           @default(now())
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel       Channel            @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author        User               @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  threadRoot    Message?           @relation("ThreadReplies", fields: [threadRootId], references: [id], onDelete: Cascade)
+  replies       Message[]          @relation("ThreadReplies")
   reactions     Reaction[]
   mentions      Mention[]
   attachments   Attachment[]
   pins          Pin[]
   notifications Notification[]
   savedBy       SavedMessage[]
+  unfurls       MessageUnfurl[]
+  poll          Poll?
+  reminders     Reminder[]
 
   @@unique([authorId, clientId])
   @@index([channelId, createdAt(sort: Desc)])
@@ -690,4 +715,158 @@ model SavedMessage {
 
   @@unique([userId, messageId])
   @@index([userId, createdAt])
+}
+
+enum ScheduledStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
+
+// Workspace-scoped custom emoji. Shortcode is unique per workspace (party-parrot).
+model CustomEmoji {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  shortcode    String
+  storageKey   String
+  mimeType     String
+  uploadedById String
+  createdAt    DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, shortcode])
+  @@index([workspaceId])
+}
+
+// Named group of workspace members. @handle in chat expands to members who are in the channel.
+model UserGroup {
+  id          String            @id @default(cuid())
+  workspaceId String
+  name        String
+  handle      String
+  createdById String
+  createdAt   DateTime          @default(now())
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User              @relation("UserGroupCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  members     UserGroupMember[]
+
+  @@unique([workspaceId, handle])
+  @@index([workspaceId])
+}
+
+model UserGroupMember {
+  groupId String
+  userId  String
+  group   UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
+}
+
+model ScheduledMessage {
+  id             String          @id @default(cuid())
+  workspaceId    String
+  channelId      String
+  authorId       String
+  body           String          @db.Text
+  threadRootId   String?
+  alsoInChannel  Boolean         @default(false)
+  clientId       String
+  attachmentIds  String[]        @default([])
+  sendAt         DateTime
+  status         ScheduledStatus @default(PENDING)
+  sentMessageId  String?
+  createdAt      DateTime        @default(now())
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel        Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author         User            @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@unique([authorId, clientId])
+  @@index([status, sendAt])
+  @@index([authorId, sendAt])
+}
+
+model Reminder {
+  id          String     @id @default(cuid())
+  userId      String
+  workspaceId String
+  messageId   String?
+  text        String     @default("")
+  dueAt       DateTime
+  firedAt     DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime   @default(now())
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  message     Message?   @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([firedAt, cancelledAt, dueAt])
+  @@index([userId, dueAt])
+}
+
+model MessageUnfurl {
+  id          String   @id @default(cuid())
+  messageId   String
+  url         String
+  title       String   @default("")
+  description String   @default("")
+  imageUrl    String?
+  siteName    String   @default("")
+  createdAt   DateTime @default(now())
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, url])
+  @@index([messageId])
+}
+
+model Poll {
+  id          String       @id @default(cuid())
+  messageId   String       @unique
+  question    String
+  multiSelect Boolean      @default(false)
+  closedAt    DateTime?
+  createdAt   DateTime     @default(now())
+  message     Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  options     PollOption[]
+}
+
+model PollOption {
+  id       String     @id @default(cuid())
+  pollId   String
+  label    String
+  position Int
+  poll     Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes    PollVote[]
+
+  @@unique([pollId, position])
+  @@index([pollId])
+}
+
+model PollVote {
+  optionId  String
+  userId    String
+  createdAt DateTime   @default(now())
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([optionId, userId])
+  @@index([userId])
+}
+
+model IncomingWebhook {
+  id          String    @id @default(cuid())
+  workspaceId String
+  channelId   String
+  name        String
+  tokenHash   String    @unique
+  createdById String
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel     Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("WebhookCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId])
 }

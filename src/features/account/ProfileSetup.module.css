@@ -1,0 +1,71 @@
+.page {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100dvh;
+  background: var(--surface);
+}
+
+.card {
+  align-self: center;
+  justify-self: center;
+  width: min(100%, 460px);
+  padding: 32px 24px 64px;
+  animation: synk-rise-in 320ms var(--ease-out);
+}
+
+.card h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -.03em;
+  line-height: 1.15;
+}
+
+.step {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: var(--t-sm);
+  font-weight: 500;
+}
+
+.photoRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.photoRow > div {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.photoRow small {
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+.photoRow button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.secondary {
+  display: flex;
+  justify-content: space-between;
+}

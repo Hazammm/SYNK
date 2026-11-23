@@ -7,6 +7,7 @@ import { initialsOf } from "@/components/ProfileMenu";
 import { messageOf, request } from "@/lib/client-http";
 import type { Account, PersonStatus } from "@/lib/account-types";
 import { DESKTOP_KEY } from "@/features/notifications/live";
+import { ACCOUNT_CHANGED } from "@/lib/events";
 import styles from "./Settings.module.css";
 
 type Saving = { busy: boolean; run: (action: () => Promise<string>) => Promise<void>; feedback: React.ReactNode };
@@ -34,12 +35,13 @@ export function ProfileDetails({ account, onSaved }: { account: Account; onSaved
   const photo = useRef<HTMLInputElement>(null);
   const details = useSaving(), picture = useSaving();
   const set = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [field]: event.target.value });
+  const changed = () => { onSaved(); router.refresh(); window.dispatchEvent(new Event(ACCOUNT_CHANGED)); };
   const save = (event: React.FormEvent) => {
     event.preventDefault();
     void details.run(async () => {
       const { name, title, phone, location, timezone, pronouns } = form;
       await request("/api/me", { method: "PATCH", body: JSON.stringify({ name, title, phone, location, timezone, pronouns }) });
-      onSaved(); router.refresh(); // the header shows the new name
+      changed();
       return "Your profile was saved.";
     });
   };
@@ -51,13 +53,13 @@ export function ProfileDetails({ account, onSaved }: { account: Account; onSaved
       const response = await fetch("/api/me/avatar", { method: "POST", body });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error ?? "The photo could not be uploaded.");
-      setForm(current => ({ ...current, image: result.image })); onSaved(); router.refresh();
+      setForm(current => ({ ...current, image: result.image })); changed();
       return "Your photo was updated.";
     });
   };
   const removePhoto = () => void picture.run(async () => {
     const result = await request<{ image: string | null }>("/api/me/avatar", { method: "DELETE" });
-    setForm(current => ({ ...current, image: result.image })); onSaved(); router.refresh();
+    setForm(current => ({ ...current, image: result.image })); changed();
     return "Your photo was removed.";
   });
 

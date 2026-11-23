@@ -36,7 +36,7 @@ test("issue tracking: project, ticket lifecycle, delete, sprint, report export a
 
   await createWorkspaceAs(page, { name: "Tracker QA", email: testEmail, workspaceName: `Tracker QA ${nonce}` });
   await page.goto("/chat");
-  await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("complementary", { name: "Channels and direct messages" })).toBeVisible({ timeout: 30_000 });
 
   // The workspace wizard creates a starter project; add the project exercised below.
   await page.goto("/board");

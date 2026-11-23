@@ -1,0 +1,17 @@
+.page { width: 100%; max-width: 760px; margin: 0 auto; display: grid; gap: 16px; }
+.page h1 { margin: 0; font-size: var(--t-2xl); letter-spacing: -.025em; }
+.page header p, .muted { margin: 4px 0 0; color: var(--muted); font-size: var(--t-sm); }
+.card { display: grid; gap: 12px; padding: 20px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.card h2 { margin: 0; font-size: var(--t-lg); }
+.card p { margin: 0; color: var(--muted); font-size: var(--t-sm); }
+.card code { font-size: var(--t-xs); }
+.form { display: grid; gap: 10px; max-width: 420px; }
+.form label { display: grid; gap: 6px; color: var(--muted); font-size: var(--t-sm); font-weight: 500; }
+.form select { min-height: 38px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); font: inherit; }
+.secret { display: grid; gap: 8px; padding: 12px; border-radius: var(--r-md); background: var(--sunken); }
+.secret code { overflow-wrap: anywhere; }
+.list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.list li { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.list div { display: grid; flex: 1; min-width: 0; }
+.list small { color: var(--muted); font-size: var(--t-xs); }
+.error { color: var(--high); font-size: var(--t-sm); }

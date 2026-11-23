@@ -22,7 +22,7 @@ function targetLink(target: AgentTarget, workspaceId: string) {
 }
 
 // The assistant is available on every screen: a launcher button in the top bar opens this side panel.
-export default function AgentPanel() {
+export default function AgentPanel({ launcherClassName = "" }: { launcherClassName?: string }) {
   const [open, setOpen] = useState(false);
   const launcher = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
@@ -33,7 +33,7 @@ export default function AgentPanel() {
   }, [open]);
   const close = () => setOpen(false);
   return <>
-    <button ref={launcher} type="button" className={styles.launcher} aria-label="Ask Synk AI" aria-expanded={open} aria-controls="synk-ai-panel" onClick={() => setOpen(!open)}>
+    <button ref={launcher} type="button" className={`${styles.launcher} ${launcherClassName}`} aria-label="Ask Synk AI" aria-expanded={open} aria-controls="synk-ai-panel" onClick={() => setOpen(!open)}>
       <Sparkles size={15} aria-hidden="true" /> <span>Ask Synk AI</span>
     </button>
     {open && <Panel onClose={close} />}

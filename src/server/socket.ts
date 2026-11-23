@@ -16,6 +16,7 @@ import {
   sendMessage,
   toggleReaction,
 } from "../features/chat/service";
+import { activeHuddles, huddlePeerSocket, huddleState, isInHuddle, joinHuddle, leaveAllHuddles, leaveHuddle, muteHuddle } from "./huddle";
 
 // Note: In a multi-server setup, this in-memory presence tracker would require the Socket.IO Redis adapter.
 type PresenceRecord = {
@@ -63,6 +64,25 @@ function respond<Data>(callback: SocketCallback<SocketAck<Data>> | undefined, re
       // client callback error
     }
   }
+}
+
+async function broadcastHuddle(io: Server<ClientEvents, ServerEvents>, channelId: string) {
+  const state = huddleState(channelId);
+  io.to(`channel:${channelId}`).emit("huddle:state", state);
+  const members = await db.channelMember.findMany({ where: { channelId }, select: { userId: true } });
+  for (const { userId } of members) io.to(`user:${userId}`).emit("huddle:state", state);
+  return state;
+}
+
+async function snapshotHuddles(userId: string) {
+  const all = activeHuddles();
+  if (!all.length) return [];
+  const memberships = await db.channelMember.findMany({
+    where: { userId, channelId: { in: all.map(huddle => huddle.channelId) } },
+    select: { channelId: true },
+  });
+  const allowed = new Set(memberships.map(member => member.channelId));
+  return all.filter(huddle => allowed.has(huddle.channelId));
 }
 
 export function attachRealtime(http: HttpServer) {
@@ -134,6 +154,7 @@ export function attachRealtime(http: HttpServer) {
           if (room.startsWith("channel:")) await socket.leave(room);
         }
         await socket.join(`channel:${channelId}`);
+        socket.emit("huddle:state", huddleState(channelId));
         respond(ack, { ok: true, data: { channelId } });
       } catch (err) {
         respond(ack, { ok: false, error: failure(err, "You cannot subscribe to this channel.") });
@@ -229,8 +250,62 @@ export function attachRealtime(http: HttpServer) {
       socket.to(room).except(`user:${socket.data.userId}`).emit("typing", event);
     });
 
+    void snapshotHuddles(socket.data.userId).then(states => {
+      for (const state of states) socket.emit("huddle:state", state);
+    });
+
+    socket.on("huddle:join", async (input, ack) => {
+      try {
+        const channelId = idSchema.parse(input?.channelId);
+        rateLimit(`huddle:${socket.data.userId}`, 30, 10_000);
+        await requireChannel(socket.data.userId, channelId);
+        const { left } = joinHuddle(channelId, { userId: socket.data.userId, name: socket.data.name, muted: false, socketId: socket.id });
+        for (const previous of left) await broadcastHuddle(io, previous);
+        respond(ack, { ok: true, data: await broadcastHuddle(io, channelId) });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "Unable to join the huddle.") });
+      }
+    });
+
+    socket.on("huddle:leave", async (input, ack) => {
+      try {
+        const channelId = idSchema.parse(input?.channelId);
+        leaveHuddle(channelId, socket.data.userId);
+        respond(ack, { ok: true, data: await broadcastHuddle(io, channelId) });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "Unable to leave the huddle.") });
+      }
+    });
+
+    socket.on("huddle:mute", async (input, ack) => {
+      try {
+        const channelId = idSchema.parse(input?.channelId);
+        const state = muteHuddle(channelId, socket.data.userId, Boolean(input?.muted));
+        if (!state) throw new Error("Join the huddle first.");
+        respond(ack, { ok: true, data: await broadcastHuddle(io, channelId) });
+      } catch (err) {
+        respond(ack, { ok: false, error: failure(err, "Unable to update mute.") });
+      }
+    });
+
+    socket.on("huddle:signal", input => {
+      const channelId = idSchema.safeParse(input?.channelId);
+      const toUserId = idSchema.safeParse(input?.toUserId);
+      if (!channelId.success || !toUserId.success) return;
+      if (!isInHuddle(channelId.data, socket.data.userId) || !isInHuddle(channelId.data, toUserId.data)) return;
+      const target = huddlePeerSocket(channelId.data, toUserId.data);
+      if (!target) return;
+      io.to(target).emit("huddle:signal", {
+        channelId: channelId.data,
+        fromUserId: socket.data.userId,
+        toUserId: toUserId.data,
+        payload: input?.payload,
+      });
+    });
+
     // Disconnect cleanup
     socket.on("disconnect", () => {
+      for (const channelId of leaveAllHuddles(userId, socket.id)) void broadcastHuddle(io, channelId);
       const p = presenceTracker.get(userId);
       if (p) {
         p.socketIds.delete(socket.id);
@@ -321,6 +396,10 @@ export function attachRealtime(http: HttpServer) {
       io.to(`channel:${event.channelId}`).emit("reaction:updated", event);
     },
 
+    async publishPollUpdated(channelId, messageId, poll) {
+      io.to(`channel:${channelId}`).emit("poll:updated", { channelId, messageId, poll });
+    },
+
     async publishChannelUpdated(workspaceId, channel) {
       io.to(`workspace:${workspaceId}`).emit("channel:updated", { channel });
     },
@@ -339,6 +418,10 @@ export function attachRealtime(http: HttpServer) {
 
     async publishPresence(workspaceId, userId, online) {
       io.to(`workspace:${workspaceId}`).emit("presence:update", { userId, workspaceId, online });
+    },
+
+    async publishStatus(workspaceIds, userId, status) {
+      if (workspaceIds.length) io.to(workspaceIds.map(id => `workspace:${id}`)).emit("status:update", { userId, status });
     },
 
     disconnectSession(sessionId) {

@@ -2,13 +2,16 @@ import { z } from "zod";
 import { db } from "../../lib/db";
 import { requireWorkspace } from "../../lib/permissions";
 import { extractPlainText } from "../../lib/validation";
+import { parseEmailDomains } from "../../lib/join-policy";
 
 export const workspaceSettingsSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   invitePolicy: z.enum(["ADMINS", "EVERYONE"]).optional(),
-}).strict().refine(update => update.name !== undefined || update.invitePolicy !== undefined, "Nothing to update.");
+  allowedEmailDomains: z.array(z.string()).max(20).optional(),
+  requireGoogleSignIn: z.boolean().optional(),
+}).strict().refine(update => Object.values(update).some(value => value !== undefined), "Nothing to update.");
 
-const settingsSelect = { id: true, name: true, invitePolicy: true } as const;
+const settingsSelect = { id: true, name: true, invitePolicy: true, allowedEmailDomains: true, requireGoogleSignIn: true } as const;
 
 // Every member can read the name and who may invite; only admins change them.
 export async function getWorkspaceSettings(userId: string, workspaceId: string) {
@@ -19,7 +22,13 @@ export async function getWorkspaceSettings(userId: string, workspaceId: string) 
 export async function updateWorkspaceSettings(userId: string, workspaceId: string, input: unknown) {
   const update = workspaceSettingsSchema.parse(input);
   await requireWorkspace(userId, workspaceId, "workspace:manage");
-  return db.workspace.update({ where: { id: workspaceId }, data: update, select: settingsSelect });
+  const data = {
+    ...(update.name !== undefined && { name: update.name }),
+    ...(update.invitePolicy !== undefined && { invitePolicy: update.invitePolicy }),
+    ...(update.allowedEmailDomains !== undefined && { allowedEmailDomains: parseEmailDomains(update.allowedEmailDomains) }),
+    ...(update.requireGoogleSignIn !== undefined && { requireGoogleSignIn: update.requireGoogleSignIn }),
+  };
+  return db.workspace.update({ where: { id: workspaceId }, data, select: settingsSelect });
 }
 
 const DAY = 24 * 60 * 60 * 1000;

@@ -24,3 +24,11 @@
 .facts a, .message { color: var(--accent-text); }
 .message { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: var(--t-sm); font-weight: 600; text-decoration: none; }
 .message:hover { text-decoration: underline; }
+.groups { margin-top: 32px; display: grid; gap: 10px; }
+.groups h2 { margin: 0; font-size: var(--t-lg); }
+.groupForm { display: grid; gap: 8px; max-width: 480px; }
+.groupForm select { min-height: 80px; padding: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); }
+.groupList { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.groupList li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.groupList span { color: var(--muted); font-size: var(--t-sm); }
+.groupList button { border: 0; background: transparent; color: var(--muted); cursor: pointer; }

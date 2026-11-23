@@ -180,7 +180,7 @@ export const messageEditSchema = z.object({
   }),
 }).strict();
 export const reactionSchema = z.object({
-  emoji: z.string().min(1).max(16),
+  emoji: z.string().min(1).max(48),
 }).strict();
 export const historySchema = z.object({
   cursor: idSchema.optional(),
@@ -291,6 +291,8 @@ export const profileUpdateSchema = z.object({
   location: profileText("Locations", 80),
   timezone: timezoneName,
   pronouns: profileText("Pronouns", 30),
+  // Marks the first-sign-in profile setup as done (finished or skipped).
+  setupDone: z.literal(true).optional(),
   notifications: z.object({
     assigned: z.boolean().optional(), comments: z.boolean().optional(), mentions: z.boolean().optional(), replies: z.boolean().optional(), reactions: z.boolean().optional(),
   }).strict().optional(),
@@ -324,3 +326,49 @@ const timeNote = z.string().trim().max(500, "Notes can contain up to 500 charact
 export const timerStartSchema = z.object({ ticketId: idSchema, note: timeNote.default("") }).strict();
 export const timeEntrySchema = z.object({ ticketId: idSchema, startedAt: timestamp, endedAt: timestamp, note: timeNote.default("") }).strict();
 export const timeListSchema = z.object({ projectId: idSchema, from: timestamp, to: timestamp, userId: idSchema.optional() }).strict();
+
+const futureStamp = z.string().datetime({ offset: true, message: "Use a full date and time." }).transform(value => new Date(value))
+  .refine(date => date.getTime() > Date.now() - 5_000, "Pick a time in the future.")
+  .refine(date => date.getTime() < Date.now() + 120 * 24 * 60 * 60 * 1000, "Schedule at most 120 days ahead.");
+
+export const emojiShortcodeSchema = z.string().trim().toLowerCase().regex(/^[a-z][a-z0-9-]{0,30}[a-z0-9]$/, "Use 2–32 lowercase letters, numbers and hyphens.");
+export const groupHandleSchema = z.string().trim().toLowerCase().regex(/^[a-z][a-z0-9-]{0,30}[a-z0-9]$/, "Use 2–32 lowercase letters, numbers and hyphens.");
+export const userGroupSchema = z.object({
+  name: z.string().trim().min(1, "Name the group.").max(80),
+  handle: groupHandleSchema,
+  userIds: z.array(idSchema).max(200).default([]),
+}).strict();
+export const userGroupUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  userIds: z.array(idSchema).max(200).optional(),
+}).strict().refine(update => update.name !== undefined || update.userIds !== undefined, "Nothing to update.");
+export const scheduledMessageSchema = z.object({
+  body: messageSchema.shape.body,
+  threadRootId: idSchema.nullable().optional(),
+  parentId: idSchema.nullable().optional(),
+  clientId: z.string().min(1).max(100).optional(),
+  clientMessageId: z.string().uuid().optional(),
+  attachmentIds: z.array(idSchema).max(10).optional().default([]),
+  alsoInChannel: z.boolean().optional(),
+  sendAt: futureStamp,
+}).strict().refine(data => data.clientId !== undefined || data.clientMessageId !== undefined, { message: "Client ID is required." });
+export const reminderSchema = z.object({
+  messageId: idSchema.optional(),
+  text: z.string().trim().max(500).default(""),
+  dueAt: futureStamp,
+}).strict();
+export const pollSchema = z.object({
+  question: z.string().trim().min(1, "Ask a question.").max(200),
+  options: z.array(z.string().trim().min(1, "Name every option.").max(80)).min(2, "Add at least two options.").max(10),
+  multiSelect: z.boolean().optional().default(false),
+}).strict();
+export const pollVoteSchema = z.object({
+  optionIds: z.array(idSchema).min(1).max(10),
+}).strict();
+export const incomingWebhookSchema = z.object({
+  name: z.string().trim().min(1, "Name the webhook.").max(80),
+  channelId: idSchema,
+}).strict();
+export const webhookPostSchema = z.object({
+  text: z.string().trim().min(1, "Write a message first.").max(4000),
+}).strict();

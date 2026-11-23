@@ -1,3 +1,5 @@
+import type { PersonStatus } from "./account-types";
+
 export type ChannelType = "PUBLIC" | "PRIVATE" | "DM" | "GROUP_DM";
 
 export type ChatReaction = {
@@ -15,6 +17,34 @@ export type ChatAttachment = {
   url?: string;
 };
 
+export type ChatUnfurl = {
+  url: string;
+  title: string;
+  description: string;
+  imageUrl: string | null;
+  siteName: string;
+};
+
+export type ChatPollOption = {
+  id: string;
+  label: string;
+  position: number;
+  count: number;
+  userIds: string[];
+};
+
+export type ChatPoll = {
+  id: string;
+  question: string;
+  multiSelect: boolean;
+  closed: boolean;
+  options: ChatPollOption[];
+};
+
+export type HuddlePeer = { userId: string; name: string; muted: boolean };
+export type HuddleState = { channelId: string; participants: HuddlePeer[] };
+export type HuddleSignal = { channelId: string; fromUserId: string; toUserId: string; payload: unknown };
+
 export type ChatMessage = {
   id: string;
   workspaceId?: string;
@@ -26,6 +56,9 @@ export type ChatMessage = {
   alsoInChannel?: boolean;
   // Whether the person reading has saved it for later.
   saved?: boolean;
+  viaApp?: string;
+  unfurls?: ChatUnfurl[];
+  poll?: ChatPoll | null;
   clientId?: string;
   editedAt?: string | null;
   deletedAt?: string | null;
@@ -88,6 +121,10 @@ export type ClientEvents = {
   "reaction:toggle": (data: { messageId: string; emoji: string }, ack?: SocketCallback<SocketAck<{ messageId: string; emoji: string; reactions: ChatReaction[] }>>) => void;
   "typing": (data: { channelId: string }) => void;
   "heartbeat": () => void;
+  "huddle:join": (data: { channelId: string }, ack?: SocketCallback<SocketAck<HuddleState>>) => void;
+  "huddle:leave": (data: { channelId: string }, ack?: SocketCallback<SocketAck<HuddleState>>) => void;
+  "huddle:mute": (data: { channelId: string; muted: boolean }, ack?: SocketCallback<SocketAck<HuddleState>>) => void;
+  "huddle:signal": (data: { channelId: string; toUserId: string; payload: unknown }) => void;
 };
 
 export type TypingEvent = { channelId: string; userId: string; name: string };
@@ -100,10 +137,14 @@ export type ServerEvents = {
   "reaction:updated": (event: { messageId: string; channelId: string; reactions: ChatReaction[] }) => void;
   "typing": (event: TypingEvent) => void;
   "presence:update": (event: { userId: string; workspaceId: string; online: boolean }) => void;
+  "status:update": (event: { userId: string; status: PersonStatus }) => void;
   "notification:new": (event: { announcement: { title: string; body: string; url: string } | null }) => void;
   "channel:updated": (event: { channel: ChannelSummary }) => void;
   "unread:update": (event: { channelId: string; unreadCount: number; mentionCount: number }) => void;
   "access:revoked": () => void;
+  "huddle:state": (event: HuddleState) => void;
+  "huddle:signal": (event: HuddleSignal) => void;
+  "poll:updated": (event: { channelId: string; messageId: string; poll: ChatPoll }) => void;
 };
 
 export const TYPING_TTL_MS = 4000;

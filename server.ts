@@ -28,11 +28,14 @@ async function main() {
     void handler(req, res);
   });
   const io = attachRealtime(server);
+  const { startScheduler } = await import("./src/features/schedule/tick");
+  const stopScheduler = startScheduler();
   server.listen(port, hostname, () => console.log(`Synk ready at ${process.env.NEXTAUTH_URL}`));
   let closing = false;
   const close = async () => {
     if (closing) return;
     closing = true;
+    stopScheduler();
     io.close();
     await app.close();
     await db.$disconnect();

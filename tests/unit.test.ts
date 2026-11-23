@@ -708,6 +708,62 @@ test("two-factor secrets are sealed with authenticated encryption", () => {
   assert.throws(() => openSecret([iv, tag, data.slice(0, -2) + (data.endsWith("A") ? "BB" : "AA")].join(".")));
 });
 
+test("custom emoji shortcodes normalize and reject punctuation", async () => {
+  const { isValidShortcode, normalizeShortcode, wrapShortcode, isCustomReaction } = await import("../src/lib/emoji-shortcode");
+  assert.equal(normalizeShortcode(":Party-Parrot:"), "party-parrot");
+  assert.equal(isValidShortcode("party-parrot"), true);
+  assert.equal(isValidShortcode("a"), false);
+  assert.equal(isValidShortcode("Party_Parrot"), false);
+  assert.equal(wrapShortcode("ship-it"), ":ship-it:");
+  assert.equal(isCustomReaction(":ship-it:"), true);
+  assert.equal(isCustomReaction("👍"), false);
+});
+
+test("unfurl URL extraction blocks private hosts and skips Drive", async () => {
+  const { extractHttpUrls, isPrivateIp, parsePublicHttpUrl, hostnameIsDrive } = await import("../src/lib/unfurl-ssrf");
+  assert.equal(isPrivateIp("127.0.0.1"), true);
+  assert.equal(isPrivateIp("10.0.0.8"), true);
+  assert.equal(isPrivateIp("192.168.1.1"), true);
+  assert.equal(isPrivateIp("8.8.8.8"), false);
+  assert.equal(parsePublicHttpUrl("http://127.0.0.1/secret"), null);
+  assert.equal(parsePublicHttpUrl("http://localhost/admin"), null);
+  assert.equal(parsePublicHttpUrl("https://example.com/a")?.href, "https://example.com/a");
+  assert.equal(hostnameIsDrive("docs.google.com"), true);
+  assert.deepEqual(extractHttpUrls("see https://example.com/x and http://127.0.0.1/no"), ["https://example.com/x"]);
+});
+
+test("join policy matches email domains and Open Graph tags parse", async () => {
+  const { emailMatchesDomains, parseEmailDomains, isValidEmailDomain } = await import("../src/lib/join-policy");
+  assert.equal(isValidEmailDomain("acme.com"), true);
+  assert.deepEqual(parseEmailDomains(["ACME.com", "acme.com"]), ["acme.com"]);
+  assert.equal(emailMatchesDomains("ada@acme.com", ["acme.com"]), true);
+  assert.equal(emailMatchesDomains("ada@mail.acme.com", ["acme.com"]), true);
+  assert.equal(emailMatchesDomains("ada@other.test", ["acme.com"]), false);
+  assert.equal(emailMatchesDomains("ada@other.test", []), true);
+  const { parseOpenGraph } = await import("../src/lib/og-parse");
+  const og = parseOpenGraph('<meta property="og:title" content="Hello &amp; Co"><title>Fallback</title><meta name="description" content="A page">', "https://example.com");
+  assert.equal(og.title, "Hello & Co");
+  assert.equal(og.description, "A page");
+});
+
+test("reminder slash commands parse relative and dated times", async () => {
+  const { parseRemindCommand, parseReminderWhen } = await import("../src/lib/reminder-parse");
+  const now = new Date("2026-11-23T12:00:00");
+  assert.equal(parseReminderWhen("20m", now)?.toISOString(), new Date(now.getTime() + 20 * 60_000).toISOString());
+  assert.equal(parseRemindCommand("/remind in 1h standup", now)?.text, "standup");
+  assert.equal(parseRemindCommand("not a reminder", now), null);
+});
+
+test("poll, webhook, schedule and emoji schemas reject incomplete input", async () => {
+  const { pollSchema, webhookPostSchema, scheduledMessageSchema, emojiShortcodeSchema } = await import("../src/lib/validation");
+  assert.equal(pollSchema.safeParse({ question: "Ship?", options: ["Yes", "No"] }).success, true);
+  assert.equal(pollSchema.safeParse({ question: "Ship?", options: ["Only one"] }).success, false);
+  assert.equal(webhookPostSchema.safeParse({ text: "hello" }).success, true);
+  assert.equal(emojiShortcodeSchema.safeParse("party-parrot").success, true);
+  const soon = new Date(Date.now() + 60_000).toISOString();
+  assert.equal(scheduledMessageSchema.safeParse({ body: "later", clientMessageId: randomUUID(), sendAt: soon }).success, true);
+});
+
 test("search modifiers are read from the query and the rest is searched as text", () => {
   const filters = parseSearchQuery("deploy from:@sam in:#Dev-Ops before:2026-11-01 after:2026-10-01 has:link has:file notes");
   assert.equal(filters.text, "deploy notes");

@@ -7,6 +7,8 @@ import { Avatar, Input } from "@/components/Primitives";
 import { initialsOf } from "@/components/ProfileMenu";
 import { messageOf, request } from "@/lib/client-http";
 import type { DirectoryPerson } from "@/lib/people-types";
+import { isPaused } from "@/lib/account-types";
+import GroupsPanel from "@/features/groups/GroupsPanel";
 import styles from "./People.module.css";
 
 // "3:05 PM" in the person's own time zone, or nothing when they have not set one.
@@ -15,7 +17,7 @@ export function localTime(timezone: string, now = new Date()) {
   try { return now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: timezone }); } catch { return ""; }
 }
 
-export default function PeopleDirectory({ workspaceId, viewerId }: { workspaceId: string; viewerId: string }) {
+export default function PeopleDirectory({ workspaceId, viewerId, canManage = false }: { workspaceId: string; viewerId: string; canManage?: boolean }) {
   const [people, setPeople] = useState<DirectoryPerson[] | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -56,7 +58,7 @@ export default function PeopleDirectory({ workspaceId, viewerId }: { workspaceId
       const time = localTime(person.timezone, now);
       return <li key={person.id} className={styles.card} aria-label={person.name ?? person.email ?? "Member"}>
         <div className={styles.top}>
-          <Avatar initials={initialsOf(person.name ?? "")} src={person.image} online={person.online} />
+          <Avatar initials={initialsOf(person.name ?? "")} src={person.image} online={person.online} paused={isPaused(person.status)} />
           <div>
             <strong>{person.name ?? "Member"}{person.pronouns && <small> ({person.pronouns})</small>}</strong>
             <span>{person.title || (person.role === "ADMIN" ? "Workspace admin" : "Member")}</span>
@@ -73,5 +75,6 @@ export default function PeopleDirectory({ workspaceId, viewerId }: { workspaceId
         {person.id !== viewerId && <Link className={styles.message} href={`/w/${workspaceId}/chat?dm=${person.id}`}><MessageCircle size={14} aria-hidden="true" /> Message</Link>}
       </li>;
     })}</ul>
+    <GroupsPanel workspaceId={workspaceId} canManage={canManage} />
   </div>;
 }
