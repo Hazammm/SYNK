@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BarChart3, Download } from "lucide-react";
-import { Badge, Button } from "@/components/Primitives";
+import { Badge, Button, SkeletonList } from "@/components/Primitives";
 import type { ProjectDetail } from "@/lib/ticket-types";
 import type { BurndownPoint, ProjectReport, SprintReport, VelocityEntry } from "@/lib/report-types";
 import { messageOf, request } from "@/lib/client-http";
@@ -36,7 +36,7 @@ export default function ReportsView({ project, initialSprintId }: { project: Pro
     <button type="button" onClick={() => setRevision(value => value + 1)}>Retry</button>
     {sprintId && <button type="button" onClick={() => choose("")}>Show the current sprint</button>}
   </p>;
-  if (!data) return <p role="status" className={styles.loading}>Loading the sprint report…</p>;
+  if (!data) return <SkeletonList label="Loading the sprint report…" />;
   if (!report) return <div className={styles.empty}><BarChart3 size={32} /><h2>No sprints to report on yet</h2>
     <p>Create a sprint and add tickets to it. Its burndown and progress appear here as work gets done.</p>
     <Link href={sprintsHref}>Go to sprints</Link></div>;

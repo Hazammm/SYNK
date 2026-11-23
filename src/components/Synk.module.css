@@ -701,7 +701,7 @@
   width: 100%;
   min-height: 36px;
   padding: 0 11px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-border);
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--text);
@@ -709,7 +709,7 @@
 }
 
 .input:hover:not(:disabled):not(:focus) {
-  border-color: var(--border-strong);
+  border-color: var(--muted);
 }
 
 .input:focus {
@@ -722,6 +722,12 @@
 .input:read-only {
   background: var(--sunken);
   color: var(--muted);
+}
+
+.skeletonList {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
 }
 
 .skeleton {
@@ -964,8 +970,8 @@
 /* Profile photo and presence dot on avatars */
 .avatar { position: relative; }
 .avatarImage { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-.presence { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border: 2px solid var(--surface); border-radius: 50%; background: var(--fill-strong); }
-.presence[data-online="true"] { background: var(--done); }
+.presence { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border: 2px solid var(--surface); border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 2px var(--faint); }
+.presence[data-online="true"] { background: var(--done); box-shadow: none; }
 .presence[data-online="false"] { background: var(--surface); box-shadow: inset 0 0 0 2px var(--faint); }
 .presence[data-paused] { display: grid; place-items: center; width: 14px; height: 14px; right: -3px; bottom: -3px; border-width: 2px; color: var(--surface); font-family: var(--font-sans, inherit); font-size: 9px; font-style: normal; font-weight: 800; line-height: 1; }
 .presence[data-paused][data-online="false"] { background: var(--faint); box-shadow: none; }
@@ -979,15 +985,18 @@
   cursor: pointer;
 }
 
-.quickBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 12vh 16px 16px;
-  background: rgb(0 0 0 / 0.35);
+.quickDialog {
+  width: min(560px, calc(100% - 32px));
+  max-width: none;
+  margin: 12vh auto auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.quickDialog::backdrop {
+  background: var(--overlay);
 }
 
 .quick {
@@ -1006,6 +1015,10 @@
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
+}
+
+.quickSearch:focus-within {
+  box-shadow: inset 0 -2px 0 var(--focus);
 }
 
 .quickSearch input {

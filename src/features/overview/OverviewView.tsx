@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, CalendarDays, CircleAlert, CircleCheck, CircleDot, Clock3, FileText, FolderKanban, KanbanSquare, LayoutDashboard, MessageCircle } from "lucide-react";
-import { Badge } from "@/components/Primitives";
+import { Badge, SkeletonList } from "@/components/Primitives";
 import type { WorkspaceSummary } from "@/lib/chat-types";
 import type { Overview } from "@/lib/report-types";
 import { messageOf, request } from "@/lib/client-http";
@@ -43,7 +43,7 @@ export default function OverviewView({ userName, initialWorkspaces, initialWorks
     </div>
     {!workspaceId && <div className={styles.empty}><LayoutDashboard size={32} /><h2>Create a workspace first</h2><p>Your tickets and sprints appear here once you belong to a workspace. Create one in chat, or ask an admin to add you.</p><Link href="/chat">Go to chat</Link></div>}
     {error && <p role="alert" className={styles.error}>{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Retry</button></p>}
-    {workspaceId && !overview && !error && <p role="status" className={styles.loading}>Loading your overview…</p>}
+    {workspaceId && !overview && !error && <SkeletonList label="Loading your overview…" />}
     {overview && !error && <div className={styles.report}>
       <dl className={styles.stats}>{([
         ["Assigned to you", overview.stats.assignedOpen, overview.stats.assignedOpen === 1 ? "open ticket" : "open tickets", CircleDot, "neutral"],

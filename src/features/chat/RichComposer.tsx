@@ -434,7 +434,7 @@ export function RichComposer({
               onClick={() => insertMention(candidate.label)}
             >
               <strong>{candidate.label}</strong>
-              <small style={{ color: "var(--faint)", marginLeft: "auto" }}>{candidate.kind}</small>
+              <small className={styles.mentionKind}>{candidate.kind}</small>
             </button>
           ))}
         </div>
@@ -468,7 +468,7 @@ export function RichComposer({
             type="button"
             className={styles.iconBtn}
             onClick={() => setShowEmojiPicker(false)}
-            style={{ width: "20px", height: "20px" }}
+            aria-label="Close emoji picker"
           >
             <X size={12} />
           </button>
@@ -597,7 +597,8 @@ export function RichComposer({
                 <button
                   type="button"
                   onClick={() => setStagedFiles(prev => prev.filter(f => f.id !== file.id))}
-                  style={{ border: 0, background: "none", cursor: "pointer", padding: 0 }}
+                  className={styles.stagedRemove}
+                  aria-label={`Remove ${file.fileName}`}
                 >
                   <X size={12} />
                 </button>
@@ -618,7 +619,7 @@ export function RichComposer({
               ref={fileInputRef}
               type="file"
               multiple
-              style={{ display: "none" }}
+              hidden
               onChange={e => handleFileUpload(e.target.files)}
             />
 

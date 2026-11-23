@@ -1,6 +1,6 @@
 /* Docs: page tree, editor and rendered pages. Colours come from the theme variables in globals.css. */
 .page { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); width: 100%; min-width: 0; min-height: calc(100dvh - var(--topbar-h)); }
-.page select { border: 1px solid var(--border); border-radius: var(--r-md); background-color: var(--surface); color: var(--text); font-size: var(--t-base); }
+.page select { border: 1px solid var(--field-border); border-radius: var(--r-md); background-color: var(--surface); color: var(--text); font-size: var(--t-base); }
 .page button:focus-visible, .page select:focus-visible, .page input:focus-visible, .page textarea:focus-visible, .page a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .bar { display: flex; align-items: center; min-height: 52px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--border); }
 .bar h1 { margin: 0; font-size: var(--t-lg); letter-spacing: -.015em; }
@@ -10,7 +10,6 @@
 .picker select { min-width: 150px; max-width: 240px; }
 .subnav { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 20px 0 0; border-bottom: 1px solid var(--border); }
 .muted { margin: 0; padding: 6px 10px; color: var(--muted); font-size: var(--t-base); }
-.loading { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 32px 20px; color: var(--muted); font-size: var(--t-base); }
 .error { grid-column: 1 / -1; align-self: start; margin: 12px 20px 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--high-soft); color: var(--high); font-size: var(--t-base); }
 .error button { border: 0; background: transparent; color: inherit; font-weight: 500; text-decoration: underline; cursor: pointer; }
 .empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 320px; padding: 40px 24px; color: var(--muted); font-size: var(--t-base); text-align: center; }
@@ -93,7 +92,6 @@ input.title:hover, input.title:focus { border-bottom-color: var(--border); outli
 
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .source:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.loading::before { content: ""; width: 14px; height: 14px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: synk-spin .7s linear infinite; }
 .empty > svg { width: 44px; height: 44px; padding: 10px; border-radius: var(--r-lg); background: var(--fill); color: var(--muted); }
 .treeList button[aria-current="page"] svg { color: var(--accent-text); }
 .treeHead strong { font-weight: 500; }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock3, Download, Trash2 } from "lucide-react";
-import { Button } from "@/components/Primitives";
+import { Button, SkeletonList } from "@/components/Primitives";
 import type { WorkspaceSummary } from "@/lib/chat-types";
 import type { ProjectSummary, TicketSummary } from "@/lib/ticket-types";
 import { TIMER_CHANGED, type TimeEntry } from "@/lib/time-types";
@@ -49,7 +49,7 @@ function Workspace({ workspaceId, initialProjectId }: { workspaceId: string; ini
   const project = projects?.find(item => item.id === projectId);
 
   if (error) return <p role="alert" className={report.error}>{error}</p>;
-  if (!projects) return <p role="status" className={report.loading}>Loading projects…</p>;
+  if (!projects) return <SkeletonList label="Loading projects…" />;
   if (!project) return <div className={report.empty}><Clock3 size={32} /><h2>No projects to log time on yet</h2><p>Create a project on the board, or ask a workspace admin for access to one.</p><Link href={`/board?workspaceId=${workspaceId}`}>Go to the board</Link></div>;
   return <>
     <div className={report.subnav}>
@@ -138,7 +138,7 @@ function ProjectTime({ project }: { project: ProjectSummary }) {
       <Button className={report.pushRight} onClick={exportCsv} disabled={!shown.length}><Download size={15} /> Export CSV</Button>
     </div>
     {error && <p role="alert" className={report.error}>{error} <button type="button" onClick={reload}>Retry</button></p>}
-    {!entries && !error && <p role="status" className={report.loading}>Loading time…</p>}
+    {!entries && !error && <SkeletonList label="Loading time…" />}
     {entries && <>
       <dl className={report.stats}>{[
         ["Logged this week", formatDuration(total), onlyMine ? "by you" : "by everyone"],

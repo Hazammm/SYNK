@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AtSign, FileText, Hash, LockKeyhole, Search } from "lucide-react";
 import type { ChannelSummary } from "@/lib/chat-types";
 import type { DirectoryPerson } from "@/lib/people-types";
+import Modal from "./Modal";
 import styles from "./Synk.module.css";
 
 type Item = { id: string; label: string; hint: string; href: string; kind: "page" | "channel" | "private" | "person" };
@@ -17,7 +18,7 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [loaded, setLoaded] = useState<Item[]>([]);
+  const [loaded, setLoaded] = useState<Item[] | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const base = `/w/${workspaceId}`;
 
@@ -49,7 +50,7 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
   const items = useMemo(() => {
     const pages = PAGES.map(([label, path]): Item => ({ id: path, label, hint: "Page", href: `${base}/${path}`, kind: "page" }));
     const text = query.trim().toLowerCase().replace(/^[#@]/, "");
-    const all = [...pages, ...loaded];
+    const all = [...pages, ...(loaded ?? [])];
     if (!text) return all.slice(0, 12);
     return all
       .filter(item => item.label.toLowerCase().includes(text))
@@ -66,8 +67,8 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
   };
 
   return (
-    <div className={styles.quickBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className={styles.quick} role="dialog" aria-modal="true" aria-label="Jump to">
+    <Modal label="Jump to" className={styles.quickDialog} onClose={onClose}>
+      <div className={styles.quick}>
         <div className={styles.quickSearch}>
           <Search size={16} aria-hidden="true" />
           <input
@@ -81,8 +82,7 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
             value={query}
             onChange={event => { setQuery(event.target.value); setActive(0); }}
             onKeyDown={event => {
-              if (event.key === "Escape") onClose();
-              else if (event.key === "ArrowDown" && total) { event.preventDefault(); setActive(current => (current + 1) % total); }
+              if (event.key === "ArrowDown" && total) { event.preventDefault(); setActive(current => (current + 1) % total); }
               else if (event.key === "ArrowUp" && total) { event.preventDefault(); setActive(current => (current - 1 + total) % total); }
               else if (event.key === "Enter" && total) { event.preventDefault(); choose(Math.min(active, total - 1)); }
             }}
@@ -102,10 +102,11 @@ export default function QuickSwitcher({ workspaceId, onClose }: { workspaceId: s
               <Search size={15} aria-hidden="true" /><span>Search everything for “{query.trim()}”</span><small>Enter</small>
             </li>
           )}
-          {!total && <li className={styles.quickEmpty}>Nothing matches.</li>}
+          {!loaded && <li className={styles.quickEmpty} role="status">Loading channels and people…</li>}
+          {loaded && !total && <li className={styles.quickEmpty}>Nothing matches.</li>}
         </ul>
         <p className={styles.quickHint}>↑ ↓ to move · Enter to open · Esc to close</p>
       </div>
-    </div>
+    </Modal>
   );
 }

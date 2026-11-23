@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bold, Code2, FilePlus2, Heading2, Italic, Link2, List, ListChecks, ListOrdered, Quote, Trash2 } from "lucide-react";
-import { Button } from "@/components/Primitives";
+import { Button, SkeletonList } from "@/components/Primitives";
 import type { DocDetail, DocSummary } from "@/lib/doc-types";
 import { messageOf, request } from "@/lib/client-http";
 import { toggleTask } from "@/lib/markdown";
@@ -77,7 +77,7 @@ export default function DocEditor({ docId, docs, workspaceId, onDirty, onSaved, 
   }
 
   if (error && !doc) return <p role="alert" className={styles.error}>{error}</p>;
-  if (!doc) return <p role="status" className={styles.loading}>Loading page…</p>;
+  if (!doc) return <SkeletonList label="Loading page…" />;
   const blocked = descendantsOf(docs, doc.id);
   const tools: { label: string; icon: typeof Bold; run: (t: string, s: number, e: number) => Edit }[] = [
     { label: "Bold (Ctrl+B)", icon: Bold, run: (t, s, e) => wrapSelection(t, s, e, "**") },

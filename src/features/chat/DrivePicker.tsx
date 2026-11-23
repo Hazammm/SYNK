@@ -1,5 +1,6 @@
 "use client";
 
+import Modal from "@/components/Modal";
 import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { FileText, X } from "lucide-react";
@@ -109,8 +110,8 @@ export function DrivePicker({
   }
 
   return (
-    <div className={styles.modalBackdrop}>
-      <div className={styles.setup} role="dialog" aria-labelledby="drive-picker-title">
+    <Modal label="Upload from Drive" className={styles.dialog} onClose={onClose}>
+      <div className={styles.setup}>
         <div className={styles.setupHeader}>
           <h2 id="drive-picker-title">Upload from Drive</h2>
           <button type="button" className={styles.iconBtn} onClick={onClose} aria-label="Close">
@@ -174,6 +175,6 @@ export function DrivePicker({
           </ul>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

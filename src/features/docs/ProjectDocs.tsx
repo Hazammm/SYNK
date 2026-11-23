@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FilePlus2, FileText } from "lucide-react";
-import { Button } from "@/components/Primitives";
+import { Button, SkeletonList } from "@/components/Primitives";
 import type { ProjectSummary } from "@/lib/ticket-types";
 import type { DocDetail, DocSummary } from "@/lib/doc-types";
 import { messageOf, request } from "@/lib/client-http";
@@ -55,7 +55,7 @@ export default function ProjectDocs({ workspaceId, project, initialDoc }: { work
   const saved = (doc: DocDetail) => setDocs(current => current?.map(item => item.id === doc.id ? doc : item) ?? null);
 
   if (error && !docs) return <p role="alert" className={styles.error}>{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Retry</button></p>;
-  if (!docs) return <p role="status" className={styles.loading}>Loading pages…</p>;
+  if (!docs) return <SkeletonList label="Loading pages…" />;
   return <div className={styles.layout}>
     <nav className={styles.tree} aria-label={`Pages in ${project.name}`}>
       <div className={styles.treeHead}><strong>{project.name}</strong>{canWrite && <button type="button" aria-label="New page" title="New page" onClick={() => void create(null)}><FilePlus2 size={16} /></button>}</div>
