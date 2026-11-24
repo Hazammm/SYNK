@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-17785f.svg)](LICENSE)
 ![Node.js 22](https://img.shields.io/badge/node-22-339933.svg?logo=node.js&logoColor=white)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-000000.svg?logo=next.js&logoColor=white)
-[![Accessibility: WCAG 2.2 AA target](https://img.shields.io/badge/accessibility-WCAG%202.2%20AA%20target-17785f.svg)](ACCESSIBILITY.md)
+[![Accessibility: WCAG 2.2 AA target](https://img.shields.io/badge/accessibility-WCAG%202.2%20AA%20target-17785f.svg)](docs/design/design-system.md#interaction-and-accessibility-rules)
 
 ## Abstract
 
@@ -182,13 +182,7 @@ compose.yaml              PostgreSQL and the agent service for local development
 ```
 ## Contribution
 
-Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to set up the project, the code rules, the tests to run and how pull requests are reviewed.
-
-## Community
-
-- [Code of conduct](CODE_OF_CONDUCT.md): how we expect everyone to behave, and how to report a problem.
-- [Security policy](SECURITY.md): how to report a vulnerability privately.
-- [Accessibility statement](ACCESSIBILITY.md): our accessibility goal, known limitations, and how to report a barrier.
+Contributions are welcome. Fork the repository, create a branch from `main`, and open a pull request; the template lists the checks to run. [docs/setup.md](docs/setup.md) explains how to set up the project and run the tests. Please report security problems privately through the repository's Security tab, not in a public issue.
 
 ## Documentation
 
