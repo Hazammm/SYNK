@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/synk-logo-dark.jpg">
+    <img src="docs/images/synk-logo.jpg" alt="Synk" width="360">
+  </picture>
+</p>
+
 # Synk
 
 **A team workspace that combines chat, issue tracking, docs and time tracking in one data model, with an AI agent that can only do what the signed-in user is allowed to do.**
