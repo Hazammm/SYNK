@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a new feature or an improvement to Synk.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe what you are trying to do and what gets in the way today.
+      placeholder: When I …, I have to …, which is slow because …
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+      description: Describe the change. Sketches or examples from other tools are welcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Chat
+        - Board, tickets or sprints
+        - Docs
+        - Time tracking
+        - People or profiles
+        - Alerts and notifications
+        - Synk AI assistant
+        - Admin and settings
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have tried
+      description: Any workaround you use today, or other ways this could work.
