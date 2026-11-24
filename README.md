@@ -84,14 +84,17 @@ flowchart LR
 
 | Module | Capabilities |
 |---|---|
-| Workspaces | 3-step "Create your workspace" wizard. Joining an existing workspace is invite-only, through emailed links that expire after 7 days and work once. ADMIN / MEMBER roles. Email and password sign-in, plus Google, GitHub and Bitbucket when configured |
-| Chat | Public and private channels, one-level threads, live delivery with a Live / Reconnecting indicator, typing indicators, cursor-paged history, retry-safe sends, ticket keys shown as links |
+| Workspaces | 3-step "Create your workspace" wizard that asks what Synk will be used for. Joining an existing workspace is invite-only, through emailed links that expire after 7 days and work once. Admins can let every member invite, limit sign-ups to allowed email domains, or require Google sign-in. ADMIN / MEMBER roles. Email and password sign-in with optional two-factor codes and recovery codes, plus Google, GitHub and Bitbucket when configured |
+| Chat | Public and private channels and direct messages, one-level threads with a Threads inbox and "also send to channel", live delivery with a Live / Reconnecting indicator, typing indicators, cursor-paged history, retry-safe sends, ticket keys shown as links. Mentions of people, `@channel`, `@here` and user groups; reactions, including custom workspace emoji; save for later, copy link and mark unread; polls, reminders and scheduled messages; link previews; audio huddles. Channel settings to rename, archive, make private or announcement-only, remove members and mute |
+| People | A directory with search and filters by title, location and who is online. Profiles with photo, title, pronouns, phone, location and local time; custom status with emoji, presets and a time to clear; set yourself away |
+| Search | Ctrl+K quick switcher for pages, channels and people. Workspace search across tickets, pages and messages, with `from:`, `in:`, `before:`, `after:` and `has:` modifiers for messages |
 | Issue tracking | Per-project access, several boards per project with editable columns, drag and drop with mouse, touch or keyboard, four filters, comments with @mentions, sprints with one active per project |
 | Reports | Burndown with an ideal line, velocity over the last 6 completed sprints, status and assignee breakdowns, CSV export |
 | Docs | Nested Markdown pages per project, formatting toolbar and preview, clickable checklists, edit-conflict protection, PostgreSQL full-text search |
 | Code hosts | GitHub and Bitbucket repositories linked to a project. A pull request that names a ticket key in its title or branch appears on that ticket with its status, kept current by signed webhooks or a manual sync. A merged pull request offers to move the ticket to Done |
 | Time | One running timer per person (server clock, 24-hour cap), manual entries, a weekly report by day, ticket and person, CSV export |
-| Overview and alerts | Your open, overdue and recently completed tickets, active sprints, and in-app alerts for assignments, comments and mentions. Each alert type can be turned off |
+| Overview and alerts | Your open, overdue and recently completed tickets, active sprints, and live alerts for assignments, comments, mentions, direct messages, thread replies and reactions, with optional browser notifications. Each alert type can be turned off, alerts can be paused, and focus mode pauses them while showing a status |
+| Admin and apps | Rename the workspace, see usage (members, active people, messages, tickets) and download a JSON export. Incoming webhooks let other services post into a channel |
 | Synk AI | Five tools: `create_ticket`, `update_ticket` (needs confirmation), `find_tickets`, `create_doc` and `search_workspace`. Each reply lists the actions it took, with links |
 
 
