@@ -10,6 +10,10 @@
 **A team workspace that combines chat, issue tracking, docs and time tracking in one data model, with an AI agent that can only do what the signed-in user is allowed to do.**
 
 [![Chat foundation](https://github.com/Hazammm/SYNK/actions/workflows/chat-ci.yml/badge.svg?branch=main)](https://github.com/Hazammm/SYNK/actions/workflows/chat-ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-17785f.svg)](LICENSE)
+![Node.js 22](https://img.shields.io/badge/node-22-339933.svg?logo=node.js&logoColor=white)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-000000.svg?logo=next.js&logoColor=white)
+[![Accessibility: WCAG 2.2 AA target](https://img.shields.io/badge/accessibility-WCAG%202.2%20AA%20target-17785f.svg)](ACCESSIBILITY.md)
 
 ## Abstract
 
