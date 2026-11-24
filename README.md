@@ -182,12 +182,13 @@ compose.yaml              PostgreSQL and the agent service for local development
 ```
 ## Contribution
 
-We welcome contributions from the community! To get started:
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to set up the project, the code rules, the tests to run and how pull requests are reviewed.
 
-- Fork the repo and create your feature branch (git checkout -b feature/your-feature)
-- Commit your changes (git commit -m 'Add new feature')
-- Push to the branch (git push origin feature/your-feature)
-- Open a Pull Request
+## Community
+
+- [Code of conduct](CODE_OF_CONDUCT.md): how we expect everyone to behave, and how to report a problem.
+- [Security policy](SECURITY.md): how to report a vulnerability privately.
+- [Accessibility statement](ACCESSIBILITY.md): our accessibility goal, known limitations, and how to report a barrier.
 
 ## Documentation
 
