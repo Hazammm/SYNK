@@ -909,6 +909,11 @@
   .topbarBrand {
     display: inline-flex;
     color: var(--nav-strong);
+    /* The nav frame is dark in both themes, so the mark uses its on-dark colours. */
+    --logo-chat: var(--logo-on-dark-chat);
+    --logo-tool: var(--logo-on-dark-tool);
+    --logo-check: var(--logo-on-dark-check);
+    --logo-fold: var(--logo-on-dark-fold);
   }
 
   .topbarActions {

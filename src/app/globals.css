@@ -136,6 +136,17 @@
   --on-action: var(--on-accent);
   --link: var(--accent-text);
 
+  /* Logo: the chat piece takes the accent and the tools take ink, so the mark follows the theme */
+  --logo-chat: var(--accent);
+  --logo-tool: var(--ink);
+  --logo-check: var(--accent-soft);
+  --logo-fold: var(--accent-border);
+  /* The logo on the dark nav frame (both themes) */
+  --logo-on-dark-chat: #3cc79e;
+  --logo-on-dark-tool: #f4f6f5;
+  --logo-on-dark-check: var(--nav-bg);
+  --logo-on-dark-fold: #2f8c70;
+
   /* Type */
   --font-ui: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-code: var(--font-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;

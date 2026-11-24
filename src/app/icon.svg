@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="8" fill="#19201d"/>
-  <g transform="translate(4 4)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M15.5 4.5H9.25a3.75 3.75 0 0 0 0 7.5H12" stroke="#ffffff"/>
-    <path d="M8.5 19.5h6.25a3.75 3.75 0 0 0 0-7.5H12" stroke="#3cc79e"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1C4D3E"/><stop offset="1" stop-color="#0E2A22"/></linearGradient></defs><rect width="1024" height="1024" rx="230" fill="url(#bg)"/><path fill="#3CC79E" d="M330 220h52a110 110 0 0 1 110 110v162H330a110 110 0 0 1-110-110v-52a110 110 0 0 1 110-110Z"/><circle fill="#E9F6F0" cx="668" cy="356" r="142"/><path fill="none" stroke="#15372D" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" d="m606 360 44 44 84-90"/><path fill="#E9F6F0" d="M256 532h144l92 92v144a36 36 0 0 1-36 36H256a36 36 0 0 1-36-36V568a36 36 0 0 1 36-36Z"/><path fill="#8FCBB5" d="m400 532 92 92h-80a12 12 0 0 1-12-12Z"/><path fill="#E9F6F0" d="M532 532h280a280 280 0 0 1-280 280Z"/></svg>
