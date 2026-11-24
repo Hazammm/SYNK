@@ -204,6 +204,8 @@ Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to se
 | [`docs/code-hosts.md`](docs/code-hosts.md) | GitHub and Bitbucket: linking repositories, pull requests on tickets, webhooks |
 | [`docs/chat-implementation.md`](docs/chat-implementation.md) | Original chat design notes (API table and roadmap predate later modules) |
 | [`docs/chat-qa.md`](docs/chat-qa.md) | Chat verification records and manual acceptance plan |
+| [`docs/slack-parity.md`](docs/slack-parity.md) | Chat, alerts, profiles, search, security and admin features added after the Slack comparison, and what is left out |
+| [`docs/design/design-system.md`](docs/design/design-system.md) | Design tokens, components, themes, and the interaction and accessibility rules |
 
 ## License
 
