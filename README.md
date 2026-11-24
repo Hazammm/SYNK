@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/synk-logo-dark.jpg">
-    <img src="docs/images/synk-logo.jpg" alt="Synk" width="360">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/synk-logo-dark.svg">
+    <img src="docs/images/synk-logo.svg" alt="Synk" width="360">
   </picture>
 </p>
 

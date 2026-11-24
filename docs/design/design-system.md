@@ -20,7 +20,7 @@ Calm, dense and border-led. Chrome stays quiet so the content (tickets, messages
 | `src/lib/theme.ts` | Theme names, the before-paint script and the `useTheme` hook |
 | `src/components/Synk.module.css` | App shell (sidebar, top bar, drawer) and primitives |
 | `src/components/Primitives.tsx` | `Button`, `Badge`, `Avatar`, `Card`, `Input`, `Skeleton` |
-| `src/components/Logo.tsx`, `src/app/icon.svg` | The mark and wordmark |
+| `src/components/Logo.tsx`, `src/app/icon.svg`, `src/app/apple-icon.png` | The mark (chat, issues, docs and time as four shapes in one tile), the wordmark and the app icons; README lockups are in `docs/images/synk-logo*.svg` |
 | `src/components/Status.tsx` | Page loading and not-found panels |
 | `src/components/Auth.module.css`, `AuthAside.tsx` | Sign-in, reset, invitation and wizard pages |
 | `src/components/ProductPeek.tsx` | Product illustrations used on the landing and auth pages |
@@ -43,6 +43,7 @@ Calm, dense and border-led. Chrome stays quiet so the content (tickets, messages
 | `--text` / `--muted` / `--faint` | `#19201d` / `#5d6662` / `#656e69` | `#eceeed` / `#9ea6a2` / `#858e8a` | Text levels |
 | `--ink` / `--on-ink` | `#19201d` / `#ffffff` | `#eceeed` / `#0f1110` | Primary buttons |
 | `--accent` / `--accent-text` / `--accent-soft` | `#17785f` / `#136b55` / `#e2f4ed` | `#2fb891` / `#4fcfa9` / `#10291f` | Accent fill, accent text, accent tint |
+| `--logo-chat` / `--logo-tool` / `--logo-check` / `--logo-fold` | accent / ink / accent tint / accent border | same tokens in dark | The mark follows the theme; the nav frame uses `--logo-on-dark-*` |
 | `--done`, `--medium`, `--high`, `--info` (+ `-soft`) | see `globals.css` | see `globals.css` | Status text and tints |
 
 Every text pairing used in the interface meets WCAG AA (4.5:1) in both themes; the measured ratios are in the QA section below.
