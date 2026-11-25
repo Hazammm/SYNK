@@ -5,8 +5,6 @@
   </picture>
 </p>
 
-# Synk
-
 **A team workspace that combines chat, issue tracking, docs and time tracking in one data model, with an AI agent that can only do what the signed-in user is allowed to do.**
 
 [![Chat foundation](https://github.com/Hazammm/SYNK/actions/workflows/chat-ci.yml/badge.svg?branch=main)](https://github.com/Hazammm/SYNK/actions/workflows/chat-ci.yml)
@@ -27,14 +25,6 @@ Small teams usually split their work across a chat tool, an issue tracker, a wik
 - **Non-disclosure.** If you cannot access a ticket, page or project, Synk gives the same not-found answer it gives for one that does not exist. This holds for the agent's replies too.
 - **Live delivery re-checks every recipient.** Chat messages are saved over REST and then published over Socket.IO. Each recipient's session and channel membership are checked again at publish time, so a revoked user stops receiving messages. A client UUID makes retries safe.
 - **Security.** Sessions are revocable: NextAuth JWTs are backed by `LoginSession` rows, sign-out ends the current session, a password change ends every other session, and a password reset ends them all, dropping the matching live sockets. Removing someone from a workspace removes their live channel subscriptions. Invite and reset tokens are single-use and stored only as hashes. Browser writes need an exact Origin match (the Google invite-acceptance route relies on a SameSite=Lax, HttpOnly profile cookie instead), and rate limits are applied per user and per IP.
-
-## Interface
-
-The interface has a light and a dark theme built on one token set, a public landing page, and a shell with a collapsible sidebar. 
-
-| Landing Page| 
-|---|
-| ![Landing page](docs/images/landing.png) | 
 
 ## Architecture
 
@@ -182,7 +172,15 @@ compose.yaml              PostgreSQL and the agent service for local development
 ```
 ## Contribution
 
-Contributions are welcome. Fork the repository, create a branch from `main`, and open a pull request; the template lists the checks to run. [docs/setup.md](docs/setup.md) explains how to set up the project and run the tests. Please report security problems privately through the repository's Security tab, not in a public issue.
+We welcome contributions from the community! To get started:
+
+1. Fork the repo and create your feature branch (git checkout -b feature/your-feature)
+2. Commit your changes (git commit -am 'Add new feature')
+3. Push to the branch (git push origin feature/your-feature)
+4. Open a Pull Request
+5. Please report security problems privately through the repository's Security tab, not in a public issue.
+
+ Please see [docs/setup.md](docs/setup.md) for more details.  
 
 ## Documentation
 
@@ -203,4 +201,4 @@ Contributions are welcome. Fork the repository, create a branch from `main`, and
 
 ## License
 
-This repo contains [MIT LICENSE](https://github.com/Hazammm/SYNK/blob/main/LICENSE) .
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/Hazammm/SYNK/blob/main/LICENSE) for more details.
