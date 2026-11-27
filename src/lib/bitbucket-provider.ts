@@ -2,11 +2,12 @@ import type { OAuthConfig } from "next-auth/providers/oauth";
 type Profile = { uuid: string; display_name: string; email: string; links?: { avatar?: { href?: string } } };
 
 // NextAuth v4 has no built-in Bitbucket provider. The consumer needs account + email scopes.
+// The scope must be named: without one the OAuth client sends "openid", which Bitbucket rejects.
 export function Bitbucket(options: { clientId: string; clientSecret: string }): OAuthConfig<Profile> {
   return {
     id: "bitbucket", name: "Bitbucket", type: "oauth", ...options,
     checks: ["state"],
-    authorization: { url: "https://bitbucket.org/site/oauth2/authorize", params: { response_type: "code" } },
+    authorization: { url: "https://bitbucket.org/site/oauth2/authorize", params: { response_type: "code", scope: "account email" } },
     token: "https://bitbucket.org/site/oauth2/access_token",
     userinfo: {
       url: "https://api.bitbucket.org/2.0/user",
