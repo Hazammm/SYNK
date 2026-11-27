@@ -80,7 +80,7 @@ A Mailtrap Email Testing inbox captures messages for inspection but does not del
 
 Email and password sign-in always works. Each OAuth button appears on `/login` only after both values of its pair are set. Restart the server after changing them.
 
-These providers are for sign-in only. Synk does not integrate with GitHub or Bitbucket repositories.
+The GitHub and Bitbucket apps also power repository linking, described under [GitHub and Bitbucket](#github-and-bitbucket).
 
 ### Google
 
