@@ -1891,6 +1891,8 @@ function MessageCard({
                 return (
                   <div key={att.id} className={styles.imagePreviewWrapper}>
                     <a href={url} target="_blank" rel="noopener noreferrer">
+                      {/* Attachments are served by an authenticated route, so next/image cannot optimise them. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={url} alt={att.fileName} className={styles.imagePreview} />
                     </a>
                   </div>
