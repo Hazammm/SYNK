@@ -81,14 +81,6 @@ export async function deleteGroup(userId: string, workspaceId: string, groupId: 
   return { removed: true };
 }
 
-export async function groupsForMentions(workspaceId: string) {
-  const rows = await db.userGroup.findMany({
-    where: { workspaceId },
-    select: { handle: true, members: { select: { userId: true } } },
-  });
-  return rows.map(row => ({ handle: row.handle, memberIds: row.members.map(member => member.userId) }));
-}
-
 export function parseGroupHandle(value: string) {
   return groupHandleSchema.parse(value);
 }
