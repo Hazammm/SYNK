@@ -535,13 +535,6 @@
   margin: 0 auto;
 }
 
-.themeCorner {
-  position: fixed;
-  z-index: 30;
-  top: 16px;
-  right: 16px;
-}
-
 /* ---------- Primitives ---------- */
 
 .button {
