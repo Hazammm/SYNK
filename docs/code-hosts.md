@@ -49,6 +49,14 @@ Without a webhook, pull requests update when someone presses **Sync now**. For l
 
 The code host must be able to reach the URL, so this does not work with `http://localhost:3000` unless you use a tunnel.
 
+## Troubleshooting
+
+| What you see | What it means |
+|---|---|
+| Bitbucket returns `invalid_scope` | The OAuth consumer lacks a permission Synk asks for. Give it Account: Read, Email, Repositories: Read and Pull requests: Read. |
+| An Atlassian page says "grant_type is not enabled for client" | Atlassian's own login failed before Bitbucket reached Synk, often when signing in through Google or Microsoft inside an embedded browser. Sign in at bitbucket.org first in a normal browser, then press Connect again. |
+| The panel still says "Connect GitHub" after approving | The sign-in did not include the `repo` scope. Press Connect again and approve repository access. |
+
 ## API
 
 | Method and path | Purpose |
