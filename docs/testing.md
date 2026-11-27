@@ -18,7 +18,7 @@ This page checks Synk against the quality targets in PRD section 15 and says how
 
 | Suite | Tests | Command |
 |---|---:|---|
-| Unit | 53 | `npm test` |
+| Unit | 58 | `npm test` |
 | Integration (PostgreSQL) | 128, in 12 files | `npm run test:integration` |
 | End-to-end (Playwright, production build) | 11 | `npm run test:e2e` |
 | Agent (pytest, scripted model) | 46 | `npm run agent:test` |
