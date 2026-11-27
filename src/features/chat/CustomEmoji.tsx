@@ -9,10 +9,3 @@ export function CustomEmojiImg({ workspaceId, shortcode, className }: { workspac
   // eslint-disable-next-line @next/next/no-img-element
   return <img className={className ?? styles.customEmoji} src={`/api/workspaces/${workspaceId}/emoji/${encodeURIComponent(code)}`} alt={wrapShortcode(code)} title={wrapShortcode(code)} />;
 }
-
-export function renderEmojiToken(workspaceId: string, token: string) {
-  if (/^:[a-z][a-z0-9-]{0,30}[a-z0-9]:$/.test(token)) {
-    return <CustomEmojiImg workspaceId={workspaceId} shortcode={token} />;
-  }
-  return token;
-}
