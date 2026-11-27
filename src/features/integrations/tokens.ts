@@ -11,7 +11,7 @@ export const hostAvailable = (provider: CodeHost) => provider === "GITHUB"
   : Boolean(process.env.BITBUCKET_ID && process.env.BITBUCKET_SECRET);
 
 // GitHub only grants repository access when the sign-in asked for the "repo" scope.
-// Bitbucket's scopes are fixed on the OAuth consumer, so a token is enough there.
+// Bitbucket's connect asks for repository and pullrequest; the consumer must allow both, so a token is enough there.
 const canReadRepositories = (provider: CodeHost, account: StoredAccount | null) =>
   Boolean(account?.access_token) && (provider !== "GITHUB" || (account!.scope ?? "").split(/[\s,]+/).includes("repo"));
 
