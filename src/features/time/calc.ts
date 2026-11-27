@@ -60,5 +60,4 @@ export function localToIso(date: string, time: string): string | null {
   return Number.isNaN(value.getTime()) || !date || !time ? null : value.toISOString();
 }
 
-export const isSameWeek = (a: Date, b: Date) => startOfWeek(a).getTime() === startOfWeek(b).getTime();
 export const weeksBetween = (from: Date, to: Date) => Math.round((startOfWeek(to).getTime() - startOfWeek(from).getTime()) / (7 * DAY_MS));
