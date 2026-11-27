@@ -5,7 +5,6 @@
 .bar { display: flex; align-items: center; min-height: 52px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--border); }
 .bar h1 { margin: 0; font-size: var(--t-lg); letter-spacing: -.015em; }
 
-.eyebrow { color: var(--muted); font-size: var(--t-sm); letter-spacing: .12em; }
 .picker { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--t-sm); }
 .picker select { min-width: 150px; max-width: 240px; }
 .subnav { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 20px 0 0; border-bottom: 1px solid var(--border); }
