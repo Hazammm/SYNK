@@ -28,21 +28,8 @@
   color: var(--text);
 }
 
-.workspaceName {
-  margin-right: auto;
-  padding-left: 12px;
-  border-left: 1px solid var(--border);
-  color: var(--muted);
-  font-size: var(--t-base);
-  font-weight: 500;
-}
-
 .workspaceBar > button {
   margin-left: auto;
-}
-
-.workspaceName + button {
-  margin-left: 0;
 }
 
 /* Two-column layout: sidebar + main chat */
@@ -1999,9 +1986,6 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   .channelHeaderRight {
     flex-wrap: wrap;
     gap: 4px;
-  }
-  .workspaceName {
-    display: none;
   }
   .composer {
     padding: 0 14px 12px;
