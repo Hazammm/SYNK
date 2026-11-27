@@ -100,7 +100,7 @@ Two themes: `light` and `dark`. The choice is saved in `localStorage` under `syn
 
 ## QA record
 
-- `npm run lint`, `npm run typecheck`, `npm test` (53), `npm run test:integration` (128), `npm run test:e2e` (11, including keyboard-only and 375 px checks) and `npm run build` all pass.
+- `npm run lint`, `npm run typecheck`, `npm test` (58), `npm run test:integration` (128), `npm run test:e2e` (12, including keyboard-only and 375 px checks) and `npm run build` all pass.
 - Every page was captured at 1440, 820 and 390 px wide in both themes with no console errors and no horizontal page scroll.
 - Contrast (WCAG 2.1): body text 15.7:1 light and 16.3:1 dark; muted text at least 5.2:1; faint text at least 4.4:1; accent text at least 5.6:1; status text on its tint at least 4.8:1.
 - Field borders use `--field-border`: 3.3:1 on the light surface and 3.6:1 or more on dark surfaces, meeting WCAG 1.4.11 for control boundaries (the earlier `--border-strong` borders were 1.6:1).
