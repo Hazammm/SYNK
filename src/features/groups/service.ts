@@ -1,7 +1,7 @@
 import { db } from "../../lib/db";
 import { AppError } from "../../lib/errors";
 import { requireWorkspace } from "../../lib/permissions";
-import { groupHandleSchema, idSchema, userGroupSchema, userGroupUpdateSchema } from "../../lib/validation";
+import { idSchema, userGroupSchema, userGroupUpdateSchema } from "../../lib/validation";
 
 const include = { members: { select: { userId: true, user: { select: { id: true, name: true, email: true } } } } } as const;
 
@@ -79,8 +79,4 @@ export async function deleteGroup(userId: string, workspaceId: string, groupId: 
   const result = await db.userGroup.deleteMany({ where: { id: groupId, workspaceId } });
   if (!result.count) throw new AppError(404, "Group not found.");
   return { removed: true };
-}
-
-export function parseGroupHandle(value: string) {
-  return groupHandleSchema.parse(value);
 }
