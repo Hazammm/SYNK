@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button, Input, SkeletonList } from "@/components/Primitives";
@@ -101,8 +101,8 @@ function EmojiAdmin({ workspaceId }: { workspaceId: string }) {
   const [shortcode, setShortcode] = useState("");
   const [error, setError] = useState("");
   const saving = useSaving();
-  const load = () => { request<{ emoji: Array<{ shortcode: string; url: string }> }>(`/api/workspaces/${workspaceId}/emoji`).then(result => setItems(result.emoji)).catch(cause => setError(messageOf(cause))); };
-  useEffect(() => { load(); }, [workspaceId]);
+  const load = useCallback(() => { request<{ emoji: Array<{ shortcode: string; url: string }> }>(`/api/workspaces/${workspaceId}/emoji`).then(result => setItems(result.emoji)).catch(cause => setError(messageOf(cause))); }, [workspaceId]);
+  useEffect(() => { load(); }, [load]);
   const upload = (file: File | undefined) => {
     if (!file || !shortcode) return;
     void saving.run(async () => {
