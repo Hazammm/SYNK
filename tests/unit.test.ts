@@ -644,6 +644,7 @@ test("agent client refuses calls when the service is not configured", async () =
 test("Bitbucket OAuth profile maps uuid and primary email", async () => {
   const { Bitbucket } = await import("../src/lib/bitbucket-provider");
   const provider = Bitbucket({ clientId: "id", clientSecret: "secret" });
+  assert.equal((provider.authorization as { params: { scope: string } }).params.scope, "account email");
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async input => {
     const url = String(input);
