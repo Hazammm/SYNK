@@ -1,7 +1,6 @@
 // Pure time-tracking maths in the reader's local time zone, kept apart from React so it can be unit tested.
 import { MAX_ENTRY_HOURS, type TimeEntry } from "../../lib/time-types";
 
-const DAY_MS = 86_400_000;
 const pad = (value: number) => String(value).padStart(2, "0");
 
 // Monday 00:00 local time of the week containing `date`.
@@ -59,6 +58,3 @@ export function localToIso(date: string, time: string): string | null {
   const value = new Date(year, month - 1, day, hour, minute);
   return Number.isNaN(value.getTime()) || !date || !time ? null : value.toISOString();
 }
-
-export const isSameWeek = (a: Date, b: Date) => startOfWeek(a).getTime() === startOfWeek(b).getTime();
-export const weeksBetween = (from: Date, to: Date) => Math.round((startOfWeek(to).getTime() - startOfWeek(from).getTime()) / (7 * DAY_MS));

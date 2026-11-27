@@ -27,11 +27,6 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
   );
 }
 
-// Signed-out pages show the toggle in the top corner.
-export function ThemeBar() {
-  return <div className={styles.themeCorner}><ThemeToggle /></div>;
-}
-
 type Popover = "workspace" | "more" | "create" | null;
 
 // The app frame, laid out like Slack: a narrow rail of tabs on the left and a search bar across the top.

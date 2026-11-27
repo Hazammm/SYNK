@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Copy, Plus, Trash2, Webhook } from "lucide-react";
 import { Button, Input } from "@/components/Primitives";
 import { messageOf, request } from "@/lib/client-http";
@@ -19,15 +19,15 @@ export default function AppsView({ workspaceId }: { workspaceId: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     request<{ apps: AppItem[] }>(`/api/workspaces/${workspaceId}/apps`).then(result => setApps(result.apps)).catch(cause => setError(messageOf(cause)));
     request<{ channels: ChannelSummary[] }>(`/api/workspaces/${workspaceId}/channels`).then(result => {
       const listed = result.channels.filter(channel => channel.type === "PUBLIC" || channel.type === "PRIVATE");
       setChannels(listed);
       setChannelId(current => current || listed.find(channel => channel.isDefault)?.id || listed[0]?.id || "");
     }).catch(cause => setError(messageOf(cause)));
-  };
-  useEffect(() => { load(); }, [workspaceId]);
+  }, [workspaceId]);
+  useEffect(() => { load(); }, [load]);
 
   const create = async (event: React.FormEvent) => {
     event.preventDefault();

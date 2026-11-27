@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button, Input } from "@/components/Primitives";
 import { messageOf, request } from "@/lib/client-http";
@@ -18,11 +18,11 @@ export default function GroupsPanel({ workspaceId, canManage }: { workspaceId: s
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     request<{ groups: Group[] }>(`/api/workspaces/${workspaceId}/groups`).then(result => setGroups(result.groups)).catch(cause => setError(messageOf(cause)));
     request<{ people: Array<Member> }>(`/api/workspaces/${workspaceId}/people`).then(result => setPeople(result.people)).catch(() => undefined);
-  };
-  useEffect(() => { load(); }, [workspaceId]);
+  }, [workspaceId]);
+  useEffect(() => { load(); }, [load]);
 
   const create = async (event: React.FormEvent) => {
     event.preventDefault();

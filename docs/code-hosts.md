@@ -13,7 +13,7 @@ Synk shows pull requests on the tickets they belong to. This covers PRD section 
 
 ## How it works
 
-- **Connecting.** There is no second OAuth app. "Connect" is the existing GitHub or Bitbucket sign-in, and the token NextAuth stores for that sign-in is what Synk uses to read repositories. GitHub is asked for the `repo` scope at this point; a plain GitHub sign-in does not have it and does not count as connected.
+- **Connecting.** There is no second OAuth app. "Connect" is the existing GitHub or Bitbucket sign-in, and the token NextAuth stores for that sign-in is what Synk uses to read repositories. GitHub is asked for the `repo` scope at this point; a plain GitHub sign-in does not have it and does not count as connected. Bitbucket is asked for `account email repository pullrequest`; a plain Bitbucket sign-in asks only for `account email`.
 - **Linking a repository.** Synk asks the code host for the repository with the admin's token. This proves the admin can read it. A random webhook secret is created for it.
 - **Reading later.** Syncing and attaching by address use the sign-in of the person who linked the repository, so teammates do not need a code-host account. If that person leaves the workspace, the repository asks to be unlinked and linked again.
 - **Attaching.** For each pull request, Synk looks for the project's ticket keys in the title and branch name and attaches it to those tickets. A pull request can be on several tickets. Pasting an address attaches it to one ticket even without a key; its repository must already be linked to the ticket's project.
@@ -48,6 +48,14 @@ Without a webhook, pull requests update when someone presses **Sync now**. For l
 | Events | Pull requests (on Bitbucket: created, updated, merged, declined) |
 
 The code host must be able to reach the URL, so this does not work with `http://localhost:3000` unless you use a tunnel.
+
+## Troubleshooting
+
+| What you see | What it means |
+|---|---|
+| Bitbucket returns `invalid_scope` | The OAuth consumer lacks a permission Synk asks for. Give it Account: Read, Email, Repositories: Read and Pull requests: Read. |
+| An Atlassian page says "grant_type is not enabled for client" | Atlassian's own login failed before Bitbucket reached Synk, often when signing in through Google or Microsoft inside an embedded browser. Sign in at bitbucket.org first in a normal browser, then press Connect again. |
+| The panel still says "Connect GitHub" after approving | The sign-in did not include the `repo` scope. Press Connect again and approve repository access. |
 
 ## API
 

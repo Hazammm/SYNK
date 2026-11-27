@@ -18,9 +18,9 @@ This page checks Synk against the quality targets in PRD section 15 and says how
 
 | Suite | Tests | Command |
 |---|---:|---|
-| Unit | 53 | `npm test` |
+| Unit | 58 | `npm test` |
 | Integration (PostgreSQL) | 128, in 12 files | `npm run test:integration` |
-| End-to-end (Playwright, production build) | 11 | `npm run test:e2e` |
+| End-to-end (Playwright, production build) | 12 | `npm run test:e2e` |
 | Agent (pytest, scripted model) | 46 | `npm run agent:test` |
 | Agent accuracy (real model) | 30 prompts | `npm run agent:eval` |
 
@@ -105,6 +105,6 @@ Then, in a second terminal, `npm run test:load` (with `SEED_DEMO_PASSWORD` set) 
 
 ## Limits
 
-- Coverage covers server code only. The interface is tested by the 8 end-to-end tests, which do not measure coverage.
+- Coverage covers server code only. The interface is tested by the 12 end-to-end tests, which do not measure coverage.
 - The load test runs on one laptop with 10 requests at a time. It shows the code is fast enough, not how a deployed server behaves under many users.
 - On Windows with Docker, 3 concurrency tests (message retries, concurrent ticket keys and ticket moves) can time out waiting for a database connection. They pass in CI.

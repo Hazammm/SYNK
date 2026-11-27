@@ -80,7 +80,7 @@ A Mailtrap Email Testing inbox captures messages for inspection but does not del
 
 Email and password sign-in always works. Each OAuth button appears on `/login` only after both values of its pair are set. Restart the server after changing them.
 
-These providers are for sign-in only. Synk does not integrate with GitHub or Bitbucket repositories.
+The GitHub and Bitbucket apps also power repository linking, described under [GitHub and Bitbucket](#github-and-bitbucket).
 
 ### Google
 
@@ -96,7 +96,7 @@ Unverified Google emails are rejected. An existing account with the same verifie
 | Provider | Where to create the app | Callback URL (local) | Variables |
 |---|---|---|---|
 | GitHub | GitHub OAuth app | `http://localhost:3000/api/auth/callback/github` | `GITHUB_ID`, `GITHUB_SECRET` |
-| Bitbucket | Bitbucket OAuth consumer with the `account` and `email` scopes | `http://localhost:3000/api/auth/callback/bitbucket` | `BITBUCKET_ID`, `BITBUCKET_SECRET` |
+| Bitbucket | Bitbucket OAuth consumer with the `account` and `email` scopes (plus `repository` and `pullrequest` for linking) | `http://localhost:3000/api/auth/callback/bitbucket` | `BITBUCKET_ID`, `BITBUCKET_SECRET` |
 
 In production, replace `http://localhost:3000` with your `NEXTAUTH_URL`. Bitbucket sign-in requires a confirmed primary email on the account. A new user who signs in with GitHub or Bitbucket is taken to the workspace setup form.
 

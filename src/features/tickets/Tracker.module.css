@@ -17,7 +17,6 @@
 /* Header rows */
 .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 36px; padding: 0 0 14px; }
 .bar h1 { margin: 0 8px 0 0; font-size: var(--t-xl); letter-spacing: -.02em; line-height: 1.2; }
-.eyebrow { display: block; margin-bottom: 4px; color: var(--faint); font-family: var(--font-code); font-size: var(--t-xs); letter-spacing: .06em; text-transform: uppercase; }
 .picker { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--t-sm); font-weight: 500; }
 .picker select { min-width: 150px; max-width: 260px; }
 

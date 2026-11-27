@@ -5,7 +5,6 @@ import { realtime } from "../../lib/realtime";
 import { pollSchema, pollVoteSchema } from "../../lib/validation";
 import { sendMessage } from "../chat/service";
 import { messageInclude, serializePoll, serializeStoredMessage, type StoredMessage } from "../chat/serialize";
-import type { ChatPoll } from "../../lib/chat-types";
 
 export async function createPoll(userId: string, channelId: string, input: unknown) {
   const data = pollSchema.parse(input);
@@ -102,8 +101,4 @@ export async function closePoll(userId: string, pollId: string) {
     console.error("Poll close broadcast failed");
   }
   return view;
-}
-
-export function pollView(poll: StoredMessage["poll"]): ChatPoll | null {
-  return serializePoll(poll);
 }

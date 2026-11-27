@@ -63,7 +63,7 @@ flowchart LR
 |---|---|
 | Web app and API | Next.js 16.4.1 (App Router), React 19.3, NextAuth 4.24 (JWT strategy), zod 4.6, Node.js 22.12 or later |
 | Realtime | Socket.IO 4.8.4 on the same `node:http` server ([`server.ts`](server.ts)) |
-| Data | PostgreSQL 16, Prisma 6.19.3 (27 models, 10 migrations) |
+| Data | PostgreSQL 16, Prisma 6.19.3 (42 models, 14 migrations) |
 | Agent | Python 3.13, FastAPI, LangGraph 1.2, langchain-google-genai 4.5, run in Docker as a non-root user |
 | Email | Mailtrap (API or SMTP) for invites, welcome mail and password reset |
 

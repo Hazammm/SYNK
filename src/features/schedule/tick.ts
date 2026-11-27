@@ -11,7 +11,8 @@ export async function processDueJobs(now = new Date()) {
 
 export function startScheduler(intervalMs = 15_000) {
   const tick = () => {
-    void processDueJobs().catch(error => console.error("Scheduler tick failed", error));
+    // One line per failed tick: a database outage would otherwise print a full stack every 15 seconds.
+    void processDueJobs().catch(error => console.error(`Scheduler tick failed: ${error instanceof Error ? error.message.trim().split("\n").pop() : String(error)}`));
   };
   tick();
   const timer = setInterval(tick, intervalMs);

@@ -10,7 +10,7 @@ import type { ProjectSummary } from "@/lib/ticket-types";
 import styles from "@/features/tickets/Tracker.module.css";
 
 // GitHub grants repository access only when the sign-in asks for it; Bitbucket's access is set on its OAuth consumer.
-const CONNECT_SCOPE: Partial<Record<CodeHost, string>> = { GITHUB: "read:user user:email repo" };
+const CONNECT_SCOPE: Partial<Record<CodeHost, string>> = { GITHUB: "read:user user:email repo", BITBUCKET: "account email repository pullrequest" };
 
 // Workspace admins link GitHub or Bitbucket repositories to a project here.
 export default function RepositoriesPanel({ project }: { project: ProjectSummary }) {

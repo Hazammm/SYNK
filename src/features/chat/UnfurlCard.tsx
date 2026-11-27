@@ -6,6 +6,8 @@ import styles from "./Chat.module.css";
 export default function UnfurlCard({ unfurl }: { unfurl: ChatUnfurl }) {
   if (!unfurl.title && !unfurl.description) return null;
   return <a className={styles.unfurlCard} href={unfurl.url} target="_blank" rel="noopener noreferrer">
+    {/* Preview images come from any site, which next/image would need listed in remotePatterns. */}
+    {/* eslint-disable-next-line @next/next/no-img-element */}
     {unfurl.imageUrl && <img src={unfurl.imageUrl} alt="" />}
     <span>
       {unfurl.siteName && <small>{unfurl.siteName}</small>}

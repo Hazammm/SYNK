@@ -28,21 +28,8 @@
   color: var(--text);
 }
 
-.workspaceName {
-  margin-right: auto;
-  padding-left: 12px;
-  border-left: 1px solid var(--border);
-  color: var(--muted);
-  font-size: var(--t-base);
-  font-weight: 500;
-}
-
 .workspaceBar > button {
   margin-left: auto;
-}
-
-.workspaceName + button {
-  margin-left: 0;
 }
 
 /* Two-column layout: sidebar + main chat */
@@ -2000,9 +1987,6 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
     flex-wrap: wrap;
     gap: 4px;
   }
-  .workspaceName {
-    display: none;
-  }
   .composer {
     padding: 0 14px 12px;
   }
@@ -2256,7 +2240,7 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
   cursor: pointer;
 }
 .huddlePlace:hover { text-decoration: underline; }
-.huddleJoin, .huddleLeave {
+.huddleLeave {
   border: 0;
   border-radius: 999px;
   padding: 4px 10px;
@@ -2301,7 +2285,7 @@ button.pinCard { display: block; width: 100%; margin-bottom: 6px; color: inherit
 .pollCard em { margin-left: auto; color: var(--muted); font-style: normal; font-size: var(--t-xs); }
 .pollCard i { position: absolute; inset: 0 auto 0 0; background: var(--accent-soft); border-radius: var(--r-sm); }
 .pollMeta { display: flex; align-items: center; gap: 10px; }
-.pollMeta button, .huddleJoin { cursor: pointer; }
+.pollMeta button { cursor: pointer; }
 .pollForm, .scheduleRow { display: grid; gap: 8px; padding: 8px 12px 12px; }
 .pollForm textarea { min-height: 72px; padding: 8px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); font: inherit; }
 .check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--t-sm); }

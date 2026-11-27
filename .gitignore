@@ -48,3 +48,6 @@ next-env.d.ts
 
 # uploaded chat attachments (local storage)
 /.uploads
+
+# editor settings
+/.vscode/
