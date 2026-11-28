@@ -12,15 +12,17 @@
  *   - Grant READ access to existing projects
  *   - Set lastActiveWorkspaceId
  *
- * After this the client triggers signIn("google") which finds the user and
- * establishes the JWT session.
+ * After this the response sets the NextAuth session cookie so the client can
+ * go straight to the workspace without a second Google OAuth round-trip.
  */
 
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { readGoogleProfileCookie, clearGoogleProfileCookieHeader } from "@/lib/google-profile-cookie";
+import { readGoogleProfileCookie, GOOGLE_PROFILE_COOKIE } from "@/lib/google-profile-cookie";
+import { issueSessionCookie } from "@/lib/issue-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendWelcomeEmail } from "@/lib/mailer";
 
@@ -125,6 +127,7 @@ export async function POST(request: Request) {
       // Remember this workspace as the active one.
       await tx.user.update({ where: { id: userId }, data: { lastActiveWorkspaceId: invite.workspaceId } });
       return {
+        userId,
         welcomeEmail: isNewUser
           ? {
               email: profile.email,
@@ -145,10 +148,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Clear the pending cookie — the Google sign-in that follows will establish the session.
-    const res = NextResponse.json({ ok: true, welcomeEmailFailed });
-    res.headers.set("Set-Cookie", clearGoogleProfileCookieHeader());
-    return res;
+    await issueSessionCookie(accepted.userId);
+    (await cookies()).delete(GOOGLE_PROFILE_COOKIE);
+    return NextResponse.json({ ok: true, welcomeEmailFailed });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return NextResponse.json({ error: "You are already a member of this workspace." }, { status: 409 });

@@ -24,6 +24,7 @@ async function CreateWorkspaceContent({ searchParams }: {
   const isGoogleMode = params.from === "google";
 
   if (isGoogleMode) {
+    await connection();
     const profile = await readGoogleProfileCookie();
     if (!profile) {
       // Cookie missing or expired — send back to login with a friendly message.

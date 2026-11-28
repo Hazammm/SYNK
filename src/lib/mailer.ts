@@ -229,24 +229,32 @@ export async function sendWelcomeEmail({ email, name, workspaceId, workspaceName
   });
 }
 
-export async function sendPasswordResetEmail({ email, resetUrl }: PasswordResetEmail) {
+function logDevPasswordResetLink(email: string, resetUrl: string, note: string) {
+  console.log(`\n[synk] 🔐 Password reset link for ${email} (${note}):\n  ${resetUrl}\n`);
+}
+
+export async function sendPasswordResetEmail(
+  { email, resetUrl }: PasswordResetEmail,
+  deliver: typeof sendMail = sendMail,
+) {
   let config: MailConfig;
   try {
     config = mailConfig();
   } catch (error) {
     if (process.env.NODE_ENV !== "production" && error instanceof AppError && error.status === 503) {
-      console.log(`\n[synk] 🔐 Password reset link for ${email} (dev mode, not emailed):\n  ${resetUrl}\n`);
+      logDevPasswordResetLink(email, resetUrl, "dev mode, not emailed");
       return;
     }
     throw error;
   }
 
   const safeUrl = escapeHtml(resetUrl);
-  await sendMail({
-    to: email,
-    subject: "Reset your Synk password",
-    text: `ACCOUNT SECURITY\n\nReset your password\n\nWe received a request to reset the password for the Synk account associated with ${email}.\n\nRESET YOUR PASSWORD\n${resetUrl}\n\nThis link expires in 15 minutes and can only be used once. If you didn't request a password reset, you can safely ignore this email — your password will not change.\n\nThe Synk team`,
-    html: `<!doctype html>
+  try {
+    await deliver({
+      to: email,
+      subject: "Reset your Synk password",
+      text: `ACCOUNT SECURITY\n\nReset your password\n\nWe received a request to reset the password for the Synk account associated with ${email}.\n\nRESET YOUR PASSWORD\n${resetUrl}\n\nThis link expires in 15 minutes and can only be used once. If you didn't request a password reset, you can safely ignore this email — your password will not change.\n\nThe Synk team`,
+      html: `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -311,5 +319,13 @@ export async function sendPasswordResetEmail({ email, resetUrl }: PasswordResetE
     </table>
   </body>
 </html>`,
-  }, config);
+    }, config);
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[synk] Password reset email was not sent:", error instanceof Error ? error.message : error);
+      logDevPasswordResetLink(email, resetUrl, "dev mode, email delivery failed, not emailed");
+      return;
+    }
+    throw error;
+  }
 }

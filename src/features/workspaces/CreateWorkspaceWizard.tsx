@@ -98,8 +98,7 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
       const welcomeEmailFailed = result.welcomeEmailFailed ?? false;
 
       if (googleMode) {
-        // The workspace and Account row are created; now sign the user in via Google
-        // so the JWT is established.  callbackUrl sends them straight to the new workspace.
+        // POST already set the session cookie; do not start a second Google OAuth round-trip.
         const failures = new URLSearchParams();
         if (failedInviteEmails.length) {
           failures.set("section", "Members");
@@ -110,7 +109,8 @@ export default function CreateWorkspaceWizard({ googleMode, googleName = "", goo
         const destination = query
           ? `/w/${result.workspace.id}/settings?${query}`
           : `/w/${result.workspace.id}/overview`;
-        await signIn("google", { callbackUrl: destination, redirect: true });
+        router.replace(destination);
+        router.refresh();
         return;
       }
 
