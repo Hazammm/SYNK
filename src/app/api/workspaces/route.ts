@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/session";
 import { api, AppError } from "@/lib/errors";
 import { assertSameOrigin, readJson } from "@/lib/http";
 import { createWorkspaceForAdmin, createWorkspaceForGoogleUser, createWorkspaceForUser } from "@/features/workspaces/onboarding";
+import { issueSessionCookie } from "@/lib/issue-session";
 import { createWorkspace, listWorkspaces } from "@/features/workspaces/service";
 import { rateLimit } from "@/lib/rate-limit";
 import { readGoogleProfileCookie, GOOGLE_PROFILE_COOKIE } from "@/lib/google-profile-cookie";
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
 
     if (googleProfile) {
       const result = await createWorkspaceForGoogleUser(googleProfile, body);
+      await issueSessionCookie(result.user.id);
       (await cookies()).delete(GOOGLE_PROFILE_COOKIE); // the pending Google profile is used up
       return result;
     }

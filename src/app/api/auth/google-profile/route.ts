@@ -15,7 +15,12 @@ import { rateLimit } from "@/lib/rate-limit";
 
 const ALLOWED_NEXT = ["/create-workspace", "/join/pending"];
 
+function publicOrigin(request: Request) {
+  return process.env.NEXTAUTH_URL ?? new URL(request.url).origin;
+}
+
 export async function GET(request: Request) {
+  const origin = publicOrigin(request);
   const { searchParams } = new URL(request.url);
   const rawToken = searchParams.get("token");
   const rawNext = searchParams.get("next") ?? "/create-workspace?from=google";
@@ -26,7 +31,7 @@ export async function GET(request: Request) {
   try {
     rateLimit(`google-profile:${ip}`, 20, 10 * 60_000);
   } catch {
-    return NextResponse.redirect(new URL("/login?error=rate_limit", request.url));
+    return NextResponse.redirect(new URL("/login?error=rate_limit", origin));
   }
 
   // Validate the `next` parameter strictly — only our own paths are allowed.
@@ -39,17 +44,17 @@ export async function GET(request: Request) {
   })();
 
   if (!rawToken) {
-    return NextResponse.redirect(new URL("/login?error=google_expired", request.url));
+    return NextResponse.redirect(new URL("/login?error=google_expired", origin));
   }
 
   // Validate the JWE before trusting it.
   const profile = rawToken ? await decryptGoogleProfile(rawToken) : null;
   if (!profile) {
-    return NextResponse.redirect(new URL("/login?error=google_expired", request.url));
+    return NextResponse.redirect(new URL("/login?error=google_expired", origin));
   }
 
   // Set httpOnly cookie and redirect to destination.
-  const response = NextResponse.redirect(new URL(nextPath, request.url));
+  const response = NextResponse.redirect(new URL(nextPath, origin));
   response.headers.set("Set-Cookie", googleProfileCookieHeader(rawToken));
   return response;
 }

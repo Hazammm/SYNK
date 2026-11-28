@@ -9,6 +9,7 @@
 
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { readGoogleProfileCookie } from "@/lib/google-profile-cookie";
 import { db } from "@/lib/db";
 import PendingInviteClient from "./PendingInviteClient";
@@ -23,6 +24,7 @@ export default function JoinPendingPage() {
 }
 
 async function JoinPendingContent() {
+  await connection();
   const profile = await readGoogleProfileCookie();
   if (!profile) {
     // Cookie missing or expired — restart.

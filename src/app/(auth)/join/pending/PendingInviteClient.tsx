@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { Building2 } from "lucide-react";
 import { Button } from "@/components/Primitives";
 import AuthAside from "@/components/AuthAside";
@@ -23,6 +23,7 @@ interface Props {
 }
 
 export default function PendingInviteClient({ email, name, invites }: Props) {
+  const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null); // invite id being accepted
   const [error, setError] = useState("");
 
@@ -41,11 +42,11 @@ export default function PendingInviteClient({ email, name, invites }: Props) {
         throw new Error(data.error ?? "Could not accept the invitation.");
       }
       const data = await res.json() as { welcomeEmailFailed?: boolean };
-      // Trigger a Google sign-in which will now find the user and link the account.
       const callbackUrl = data.welcomeEmailFailed
         ? `/w/${workspaceId}/settings?welcomeEmail=failed`
         : `/w/${workspaceId}/overview`;
-      await signIn("google", { callbackUrl, redirect: true });
+      router.replace(callbackUrl);
+      router.refresh();
     } catch (err) {
       setError(messageOf(err));
       setBusy(null);

@@ -267,6 +267,56 @@ test("password reset email logs a link only when delivery is unconfigured outsid
     }
   }
 });
+test("password reset email logs a link when delivery fails outside production", async () => {
+  const keys = ["NODE_ENV", "MAILTRAP_API_TOKEN", "MAILTRAP_HOST", "MAILTRAP_PORT", "MAILTRAP_USER", "MAILTRAP_PASS", "MAIL_FROM"] as const;
+  const previous = keys.map(key => [key, process.env[key]] as const);
+  const originalLog = console.log;
+  const originalError = console.error;
+  const output: string[] = [];
+  for (const key of keys) Reflect.deleteProperty(process.env, key);
+  Reflect.set(process.env, "NODE_ENV", "development");
+  Reflect.set(process.env, "MAILTRAP_API_TOKEN", "mailtrap-token");
+  Reflect.set(process.env, "MAIL_FROM", "noreply@test.com");
+  console.log = (...args: Parameters<typeof console.log>) => { output.push(args.join(" ")); };
+  console.error = (...args: Parameters<typeof console.error>) => { output.push(args.join(" ")); };
+  try {
+    await sendPasswordResetEmail(
+      { email: "person@example.com", resetUrl: "http://localhost:3000/reset-password?token=quota-token" },
+      async () => { throw new Error("Invalid login: 535 5.7.0 The email limit is reached"); },
+    );
+    assert.match(output.join("\n"), /quota-token/);
+    assert.match(output.join("\n"), /email delivery failed/);
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    for (const [key, value] of previous) {
+      if (value === undefined) Reflect.deleteProperty(process.env, key);
+      else Reflect.set(process.env, key, value);
+    }
+  }
+});
+test("password reset email still fails in production when delivery fails", async () => {
+  const keys = ["NODE_ENV", "MAILTRAP_API_TOKEN", "MAILTRAP_HOST", "MAILTRAP_PORT", "MAILTRAP_USER", "MAILTRAP_PASS", "MAIL_FROM"] as const;
+  const previous = keys.map(key => [key, process.env[key]] as const);
+  for (const key of keys) Reflect.deleteProperty(process.env, key);
+  Reflect.set(process.env, "NODE_ENV", "production");
+  Reflect.set(process.env, "MAILTRAP_API_TOKEN", "mailtrap-token");
+  Reflect.set(process.env, "MAIL_FROM", "noreply@test.com");
+  try {
+    await assert.rejects(
+      () => sendPasswordResetEmail(
+        { email: "person@example.com", resetUrl: "http://localhost:3000/reset-password?token=prod-token" },
+        async () => { throw new Error("Invalid login: 535 5.7.0 The email limit is reached"); },
+      ),
+      /email limit is reached/,
+    );
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) Reflect.deleteProperty(process.env, key);
+      else Reflect.set(process.env, key, value);
+    }
+  }
+});
 
 test("client IP only trusts X-Forwarded-For entries added by known proxies", () => {
   const proxies = parseTrustedProxies("10.0.0.1, 10.0.0.2");
@@ -647,6 +697,9 @@ test("sign-in errors explain what went wrong", async () => {
   assert.equal(authErrorMessage("CredentialsSignin"), "Invalid email or password");
   assert.match(authErrorMessage("OAuthAccountNotLinked"), /already connected to a different Synk user/);
   assert.match(authErrorMessage("unauthorized"), /session has ended/);
+  assert.equal(authErrorMessage("Callback"), authErrorMessage("AccessDenied"));
+  assert.match(authErrorMessage("OAuthCallback"), /could not complete/);
+  assert.match(authErrorMessage("OAuthSignin"), /Could not start that sign-in method/);
   assert.match(authErrorMessage("SomethingNew"), /could not finish signing in/);
 });
 test("Bitbucket OAuth profile maps uuid and primary email", async () => {
