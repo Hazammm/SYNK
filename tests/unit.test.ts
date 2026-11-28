@@ -641,6 +641,14 @@ test("agent client refuses calls when the service is not configured", async () =
   else process.env.AI_SERVICE_SECRET = savedSecret;
   globalThis.fetch = originalFetch;
 });
+test("sign-in errors explain what went wrong", async () => {
+  const { authErrorMessage } = await import("../src/lib/auth-errors");
+  assert.equal(authErrorMessage(undefined), "");
+  assert.equal(authErrorMessage("CredentialsSignin"), "Invalid email or password");
+  assert.match(authErrorMessage("OAuthAccountNotLinked"), /already connected to a different Synk user/);
+  assert.match(authErrorMessage("unauthorized"), /session has ended/);
+  assert.match(authErrorMessage("SomethingNew"), /could not finish signing in/);
+});
 test("Bitbucket OAuth profile maps uuid and primary email", async () => {
   const { Bitbucket } = await import("../src/lib/bitbucket-provider");
   const provider = Bitbucket({ clientId: "id", clientSecret: "secret" });
