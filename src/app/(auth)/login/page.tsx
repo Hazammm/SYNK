@@ -1,4 +1,5 @@
 import AuthPage from "@/components/AuthPage";
+import { authErrorMessage } from "@/lib/auth-errors";
 
 export const instant = false;
 
@@ -14,7 +15,7 @@ export default async function LoginPage({ searchParams }: {
   return (
     <AuthPage
       inviteToken={params.invite ?? ""}
-      authError={Boolean(params.error)}
+      authError={authErrorMessage(params.error)}
       googleEnabled={googleEnabled}
       codeHosts={codeHosts}
     />

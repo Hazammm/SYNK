@@ -30,7 +30,7 @@ export default function AuthPage({
   codeHosts = [],
 }: {
   inviteToken: string;
-  authError: boolean;
+  authError: string;
   googleEnabled?: boolean;
   codeHosts?: { id: string; name: string }[];
 }) {
@@ -38,7 +38,7 @@ export default function AuthPage({
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(authError ? "Invalid email or password" : "");
+  const [error, setError] = useState(authError);
   // Accounts with two-factor sign-in are asked for a code after the password is accepted.
   const [needCode, setNeedCode] = useState(false);
   const [code, setCode] = useState("");
